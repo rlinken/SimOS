@@ -468,7 +468,8 @@ function QuickBookDialog({
   hour?: number;
   selectedDate: Date;
 }) {
-  const [durationMinutes, setDurationMinutes] = useState(60); // Duration in minutes
+  const [duration, setDuration] = useState(1); // Duration in hours
+  const [startMinute, setStartMinute] = useState(0); // 0, 15, 30, or 45
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -537,7 +538,8 @@ function QuickBookDialog({
     setManualName("");
     setManualEmail("");
     setManualPhone("");
-    setDurationMinutes(60);
+    setDuration(1);
+    setStartMinute(0);
     onClose();
   };
 
@@ -558,8 +560,8 @@ function QuickBookDialog({
 
   if (!bay || hour === undefined) return null;
 
-  const startTime = setHours(startOfDay(selectedDate), hour);
-  const endTime = addMinutes(startTime, durationMinutes);
+  const startTime = setMinutes(setHours(startOfDay(selectedDate), hour), startMinute);
+  const endTime = addHours(startTime, duration);
 
   const filteredCustomers = customers.filter(c => {
     const searchLower = customerSearch.toLowerCase();
@@ -635,32 +637,44 @@ function QuickBookDialog({
             </div>
           </Card>
 
+          {/* Start Time Adjustment */}
+          <div className="space-y-2">
+            <Label htmlFor="start-minute">Start Time Adjustment</Label>
+            <Select 
+              value={startMinute.toString()} 
+              onValueChange={(value) => setStartMinute(parseInt(value))}
+            >
+              <SelectTrigger id="start-minute" data-testid="select-start-minute">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">On the hour (:00)</SelectItem>
+                <SelectItem value="15">Quarter past (:15)</SelectItem>
+                <SelectItem value="30">Half past (:30)</SelectItem>
+                <SelectItem value="45">Quarter to (:45)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Duration */}
           <div className="space-y-2">
-            <Label htmlFor="duration">Duration</Label>
+            <Label htmlFor="duration">Duration (hours)</Label>
             <Select 
-              value={durationMinutes.toString()} 
-              onValueChange={(value) => setDurationMinutes(parseInt(value))}
+              value={duration.toString()} 
+              onValueChange={(value) => setDuration(parseInt(value))}
             >
               <SelectTrigger id="duration" data-testid="select-duration">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="15">15 minutes</SelectItem>
-                <SelectItem value="30">30 minutes</SelectItem>
-                <SelectItem value="45">45 minutes</SelectItem>
-                <SelectItem value="60">1 hour</SelectItem>
-                <SelectItem value="75">1 hour 15 minutes</SelectItem>
-                <SelectItem value="90">1 hour 30 minutes</SelectItem>
-                <SelectItem value="105">1 hour 45 minutes</SelectItem>
-                <SelectItem value="120">2 hours</SelectItem>
-                <SelectItem value="150">2 hours 30 minutes</SelectItem>
-                <SelectItem value="180">3 hours</SelectItem>
-                <SelectItem value="240">4 hours</SelectItem>
-                <SelectItem value="300">5 hours</SelectItem>
-                <SelectItem value="360">6 hours</SelectItem>
-                <SelectItem value="420">7 hours</SelectItem>
-                <SelectItem value="480">8 hours</SelectItem>
+                <SelectItem value="1">1 hour</SelectItem>
+                <SelectItem value="2">2 hours</SelectItem>
+                <SelectItem value="3">3 hours</SelectItem>
+                <SelectItem value="4">4 hours</SelectItem>
+                <SelectItem value="5">5 hours</SelectItem>
+                <SelectItem value="6">6 hours</SelectItem>
+                <SelectItem value="7">7 hours</SelectItem>
+                <SelectItem value="8">8 hours</SelectItem>
               </SelectContent>
             </Select>
           </div>
