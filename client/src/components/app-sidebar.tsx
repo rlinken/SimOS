@@ -10,6 +10,10 @@ import {
   CreditCard,
   User as UserIcon,
   CalendarDays,
+  UserPlus,
+  DollarSign,
+  Package,
+  UserCog,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -73,6 +77,16 @@ function getMenuItems(user: User | undefined) {
         icon: CalendarDays,
       },
       {
+        title: "Contacts",
+        url: "/contacts",
+        icon: UserPlus,
+      },
+      {
+        title: "Sales",
+        url: "/sales",
+        icon: DollarSign,
+      },
+      {
         title: "Bays",
         url: "/bays",
         icon: MapPin,
@@ -91,6 +105,16 @@ function getMenuItems(user: User | undefined) {
         title: "Memberships",
         url: "/memberships",
         icon: CreditCard,
+      },
+      {
+        title: "Offers",
+        url: "/offerings",
+        icon: Package,
+      },
+      {
+        title: "Staff",
+        url: "/staff",
+        icon: UserCog,
       }
     );
   }

@@ -21,6 +21,8 @@ import {
   updateBayBlockSchema,
   insertBookingSchema,
   insertMembershipTierSchema,
+  insertLeadSchema,
+  updateLeadSchema,
   insertLessonSchema,
   insertFittingSchema,
   insertOfferingSchema,
@@ -385,6 +387,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating membership tier:", error);
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Leads Routes (CRM)
+  // ============================================================================
+
+  app.get("/api/leads", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const leads = await storage.getLeads(user.facilityId);
+      res.json(leads);
+    } catch (error: any) {
+      console.error("Error fetching leads:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/leads", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertLeadSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+      const lead = await storage.createLead(validatedData);
+      res.status(201).json(lead);
+    } catch (error: any) {
+      console.error("Error creating lead:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/leads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = updateLeadSchema.parse(req.body);
+      const lead = await storage.updateLead(req.params.id, validatedData);
+      res.json(lead);
+    } catch (error: any) {
+      console.error("Error updating lead:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await storage.deleteLead(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting lead:", error);
+      res.status(500).json({ message: error.message });
     }
   });
 

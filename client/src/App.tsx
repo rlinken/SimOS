@@ -24,6 +24,8 @@ import OnboardingPage from "@/pages/onboarding";
 import WidgetCalendar from "@/pages/widget-calendar";
 import AccountPage from "@/pages/account";
 import SchedulePage from "@/pages/schedule";
+import ContactsPage from "@/pages/contacts";
+import SalesPage from "@/pages/sales";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -35,6 +37,8 @@ function AuthenticatedRoutes() {
     <Switch>
       <Route path="/" component={DashboardComponent} />
       <Route path="/schedule" component={SchedulePage} />
+      <Route path="/contacts" component={ContactsPage} />
+      <Route path="/sales" component={SalesPage} />
       <Route path="/account" component={AccountPage} />
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/bays" component={BaysPage} />

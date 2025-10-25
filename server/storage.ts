@@ -6,6 +6,7 @@ import {
   bayBlocks,
   bookings,
   membershipTiers,
+  leads,
   lessons,
   fittings,
   offerings,
@@ -24,6 +25,9 @@ import {
   type InsertBooking,
   type MembershipTier,
   type InsertMembershipTier,
+  type Lead,
+  type InsertLead,
+  type UpdateLead,
   type Lesson,
   type InsertLesson,
   type Fitting,
@@ -82,6 +86,13 @@ export interface IStorage {
   
   // Members
   getMembers(facilityId?: string): Promise<User[]>;
+  
+  // Leads
+  getLeads(facilityId?: string): Promise<Lead[]>;
+  getLead(id: string): Promise<Lead | undefined>;
+  createLead(lead: InsertLead): Promise<Lead>;
+  updateLead(id: string, lead: UpdateLead): Promise<Lead>;
+  deleteLead(id: string): Promise<void>;
   
   // Lessons
   getLessons(facilityId?: string): Promise<Lesson[]>;
@@ -371,6 +382,47 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(users.createdAt));
     }
     return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  // Leads
+  async getLeads(facilityId?: string): Promise<Lead[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(leads)
+        .where(eq(leads.facilityId, facilityId))
+        .orderBy(desc(leads.createdAt));
+    }
+    return await db.select().from(leads).orderBy(desc(leads.createdAt));
+  }
+
+  async getLead(id: string): Promise<Lead | undefined> {
+    const [lead] = await db
+      .select()
+      .from(leads)
+      .where(eq(leads.id, id));
+    return lead;
+  }
+
+  async createLead(leadData: InsertLead): Promise<Lead> {
+    const [lead] = await db
+      .insert(leads)
+      .values(leadData)
+      .returning();
+    return lead;
+  }
+
+  async updateLead(id: string, leadData: UpdateLead): Promise<Lead> {
+    const [lead] = await db
+      .update(leads)
+      .set(leadData)
+      .where(eq(leads.id, id))
+      .returning();
+    return lead;
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    await db.delete(leads).where(eq(leads.id, id));
   }
 
   // Lessons
