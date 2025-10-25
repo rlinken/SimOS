@@ -36,11 +36,12 @@ import { GraduationCap, Calendar, User, Check, Plus, Package, DollarSign, Clock,
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Lesson, User as UserType, LessonPackage, InsertLessonPackage } from "@shared/schema";
-import { insertLessonPackageSchema } from "@shared/schema";
+import type { Lesson, User as UserType, LessonPackage, InsertLessonPackage, InsertLesson } from "@shared/schema";
+import { insertLessonPackageSchema, insertLessonSchema } from "@shared/schema";
 
 export default function LessonsPage() {
   const { toast } = useToast();
+  const [isScheduleLessonOpen, setIsScheduleLessonOpen] = useState(false);
   const [isCreatePackageOpen, setIsCreatePackageOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<LessonPackage | null>(null);
 
@@ -52,6 +53,10 @@ export default function LessonsPage() {
 
   const { data: packages, isLoading: packagesLoading } = useQuery<LessonPackage[]>({
     queryKey: ["/api/lesson-packages"],
+  });
+
+  const { data: users, isLoading: usersLoading } = useQuery<UserType[]>({
+    queryKey: ["/api/users"],
   });
 
   const createPackageMutation = useMutation({
@@ -124,15 +129,40 @@ export default function LessonsPage() {
     },
   });
 
+  const scheduleLessonMutation = useMutation({
+    mutationFn: async (data: InsertLesson) => {
+      return await apiRequest("/api/lessons", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
+      setIsScheduleLessonOpen(false);
+      scheduleForm.reset();
+      toast({
+        title: "Success",
+        description: "Lesson scheduled successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to schedule lesson",
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm<InsertLessonPackage>({
     resolver: zodResolver(insertLessonPackageSchema.omit({ facilityId: true })),
     defaultValues: {
       name: "",
       description: "",
       packageType: "pay_per_lesson",
-      priceAmount: "0",
-      sessionCount: 1,
-      isActive: true,
+      price: "0",
+      lessonsIncluded: 1,
+      active: true,
     },
   });
 
@@ -140,8 +170,25 @@ export default function LessonsPage() {
     resolver: zodResolver(insertLessonPackageSchema.omit({ facilityId: true })),
   });
 
+  const scheduleForm = useForm<InsertLesson>({
+    resolver: zodResolver(insertLessonSchema.omit({ facilityId: true })),
+    defaultValues: {
+      title: "",
+      date: new Date(),
+      durationMinutes: 60,
+      instructorId: "",
+      studentId: "",
+      notes: "",
+      completed: false,
+    },
+  });
+
   const onCreateSubmit = (data: InsertLessonPackage) => {
     createPackageMutation.mutate(data);
+  };
+
+  const onScheduleSubmit = (data: InsertLesson) => {
+    scheduleLessonMutation.mutate(data);
   };
 
   const onEditSubmit = (data: InsertLessonPackage) => {
@@ -155,11 +202,11 @@ export default function LessonsPage() {
       name: pkg.name,
       description: pkg.description || "",
       packageType: pkg.packageType,
-      priceAmount: pkg.priceAmount,
-      sessionCount: pkg.sessionCount,
+      price: pkg.price,
+      lessonsIncluded: pkg.lessonsIncluded,
       validityDays: pkg.validityDays || undefined,
       billingInterval: pkg.billingInterval || undefined,
-      isActive: pkg.isActive,
+      active: pkg.active,
     });
   };
 
@@ -169,7 +216,15 @@ export default function LessonsPage() {
     }
   };
 
-  if (lessonsLoading || packagesLoading) {
+  const instructors = users?.filter(
+    (u) => u.role === "instructor" || u.role === "owner" || u.role === "administrator"
+  ) || [];
+
+  const students = users?.filter(
+    (u) => u.role === "customer" || u.role === "member"
+  ) || [];
+
+  if (lessonsLoading || packagesLoading || usersLoading) {
     return (
       <div className="space-y-6">
         <div>
@@ -211,13 +266,24 @@ export default function LessonsPage() {
 
         {/* Scheduled Lessons Tab */}
         <TabsContent value="scheduled" className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={() => setIsScheduleLessonOpen(true)} data-testid="button-schedule-lesson">
+              <Plus className="w-4 h-4 mr-2" />
+              Schedule Lesson
+            </Button>
+          </div>
+
           {!lessons || lessons.length === 0 ? (
             <Card className="p-12 text-center">
               <GraduationCap className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">No lessons scheduled</h3>
-              <p className="text-muted-foreground">
-                Lessons will appear here once scheduled
+              <p className="text-muted-foreground mb-4">
+                Schedule your first lesson
               </p>
+              <Button onClick={() => setIsScheduleLessonOpen(true)} data-testid="button-schedule-first-lesson">
+                <Plus className="w-4 h-4 mr-2" />
+                Schedule Lesson
+              </Button>
             </Card>
           ) : (
             <div className="grid gap-4">
@@ -361,7 +427,7 @@ export default function LessonsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="priceAmount"
+                        name="price"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Price Amount</FormLabel>
@@ -381,10 +447,10 @@ export default function LessonsPage() {
 
                       <FormField
                         control={form.control}
-                        name="sessionCount"
+                        name="lessonsIncluded"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Session Count</FormLabel>
+                            <FormLabel>Lessons Included</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -504,7 +570,7 @@ export default function LessonsPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="text-lg font-semibold">{pkg.name}</h3>
-                          {!pkg.isActive && (
+                          {!pkg.active && (
                             <Badge variant="outline" className="text-xs">
                               Inactive
                             </Badge>
@@ -522,7 +588,7 @@ export default function LessonsPage() {
                       <div className="flex items-center gap-2 text-sm">
                         <DollarSign className="w-4 h-4 text-muted-foreground" />
                         <span className="font-semibold text-lg">
-                          ${parseFloat(pkg.priceAmount).toFixed(2)}
+                          ${parseFloat(pkg.price).toFixed(2)}
                         </span>
                         {pkg.packageType === "recurring" && pkg.billingInterval && (
                           <span className="text-muted-foreground">/ {pkg.billingInterval}</span>
@@ -531,7 +597,7 @@ export default function LessonsPage() {
 
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <GraduationCap className="w-4 h-4" />
-                        <span>{pkg.sessionCount} session{pkg.sessionCount > 1 ? "s" : ""}</span>
+                        <span>{pkg.lessonsIncluded} lesson{pkg.lessonsIncluded > 1 ? "s" : ""}</span>
                       </div>
 
                       {pkg.validityDays && (
@@ -654,7 +720,7 @@ export default function LessonsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editForm.control}
-                  name="priceAmount"
+                  name="price"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Price Amount</FormLabel>
@@ -674,7 +740,7 @@ export default function LessonsPage() {
 
                 <FormField
                   control={editForm.control}
-                  name="sessionCount"
+                  name="lessonsIncluded"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Session Count</FormLabel>
@@ -761,6 +827,194 @@ export default function LessonsPage() {
                   data-testid="button-submit-edit"
                 >
                   {updatePackageMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Lesson Dialog */}
+      <Dialog open={isScheduleLessonOpen} onOpenChange={setIsScheduleLessonOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Schedule Lesson</DialogTitle>
+            <DialogDescription>
+              Book a golf lesson for a student
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...scheduleForm}>
+            <form onSubmit={scheduleForm.handleSubmit(onScheduleSubmit)} className="space-y-4">
+              <FormField
+                control={scheduleForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Lesson Title</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., Driving Fundamentals"
+                        data-testid="input-lesson-title"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={scheduleForm.control}
+                  name="instructorId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Instructor</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-instructor">
+                            <SelectValue placeholder="Select instructor" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {instructors.length === 0 ? (
+                            <div className="p-2 text-sm text-muted-foreground">
+                              No instructors available
+                            </div>
+                          ) : (
+                            instructors.map((instructor) => (
+                              <SelectItem key={instructor.id} value={instructor.id}>
+                                {instructor.firstName} {instructor.lastName}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={scheduleForm.control}
+                  name="studentId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Student</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-student">
+                            <SelectValue placeholder="Select student" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {students.length === 0 ? (
+                            <div className="p-2 text-sm text-muted-foreground">
+                              No students available
+                            </div>
+                          ) : (
+                            students.map((student) => (
+                              <SelectItem key={student.id} value={student.id}>
+                                {student.firstName} {student.lastName}
+                                {student.email && (
+                                  <span className="text-muted-foreground ml-2">
+                                    ({student.email})
+                                  </span>
+                                )}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={scheduleForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date & Time</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="datetime-local"
+                          data-testid="input-lesson-date"
+                          value={field.value instanceof Date ? field.value.toISOString().slice(0, 16) : ""}
+                          onChange={(e) => field.onChange(new Date(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={scheduleForm.control}
+                  name="durationMinutes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Duration (minutes)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="60"
+                          data-testid="input-lesson-duration"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 60)}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Default is 60 minutes
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={scheduleForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Any special requirements or focus areas..."
+                        data-testid="input-lesson-notes"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsScheduleLessonOpen(false)}
+                  data-testid="button-cancel-schedule"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={scheduleLessonMutation.isPending}
+                  data-testid="button-submit-schedule"
+                >
+                  {scheduleLessonMutation.isPending ? "Scheduling..." : "Schedule Lesson"}
                 </Button>
               </div>
             </form>
