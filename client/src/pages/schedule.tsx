@@ -237,33 +237,16 @@ export default function Schedule() {
     
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
-    const currentSeconds = now.getSeconds();
     
-    // Only show indicator during operating hours
-    if (currentHour < 6 || currentHour >= 23) return null;
+    // Only show indicator during operating hours (6 AM to 10 PM)
+    if (currentHour < hours[0] || currentHour >= hours[hours.length - 1] + 1) return null;
     
-    // Calculate total minutes since start of operating hours (6 AM)
-    const firstHour = 6;
-    const minutesSinceStart = ((currentHour - firstHour) * 60) + currentMinute + (currentSeconds / 60);
-    const minutesPerColumn = 60; // Each column represents 60 minutes
+    // Find which hour column we're in
+    const hourColumnIndex = hours.findIndex(h => h === currentHour);
+    if (hourColumnIndex === -1) return null;
     
-    // Calculate pixel position: start after bay column, then add pixels for elapsed time
-    const pixelPosition = BAY_COLUMN_WIDTH + ((minutesSinceStart / minutesPerColumn) * HOUR_COLUMN_WIDTH);
-    
-    console.log('🔴 TIME INDICATOR DEBUG:', {
-      rawTime: now.toLocaleString(),
-      currentHour,
-      currentMinute,
-      currentSeconds,
-      firstHour,
-      minutesSinceStart: minutesSinceStart.toFixed(2),
-      minutesPerColumn,
-      BAY_COLUMN_WIDTH,
-      HOUR_COLUMN_WIDTH,
-      calculation: `${BAY_COLUMN_WIDTH} + ((${minutesSinceStart.toFixed(2)} / ${minutesPerColumn}) * ${HOUR_COLUMN_WIDTH})`,
-      pixelPosition: pixelPosition.toFixed(2),
-      expectedHourColumn: Math.floor(minutesSinceStart / 60) + firstHour
-    });
+    // Calculate position within the current hour column
+    const pixelPosition = BAY_COLUMN_WIDTH + (hourColumnIndex * HOUR_COLUMN_WIDTH) + ((currentMinute / 60) * HOUR_COLUMN_WIDTH);
     
     return { pixelPosition, hour: currentHour, minute: currentMinute, now };
   };
