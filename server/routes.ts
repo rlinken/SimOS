@@ -2101,6 +2101,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Custom Roles Routes
+  // ============================================================================
+
+  app.get("/api/custom-roles", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const roles = await storage.getCustomRoles(user.facilityId);
+      res.json(roles);
+    } catch (error: any) {
+      console.error("Error fetching custom roles:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/custom-roles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const role = await storage.getCustomRole(req.params.id);
+      if (!role || role.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Custom role not found" });
+      }
+
+      res.json(role);
+    } catch (error: any) {
+      console.error("Error fetching custom role:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/custom-roles", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { insertCustomRoleSchema } = await import("@shared/schema");
+      const validatedData = insertCustomRoleSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+
+      const newRole = await storage.createCustomRole(validatedData);
+      res.status(201).json(newRole);
+    } catch (error: any) {
+      console.error("Error creating custom role:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/custom-roles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const role = await storage.getCustomRole(req.params.id);
+      if (!role || role.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Custom role not found" });
+      }
+
+      // Prevent editing system roles
+      if (role.isSystemRole) {
+        return res.status(403).json({ message: "Cannot edit system roles" });
+      }
+
+      const updatedRole = await storage.updateCustomRole(req.params.id, req.body);
+      res.json(updatedRole);
+    } catch (error: any) {
+      console.error("Error updating custom role:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/custom-roles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const role = await storage.getCustomRole(req.params.id);
+      if (!role || role.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Custom role not found" });
+      }
+
+      // Prevent deleting system roles
+      if (role.isSystemRole) {
+        return res.status(403).json({ message: "Cannot delete system roles" });
+      }
+
+      // TODO: Check if any users have this role and prevent deletion if so
+      // Or auto-reassign them to a default role
+
+      await storage.deleteCustomRole(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting custom role:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Dashboard Stats Route
   // ============================================================================
 
