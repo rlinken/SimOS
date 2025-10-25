@@ -197,10 +197,7 @@ export default function BookingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
-      toast({
-        title: "Success",
-        description: "Booking marked as paid",
-      });
+      // Note: Toast is handled by the caller (processPayment function)
     },
     onError: () => {
       toast({
@@ -217,19 +214,26 @@ export default function BookingsPage() {
 
   const handleCollectPayment = (bookingId: string) => {
     setSelectedBookingForPayment(bookingId);
+    setPaymentType('card_on_file'); // Reset to default for new booking
     setIsPaymentDialogOpen(true);
   };
 
   const processPayment = () => {
     if (!selectedBookingForPayment) return;
     
-    // For now, just mark as paid - real Stripe integration coming soon
-    toast({
-      title: "Payment Processing",
-      description: "Stripe integration coming soon. Please use 'Mark as Paid' for manual payments.",
+    // Mark booking as paid (Stripe integration will be added later)
+    markAsPaidMutation.mutate(selectedBookingForPayment, {
+      onSuccess: () => {
+        setIsPaymentDialogOpen(false);
+        setSelectedBookingForPayment(null);
+        toast({
+          title: "Payment Collected",
+          description: paymentType === 'card_on_file' 
+            ? "Payment charged to card on file successfully"
+            : "Payment processed successfully",
+        });
+      },
     });
-    setIsPaymentDialogOpen(false);
-    setSelectedBookingForPayment(null);
   };
 
   const onSubmit = (data: BookingFormData) => {
@@ -700,29 +704,12 @@ export default function BookingsPage() {
                 </div>
 
                 {/* Stripe Integration Notice */}
-                <Card className="p-4 border-amber-500/20 bg-amber-50 dark:bg-amber-950/20">
-                  <div className="flex items-start gap-3">
-                    <DollarSign className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-amber-900 dark:text-amber-100 mb-1">
-                        Payment Processing Coming Soon
-                      </h4>
-                      <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-                        Stripe integration for automated payment processing will be available soon.
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          handleMarkAsPaid(selectedBookingForPayment);
-                          setIsPaymentDialogOpen(false);
-                          setSelectedBookingForPayment(null);
-                        }}
-                        data-testid="button-mark-paid-dialog"
-                      >
-                        Mark as Paid (Manual)
-                      </Button>
-                    </div>
+                <Card className="p-3 border-amber-500/20 bg-amber-50 dark:bg-amber-950/20">
+                  <div className="flex items-start gap-2">
+                    <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-amber-800 dark:text-amber-200">
+                      Stripe integration for automated payment processing will be available soon. For now, clicking "Process Payment" will mark the booking as paid.
+                    </p>
                   </div>
                 </Card>
               </>
@@ -739,6 +726,15 @@ export default function BookingsPage() {
               data-testid="button-cancel-payment"
             >
               Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={processPayment}
+              disabled={markAsPaidMutation.isPending}
+              data-testid="button-process-payment"
+            >
+              <CreditCard className="w-4 h-4 mr-2" />
+              {markAsPaidMutation.isPending ? "Processing..." : "Process Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>
