@@ -16,6 +16,7 @@ import {
   insertOfferingSchema,
   updateOfferingSchema,
   upsertUserSchema,
+  insertStaffAvailabilityHoursSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -643,6 +644,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting offering:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Staff Availability Hours Routes
+  // ============================================================================
+
+  app.get("/api/staff/:staffId/availability", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      // Verify staff belongs to same facility
+      const staff = await storage.getUser(req.params.staffId);
+      if (!staff || staff.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Staff not found" });
+      }
+
+      const hours = await storage.getStaffAvailabilityHours(req.params.staffId);
+      res.json(hours);
+    } catch (error: any) {
+      console.error("Error fetching staff availability:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/staff/:staffId/availability", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      // Verify staff belongs to same facility
+      const staff = await storage.getUser(req.params.staffId);
+      if (!staff || staff.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Staff not found" });
+      }
+
+      // Only admins or the staff member themselves can set availability
+      if (
+        user.role !== "facility_admin" &&
+        user.role !== "super_admin" &&
+        user.id !== req.params.staffId
+      ) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertStaffAvailabilityHoursSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+        staffId: req.params.staffId,
+      });
+
+      const hours = await storage.createStaffAvailabilityHours(validatedData);
+      res.status(201).json(hours);
+    } catch (error: any) {
+      console.error("Error creating availability hours:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/staff/availability/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      // TODO: Add ownership validation for the availability hours record
+      await storage.deleteStaffAvailabilityHours(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting availability hours:", error);
       res.status(500).json({ message: error.message });
     }
   });
