@@ -10,7 +10,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - ✅ User authentication with Replit Auth (OIDC)
 - ✅ Role-based access control (super_admin, owner, administrator, instructor, club_fitter, support, customer, member)
 - ✅ Smart bay assignment algorithm (auto-assigns bay with lowest usage)
-- ✅ Backend API with all CRUD endpoints
+- ✅ Backend API with all CRUD endpoints (including PATCH for updates)
 - ✅ Frontend pages: Landing, Dashboard, Bays, Bookings, Members, Memberships, Lessons (with Packages), Fittings, Facilities, Settings, Contacts, Sales, Offers, Transformation Packages, Staff, Schedule
 - ✅ Real-time dashboard statistics from actual data
 - ✅ Professional golf-themed UI with Tailwind CSS
@@ -19,6 +19,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - ✅ CRM with lead tracking (new, contacted, qualified, converted, lost)
 - ✅ Shareable membership purchase URLs with public access (no login required)
 - ✅ Transformation Packages - comprehensive training bundles with lessons, club fittings, bay access, and on-course practice
+- ✅ **Edit functionality for all product/service pages** - Click any card to edit (Memberships, Transformation Packages, Fittings, Offers, Lessons)
 
 ### In Progress
 - 🔨 Facility onboarding wizard
@@ -73,6 +74,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 #### Memberships
 - `GET /api/memberships` - List membership tiers
 - `POST /api/memberships` - Create membership tier (admin only)
+- `PATCH /api/memberships/:id` - Update membership tier (admin only)
 
 #### Members
 - `GET /api/members` - List members with tier data
@@ -96,6 +98,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 #### Fittings
 - `GET /api/fittings` - List fittings with fitter/user data
 - `POST /api/fittings` - Create fitting
+- `PATCH /api/fittings/:id` - Update fitting (admin only)
 
 #### Dashboard
 - `GET /api/dashboard/stats` - Real-time facility statistics
@@ -161,28 +164,30 @@ npm run db:push  # Sync schema to PostgreSQL
 
 ## Sidebar Navigation Organization
 
-The sidebar is organized into three sections:
+The sidebar is organized into three sections with **Operations first** for daily activities:
 
 ### Navigation
 - Dashboard
 - Facilities (super admin only)
 - Settings
 
-### Business
+### Operations (Daily Activities - Appears First)
+- Schedule (Upcoming activities and calendar)
+- Bookings (Bay reservations)
+- Lessons (Instruction sessions)
+- Fittings (Club fitting appointments)
+
+### Business (Configuration & Sales - Appears Second)
+- Bays (Simulator bay configuration)
+- Memberships (Membership tiers/plans)
+- Packages (Transformation packages - renamed from "Transformation Packages")
 - Contacts (Leads and CRM)
 - Members (Membership members)
-- Sales
-- Offers (Promotional campaigns and sales pages for services)
-- Staff
+- Sales (Revenue tracking and analytics)
+- Offers (Promotional campaigns and sales pages)
+- Staff (Team member management)
 
-### Operations
-- Schedule
-- Bays
-- Bookings
-- Memberships (Membership tiers/plans)
-- Transformation Packages (Comprehensive training programs)
-- Lessons
-- Fittings
+**Design Rationale:** Operations section contains daily service delivery tasks and appears first to optimize workflow for facility staff who primarily interact with bookings, lessons, and fittings. Business section contains configuration, setup, and sales/marketing tasks used less frequently.
 
 ## Shareable Purchase URLs
 
@@ -227,3 +232,12 @@ Admins can copy shareable links for memberships that allow customers to view det
 - Shareable purchase URLs use pattern: `/buy/{type}/{id}` (public access, no authentication)
 - Architectural separation: Operations manages services delivered, Business manages sales/marketing
 - Offers page focuses on promotional campaigns and sales pages for any service type (lessons, memberships, fittings, transformation packages)
+
+## Edit Functionality Pattern
+All product/service pages (Memberships, Transformation Packages, Fittings, Offers, Lessons) implement unified edit functionality:
+- **Click card to edit**: All cards are clickable and open the edit dialog
+- **Same dialog for create/edit**: Dialog title and submit button adapt based on mode
+- **Form pre-population**: Editing pre-fills form with existing data via useEffect
+- **Dual mutations**: Separate create (POST) and update (PATCH) mutations
+- **Button stop propagation**: Buttons inside cards (e.g., "Copy Shareable Link") prevent card click
+- **State management**: `editingX` state tracks current edit target and clears on dialog close

@@ -71,9 +71,58 @@ function getMenuItems(user: User | undefined) {
     });
   }
 
-  // Business Management (Admins only)
+  // Operations - Daily Activities (Admins only)
+  if (isSuperAdmin || isAdmin) {
+    operations.push(
+      {
+        title: "Schedule",
+        url: "/schedule",
+        icon: CalendarDays,
+      },
+      {
+        title: "Bookings",
+        url: "/bookings",
+        icon: Calendar,
+      }
+    );
+  }
+
+  // Lessons (Instructors, Admins)
+  if (isInstructor || isSuperAdmin || isAdmin) {
+    operations.push({
+      title: "Lessons",
+      url: "/lessons",
+      icon: GraduationCap,
+    });
+  }
+
+  // Fittings (Admins)
+  if (isSuperAdmin || isAdmin) {
+    operations.push({
+      title: "Fittings",
+      url: "/fittings",
+      icon: Target,
+    });
+  }
+
+  // Business - Configuration & Setup (Admins only)
   if (isSuperAdmin || isAdmin) {
     business.push(
+      {
+        title: "Bays",
+        url: "/bays",
+        icon: MapPin,
+      },
+      {
+        title: "Memberships",
+        url: "/memberships",
+        icon: CreditCard,
+      },
+      {
+        title: "Packages",
+        url: "/transformation-packages",
+        icon: Sparkles,
+      },
       {
         title: "Contacts",
         url: "/contacts",
@@ -100,55 +149,6 @@ function getMenuItems(user: User | undefined) {
         icon: UserCog,
       }
     );
-  }
-
-  // Operations (Admins only)
-  if (isSuperAdmin || isAdmin) {
-    operations.push(
-      {
-        title: "Schedule",
-        url: "/schedule",
-        icon: CalendarDays,
-      },
-      {
-        title: "Bays",
-        url: "/bays",
-        icon: MapPin,
-      },
-      {
-        title: "Bookings",
-        url: "/bookings",
-        icon: Calendar,
-      },
-      {
-        title: "Memberships",
-        url: "/memberships",
-        icon: CreditCard,
-      },
-      {
-        title: "Packages",
-        url: "/transformation-packages",
-        icon: Sparkles,
-      }
-    );
-  }
-
-  // Lessons (Instructors, Admins)
-  if (isInstructor || isSuperAdmin || isAdmin) {
-    operations.push({
-      title: "Lessons",
-      url: "/lessons",
-      icon: GraduationCap,
-    });
-  }
-
-  // Fittings (Admins)
-  if (isSuperAdmin || isAdmin) {
-    operations.push({
-      title: "Fittings",
-      url: "/fittings",
-      icon: Target,
-    });
   }
 
   // Settings
@@ -200,13 +200,13 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Business Management */}
-        {business.length > 0 && (
+        {/* Operations - Daily Activities */}
+        {operations.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Business</SidebarGroupLabel>
+            <SidebarGroupLabel>Operations</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {business.map((item) => (
+                {operations.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild
@@ -225,13 +225,13 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Operations */}
-        {operations.length > 0 && (
+        {/* Business - Configuration & Setup */}
+        {business.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Operations</SidebarGroupLabel>
+            <SidebarGroupLabel>Business</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {operations.map((item) => (
+                {business.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild

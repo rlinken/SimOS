@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -40,6 +40,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function TransformationPackagesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<TransformationPackage | null>(null);
   const { toast } = useToast();
 
   const { data: packages, isLoading } = useQuery<TransformationPackage[]>({
@@ -84,6 +85,7 @@ export default function TransformationPackagesPage() {
         description: "Transformation package created successfully",
       });
       setIsDialogOpen(false);
+      setEditingPackage(null);
       form.reset();
     },
     onError: (error: Error) => {
@@ -94,6 +96,82 @@ export default function TransformationPackagesPage() {
       });
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertTransformationPackage> }) => {
+      return apiRequest("PATCH", `/api/transformation-packages/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transformation-packages"] });
+      toast({
+        title: "Success",
+        description: "Transformation package updated successfully",
+      });
+      setIsDialogOpen(false);
+      setEditingPackage(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reset form when editing or creating
+  useEffect(() => {
+    if (editingPackage) {
+      form.reset({
+        name: editingPackage.name,
+        description: editingPackage.description || "",
+        price: editingPackage.price,
+        billingFrequency: editingPackage.billingFrequency,
+        durationMonths: editingPackage.durationMonths,
+        includeLessons: editingPackage.includeLessons,
+        totalLessons: editingPackage.totalLessons,
+        lessonDurationMinutes: editingPackage.lessonDurationMinutes,
+        lessonsPerWeek: editingPackage.lessonsPerWeek || 1,
+        lessonsPerMonth: editingPackage.lessonsPerMonth || 0,
+        includeClubFitting: editingPackage.includeClubFitting,
+        clubFittingSessions: editingPackage.clubFittingSessions,
+        includeBayAccess: editingPackage.includeBayAccess,
+        bayAccessHours: editingPackage.bayAccessHours,
+        bayAccessPerWeek: editingPackage.bayAccessPerWeek || 0,
+        allowedBayTiers: editingPackage.allowedBayTiers || ["standard"],
+        includeOnCoursePractice: editingPackage.includeOnCoursePractice,
+        onCoursePracticeSessions: editingPackage.onCoursePracticeSessions,
+        features: editingPackage.features || [],
+        isActive: editingPackage.isActive,
+        maxEnrollments: editingPackage.maxEnrollments,
+      });
+    } else if (!isDialogOpen) {
+      form.reset({
+        name: "",
+        description: "",
+        price: "0",
+        billingFrequency: "one_time",
+        durationMonths: 3,
+        includeLessons: true,
+        totalLessons: 12,
+        lessonDurationMinutes: 60,
+        lessonsPerWeek: 1,
+        lessonsPerMonth: 0,
+        includeClubFitting: true,
+        clubFittingSessions: 1,
+        includeBayAccess: true,
+        bayAccessHours: 10,
+        bayAccessPerWeek: 0,
+        allowedBayTiers: ["standard"],
+        includeOnCoursePractice: false,
+        onCoursePracticeSessions: 0,
+        features: [],
+        isActive: true,
+        maxEnrollments: null,
+      });
+    }
+  }, [editingPackage, isDialogOpen, form]);
 
   if (isLoading) {
     return (
@@ -126,23 +204,32 @@ export default function TransformationPackagesPage() {
             Comprehensive training packages with lessons, fittings, and bay access
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingPackage(null);
+        }}>
           <DialogTrigger asChild>
-            <Button data-testid="button-add-package">
+            <Button data-testid="button-add-package" onClick={() => setEditingPackage(null)}>
               <Plus className="w-4 h-4 mr-2" />
               Create Package
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create Transformation Package</DialogTitle>
+              <DialogTitle>{editingPackage ? "Edit Transformation Package" : "Create Transformation Package"}</DialogTitle>
               <DialogDescription>
-                Bundle lessons, fittings, bay access, and practice sessions into one comprehensive offering
+                {editingPackage ? "Update package details" : "Bundle lessons, fittings, bay access, and practice sessions into one comprehensive offering"}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit((data) => createMutation.mutate(data))}
+                onSubmit={form.handleSubmit((data) => {
+                  if (editingPackage) {
+                    updateMutation.mutate({ id: editingPackage.id, data });
+                  } else {
+                    createMutation.mutate(data);
+                  }
+                })}
                 className="space-y-6"
               >
                 {/* Basic Info */}
@@ -562,10 +649,13 @@ export default function TransformationPackagesPage() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={createMutation.isPending}
+                    disabled={createMutation.isPending || updateMutation.isPending}
                     data-testid="button-submit"
                   >
-                    {createMutation.isPending ? "Creating..." : "Create Package"}
+                    {editingPackage
+                      ? (updateMutation.isPending ? "Updating..." : "Update Package")
+                      : (createMutation.isPending ? "Creating..." : "Create Package")
+                    }
                   </Button>
                 </DialogFooter>
               </form>
@@ -592,8 +682,12 @@ export default function TransformationPackagesPage() {
           {packages.map((pkg) => (
             <Card
               key={pkg.id}
-              className="p-6 space-y-6 hover-elevate"
+              className="p-6 space-y-6 hover-elevate cursor-pointer"
               data-testid={`card-package-${pkg.id}`}
+              onClick={() => {
+                setEditingPackage(pkg);
+                setIsDialogOpen(true);
+              }}
             >
               <div className="space-y-2">
                 <div className="flex items-start justify-between">
@@ -673,7 +767,8 @@ export default function TransformationPackagesPage() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   const url = `${window.location.origin}/buy/transformation-package/${pkg.id}`;
                   navigator.clipboard.writeText(url);
                   toast({

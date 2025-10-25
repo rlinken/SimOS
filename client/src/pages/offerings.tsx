@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -77,19 +77,42 @@ export default function OfferingsPage() {
         ...data,
         assignedStaffId: data.assignedStaffId === "none" ? undefined : data.assignedStaffId,
       };
-      
-      if (editingOffering) {
-        return apiRequest("PATCH", `/api/offerings/${editingOffering.id}`, payload);
-      }
       return apiRequest("POST", "/api/offerings", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/offerings"] });
       toast({
         title: "Success",
-        description: editingOffering
-          ? "Offering updated successfully"
-          : "Offering created successfully",
+        description: "Offering created successfully",
+      });
+      setIsDialogOpen(false);
+      setEditingOffering(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: OfferingFormData) => {
+      if (!editingOffering) throw new Error("No offering to update");
+      // Transform "none" to undefined for unassigned staff
+      const payload = {
+        ...data,
+        assignedStaffId: data.assignedStaffId === "none" ? undefined : data.assignedStaffId,
+      };
+      return apiRequest("PATCH", `/api/offerings/${editingOffering.id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/offerings"] });
+      toast({
+        title: "Success",
+        description: "Offering updated successfully",
       });
       setIsDialogOpen(false);
       setEditingOffering(null);
@@ -115,19 +138,30 @@ export default function OfferingsPage() {
     },
   });
 
-  const handleEdit = (offering: EnrichedOffering) => {
-    setEditingOffering(offering);
-    form.reset({
-      type: offering.type,
-      name: offering.name,
-      description: offering.description || "",
-      price: offering.price,
-      durationMinutes: offering.durationMinutes || undefined,
-      assignedStaffId: offering.assignedStaffId || undefined,
-      isActive: offering.isActive,
-    });
-    setIsDialogOpen(true);
-  };
+  // Reset form when dialog opens/closes or when editing offering changes
+  useEffect(() => {
+    if (editingOffering) {
+      form.reset({
+        type: editingOffering.type,
+        name: editingOffering.name,
+        description: editingOffering.description || "",
+        price: editingOffering.price,
+        durationMinutes: editingOffering.durationMinutes || undefined,
+        assignedStaffId: editingOffering.assignedStaffId || undefined,
+        isActive: editingOffering.isActive,
+      });
+    } else if (!isDialogOpen) {
+      form.reset({
+        type: "lesson",
+        name: "",
+        description: "",
+        price: "",
+        durationMinutes: undefined,
+        assignedStaffId: undefined,
+        isActive: true,
+      });
+    }
+  }, [editingOffering, isDialogOpen, form]);
 
   const getTypeLabel = (type: string) => {
     switch (type) {
@@ -190,12 +224,11 @@ export default function OfferingsPage() {
             setIsDialogOpen(open);
             if (!open) {
               setEditingOffering(null);
-              form.reset();
             }
           }}
         >
           <DialogTrigger asChild>
-            <Button data-testid="button-add-offering">
+            <Button data-testid="button-add-offering" onClick={() => setEditingOffering(null)}>
               <Plus className="w-4 h-4 mr-2" />
               Add Offering
             </Button>
@@ -213,7 +246,13 @@ export default function OfferingsPage() {
             </DialogHeader>
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit((data) => createMutation.mutate(data))}
+                onSubmit={form.handleSubmit((data) => {
+                  if (editingOffering) {
+                    updateMutation.mutate(data);
+                  } else {
+                    createMutation.mutate(data);
+                  }
+                })}
                 className="space-y-4"
               >
                 <div className="grid gap-4 md:grid-cols-2">
@@ -353,25 +392,20 @@ export default function OfferingsPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                      setEditingOffering(null);
-                      form.reset();
-                    }}
+                    onClick={() => setIsDialogOpen(false)}
                     data-testid="button-cancel"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    disabled={createMutation.isPending}
+                    disabled={createMutation.isPending || updateMutation.isPending}
                     data-testid="button-submit"
                   >
-                    {createMutation.isPending
-                      ? "Saving..."
-                      : editingOffering
-                      ? "Update"
-                      : "Create"}
+                    {editingOffering
+                      ? (updateMutation.isPending ? "Updating..." : "Update")
+                      : (createMutation.isPending ? "Creating..." : "Create")
+                    }
                   </Button>
                 </DialogFooter>
               </form>
@@ -397,8 +431,12 @@ export default function OfferingsPage() {
           {offerings.map((offering) => (
             <Card
               key={offering.id}
-              className="p-6 hover-elevate"
+              className="p-6 hover-elevate cursor-pointer"
               data-testid={`offering-card-${offering.id}`}
+              onClick={() => {
+                setEditingOffering(offering);
+                setIsDialogOpen(true);
+              }}
             >
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
@@ -447,7 +485,11 @@ export default function OfferingsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleEdit(offering)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingOffering(offering);
+                      setIsDialogOpen(true);
+                    }}
                     data-testid={`button-edit-${offering.id}`}
                   >
                     Edit
@@ -455,7 +497,10 @@ export default function OfferingsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => deleteMutation.mutate(offering.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteMutation.mutate(offering.id);
+                    }}
                     disabled={deleteMutation.isPending}
                     data-testid={`button-delete-${offering.id}`}
                   >

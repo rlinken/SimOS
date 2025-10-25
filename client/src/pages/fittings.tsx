@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ import { insertFittingSchema } from "@shared/schema";
 export default function FittingsPage() {
   const { toast } = useToast();
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [editingFitting, setEditingFitting] = useState<Fitting | null>(null);
 
   const { data: fittings, isLoading: fittingsLoading } = useQuery<
     (Fitting & { fitter: UserType; user: UserType })[]
@@ -54,14 +55,12 @@ export default function FittingsPage() {
 
   const scheduleFittingMutation = useMutation({
     mutationFn: async (data: InsertFitting) => {
-      return await apiRequest("/api/fittings", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/fittings", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fittings"] });
       setIsScheduleDialogOpen(false);
+      setEditingFitting(null);
       form.reset();
       toast({
         title: "Success",
@@ -72,6 +71,29 @@ export default function FittingsPage() {
       toast({
         title: "Error",
         description: error.message || "Failed to schedule fitting",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateFittingMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertFitting> }) => {
+      return apiRequest("PATCH", `/api/fittings/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fittings"] });
+      setIsScheduleDialogOpen(false);
+      setEditingFitting(null);
+      form.reset();
+      toast({
+        title: "Success",
+        description: "Fitting updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update fitting",
         variant: "destructive",
       });
     },
@@ -90,8 +112,37 @@ export default function FittingsPage() {
     },
   });
 
+  // Reset form when editing or creating
+  useEffect(() => {
+    if (editingFitting) {
+      form.reset({
+        title: editingFitting.title,
+        date: editingFitting.date,
+        durationMinutes: editingFitting.durationMinutes,
+        fitterId: editingFitting.fitterId,
+        userId: editingFitting.userId,
+        notes: editingFitting.notes || "",
+        completed: editingFitting.completed,
+      });
+    } else if (!isScheduleDialogOpen) {
+      form.reset({
+        title: "",
+        date: new Date().toISOString().slice(0, 16),
+        durationMinutes: 90,
+        fitterId: "",
+        userId: "",
+        notes: "",
+        completed: false,
+      });
+    }
+  }, [editingFitting, isScheduleDialogOpen, form]);
+
   const onScheduleSubmit = (data: InsertFitting) => {
-    scheduleFittingMutation.mutate(data);
+    if (editingFitting) {
+      updateFittingMutation.mutate({ id: editingFitting.id, data });
+    } else {
+      scheduleFittingMutation.mutate(data);
+    }
   };
 
   const fitters = users?.filter(
@@ -130,18 +181,21 @@ export default function FittingsPage() {
             Manage club fitting appointments
           </p>
         </div>
-        <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+        <Dialog open={isScheduleDialogOpen} onOpenChange={(open) => {
+          setIsScheduleDialogOpen(open);
+          if (!open) setEditingFitting(null);
+        }}>
           <DialogTrigger asChild>
-            <Button data-testid="button-schedule-fitting">
+            <Button data-testid="button-schedule-fitting" onClick={() => setEditingFitting(null)}>
               <Plus className="w-4 h-4 mr-2" />
               Schedule Fitting
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Schedule Club Fitting</DialogTitle>
+              <DialogTitle>{editingFitting ? "Edit Club Fitting" : "Schedule Club Fitting"}</DialogTitle>
               <DialogDescription>
-                Book a club fitting appointment for a customer
+                {editingFitting ? "Update fitting appointment details" : "Book a club fitting appointment for a customer"}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -311,10 +365,13 @@ export default function FittingsPage() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={scheduleFittingMutation.isPending}
+                    disabled={scheduleFittingMutation.isPending || updateFittingMutation.isPending}
                     data-testid="button-submit-schedule"
                   >
-                    {scheduleFittingMutation.isPending ? "Scheduling..." : "Schedule Fitting"}
+                    {editingFitting 
+                      ? (updateFittingMutation.isPending ? "Updating..." : "Update Fitting")
+                      : (scheduleFittingMutation.isPending ? "Scheduling..." : "Schedule Fitting")
+                    }
                   </Button>
                 </div>
               </form>
@@ -346,8 +403,12 @@ export default function FittingsPage() {
           {fittings.map((fitting) => (
             <Card
               key={fitting.id}
-              className="p-6 hover-elevate"
+              className="p-6 hover-elevate cursor-pointer"
               data-testid={`card-fitting-${fitting.id}`}
+              onClick={() => {
+                setEditingFitting(fitting);
+                setIsScheduleDialogOpen(true);
+              }}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 space-y-3">
