@@ -13,6 +13,7 @@ import BaysPage from "@/pages/bays";
 import BookingsPage from "@/pages/bookings";
 import MembersPage from "@/pages/members";
 import MembershipsPage from "@/pages/memberships";
+import StaffPage from "@/pages/staff";
 import LessonsPage from "@/pages/lessons";
 import FittingsPage from "@/pages/fittings";
 import FacilitiesPage from "@/pages/facilities";
@@ -29,6 +30,7 @@ function AuthenticatedRoutes() {
       <Route path="/bookings" component={BookingsPage} />
       <Route path="/members" component={MembersPage} />
       <Route path="/memberships" component={MembershipsPage} />
+      <Route path="/staff" component={StaffPage} />
       <Route path="/lessons" component={LessonsPage} />
       <Route path="/fittings" component={FittingsPage} />
       <Route path="/facilities" component={FacilitiesPage} />

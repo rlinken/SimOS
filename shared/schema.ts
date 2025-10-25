@@ -24,6 +24,7 @@ export const userRoleEnum = pgEnum("user_role", [
   "super_admin",
   "facility_admin",
   "instructor",
+  "club_fitter",
   "member",
 ]);
 
@@ -134,6 +135,12 @@ export const users = pgTable("users", {
     () => membershipTiers.id
   ),
   monthlyCreditsRemaining: integer("monthly_credits_remaining").default(0),
+  
+  // Staff-specific fields (for instructors, fitters, admins)
+  bio: text("bio"),
+  specialties: varchar("specialties").array(),
+  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }),
+  googleCalendarId: varchar("google_calendar_id"),
   
   // External integrations (for later)
   ghlContactId: varchar("ghl_contact_id"),

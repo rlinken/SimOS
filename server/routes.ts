@@ -404,6 +404,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Staff Routes
+  // ============================================================================
+
+  app.get("/api/staff", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Get all users with staff roles (instructor, club_fitter, facility_admin)
+      const allUsers = await storage.getMembers(user.facilityId);
+      const staff = allUsers.filter(
+        (u) =>
+          u.role === "instructor" ||
+          u.role === "club_fitter" ||
+          u.role === "facility_admin"
+      );
+
+      res.json(staff);
+    } catch (error: any) {
+      console.error("Error fetching staff:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/staff", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = upsertUserSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+
+      // Ensure role is a staff role
+      if (
+        !["instructor", "club_fitter", "facility_admin"].includes(
+          validatedData.role
+        )
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Invalid staff role" });
+      }
+
+      const newStaff = await storage.upsertUser(validatedData);
+      res.status(201).json(newStaff);
+    } catch (error: any) {
+      console.error("Error creating staff:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/staff/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const staffMember = await storage.getUser(req.params.id);
+      if (!staffMember || staffMember.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Staff member not found" });
+      }
+
+      const updatedData = upsertUserSchema.partial().parse({
+        ...req.body,
+        id: req.params.id,
+        facilityId: user.facilityId,
+      });
+
+      const updatedStaff = await storage.upsertUser(updatedData);
+      res.json(updatedStaff);
+    } catch (error: any) {
+      console.error("Error updating staff:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/staff/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const staffMember = await storage.getUser(req.params.id);
+      if (!staffMember || staffMember.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Staff member not found" });
+      }
+
+      // Soft delete by changing role to "member" instead of actual deletion
+      await storage.upsertUser({
+        id: req.params.id,
+        role: "member",
+        facilityId: user.facilityId,
+      });
+
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting staff:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Lessons Routes
   // ============================================================================
 
