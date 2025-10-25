@@ -126,7 +126,7 @@ function getMenuItems(user: User | undefined) {
         icon: CreditCard,
       },
       {
-        title: "Transformation Packages",
+        title: "Packages",
         url: "/transformation-packages",
         icon: Sparkles,
       }
