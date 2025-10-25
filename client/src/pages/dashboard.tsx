@@ -65,6 +65,15 @@ export default function Dashboard() {
   // Operating hours (6 AM to 10 PM) - matching full schedule
   const hours = Array.from({ length: 17 }, (_, i) => i + 6);
 
+  // Check if a time slot is in the past
+  const isPastHour = (hour: number) => {
+    if (!isSameDay(selectedDate, now)) {
+      return false; // Don't gray out if viewing different date
+    }
+    const currentHour = now.getHours();
+    return hour < currentHour;
+  };
+
   const isBooked = (bayId: string, hour: number) => {
     const dayStart = startOfDay(selectedDate);
     const slotStart = setMinutes(setHours(dayStart, hour), 0);
@@ -265,10 +274,11 @@ export default function Dashboard() {
               </div>
               {hours.map(hour => {
                 const showAmPm = hour === 6 || hour === 12 || hour === 18;
+                const isPast = isPastHour(hour);
                 return (
                   <div 
                     key={hour} 
-                    className="p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center"
+                    className={`p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center ${isPast ? 'opacity-40' : ''}`}
                   >
                     <div className="text-sm font-semibold">{hour > 12 ? hour - 12 : hour}</div>
                     {showAmPm && (
@@ -303,6 +313,7 @@ export default function Dashboard() {
                   {hours.map(hour => {
                     const booking = isBooked(bay.id, hour);
                     const isAvailable = !booking && bay.status === 'active';
+                    const isPast = isPastHour(hour);
 
                     return (
                       <div
@@ -312,6 +323,7 @@ export default function Dashboard() {
                           p-2 border-r last:border-r-0 min-h-[60px] 
                           flex flex-col items-center justify-center text-xs 
                           transition-all cursor-pointer relative group
+                          ${isPast ? 'opacity-40' : ''}
                           ${booking 
                             ? 'bg-primary/10 hover:bg-primary/20' 
                             : isAvailable 
