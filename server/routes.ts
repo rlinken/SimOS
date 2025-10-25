@@ -321,15 +321,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
+      const facilityId = user?.facilityId;
       
-      // Mock stats for now - in production would aggregate from real data
+      // Aggregate real data
+      const bookings = await storage.getBookings(facilityId || undefined);
+      const members = await storage.getMembers(facilityId || undefined);
+      const bays = await storage.getBays(facilityId || undefined);
+      
+      // Calculate today's bookings
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const todayBookings = bookings.filter(b => {
+        const bookingDate = new Date(b.startTime);
+        return bookingDate >= today && bookingDate < tomorrow;
+      }).length;
+      
+      // Calculate total revenue (from paid bookings)
+      const totalRevenue = bookings
+        .filter(b => b.paymentStatus === "paid" && b.amount)
+        .reduce((sum, b) => sum + parseFloat(b.amount || "0"), 0);
+      
+      // Calculate bay utilization (bookings / total possible slots)
+      const activeBays = bays.filter(b => b.status === "active").length;
+      const totalPossibleSlots = activeBays * 10; // Assume 10 hours/day
+      const bayUtilization = totalPossibleSlots > 0 
+        ? Math.round((todayBookings / totalPossibleSlots) * 100)
+        : 0;
+      
+      // Active members (those with a membership tier)
+      const activeMembers = members.filter(m => m.membershipTierId).length;
+      
       const stats = {
-        totalBookings: 127,
-        totalMembers: 45,
-        totalRevenue: 12450,
-        bayUtilization: 78,
-        todayBookings: 12,
-        activeMembers: 38,
+        totalBookings: bookings.length,
+        totalMembers: members.length,
+        totalRevenue: Math.round(totalRevenue),
+        bayUtilization,
+        todayBookings,
+        activeMembers,
       };
       
       res.json(stats);
