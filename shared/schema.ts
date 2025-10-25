@@ -63,6 +63,7 @@ export const bookingTypeEnum = pgEnum("booking_type", [
   "rental",
   "lesson",
   "fitting",
+  "event",
 ]);
 
 export const paymentStatusEnum = pgEnum("payment_status", [

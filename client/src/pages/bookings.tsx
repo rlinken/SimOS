@@ -9,7 +9,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -20,6 +19,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar, Plus, Clock, MapPin, Sparkles, DollarSign, CheckCircle2, X, Check, CreditCard } from "lucide-react";
+import { Calendar, Plus, Clock, MapPin, DollarSign, CheckCircle2, X, CreditCard, User as UserIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -54,11 +54,27 @@ const bookingFormSchema = insertBookingSchema
 
 type BookingFormData = z.infer<typeof bookingFormSchema>;
 
+// Label mappings for cleaner display
+const BOOKING_TYPE_LABELS: Record<string, string> = {
+  rental: "Sim Rental",
+  lesson: "Lesson",
+  fitting: "Club Fitting",
+  event: "Event",
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  card_on_file: "Card on File",
+  new_card: "Paid Online",
+  pay_at_desk: "Pay At Desk",
+  membership: "Member",
+};
+
 export default function BookingsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [useAutoAssign, setUseAutoAssign] = useState(true);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<string | null>(null);
+  const [paymentType, setPaymentType] = useState<'card_on_file' | 'new_card'>('card_on_file');
   const { toast } = useToast();
 
   const { data: bookings, isLoading } = useQuery<(Booking & { bays: Bay[]; user: User })[]>({
@@ -83,6 +99,7 @@ export default function BookingsPage() {
       endTime: "10:00",
       type: "rental",
       paymentStatus: "pending",
+      paymentMethod: "pay_at_desk",
     },
   });
 
@@ -96,6 +113,7 @@ export default function BookingsPage() {
         endTime: endTime.toISOString(),
         type: data.type,
         paymentStatus: data.paymentStatus,
+        paymentMethod: data.paymentMethod,
       };
       
       if (data.bayIds && data.bayIds.length > 0) {
@@ -128,9 +146,52 @@ export default function BookingsPage() {
     },
   });
 
+  // Update booking type
+  const updateTypeMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: string }) => {
+      return apiRequest("PATCH", `/api/bookings/${id}`, { type });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Updated",
+        description: "Booking type updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update booking type",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update payment method
+  const updatePaymentMethodMutation = useMutation({
+    mutationFn: async ({ id, paymentMethod }: { id: string; paymentMethod: string }) => {
+      return apiRequest("PATCH", `/api/bookings/${id}`, { paymentMethod });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Updated",
+        description: "Payment method updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update payment method",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mark as paid mutation
   const markAsPaidMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      return apiRequest("PATCH", `/api/bookings/${bookingId}/payment-status`, {
+      return apiRequest("PATCH", `/api/bookings/${bookingId}`, {
         paymentStatus: "paid",
       });
     },
@@ -141,10 +202,10 @@ export default function BookingsPage() {
         description: "Booking marked as paid",
       });
     },
-    onError: (error: Error) => {
+    onError: () => {
       toast({
         title: "Error",
-        description: error.message,
+        description: "Failed to update payment status",
         variant: "destructive",
       });
     },
@@ -160,185 +221,61 @@ export default function BookingsPage() {
   };
 
   const processPayment = () => {
+    if (!selectedBookingForPayment) return;
+    
+    // For now, just mark as paid - real Stripe integration coming soon
     toast({
       title: "Payment Processing",
-      description: "Stripe integration coming soon. For now, please use 'Mark as Paid' after collecting payment manually.",
+      description: "Stripe integration coming soon. Please use 'Mark as Paid' for manual payments.",
     });
     setIsPaymentDialogOpen(false);
     setSelectedBookingForPayment(null);
   };
 
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case "paid":
-        return "bg-primary/10 text-primary";
-      case "pending":
-        return "bg-chart-4/10 text-chart-4";
-      case "cancelled":
-        return "bg-destructive/10 text-destructive";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
+  const onSubmit = (data: BookingFormData) => {
+    createMutation.mutate(data);
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Bookings</h1>
-        </div>
-        <Card className="p-6">
-          <div className="animate-pulse space-y-3">
-            <div className="h-12 bg-muted rounded" />
-            <div className="h-12 bg-muted rounded" />
-            <div className="h-12 bg-muted rounded" />
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">
-            Bookings
-          </h1>
+          <h1 className="text-3xl font-bold">Bookings</h1>
           <p className="text-muted-foreground">
-            Manage bay reservations and schedules
+            Manage and track all bay bookings
           </p>
         </div>
+        <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-booking">
+          <Plus className="w-4 h-4 mr-2" />
+          New Booking
+        </Button>
+
+        {/* Create Booking Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-booking">
-              <Plus className="w-4 h-4 mr-2" />
-              New Booking
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Create Booking</DialogTitle>
+              <DialogTitle>Create New Booking</DialogTitle>
               <DialogDescription>
-                Schedule a new bay reservation
+                Schedule a new bay booking
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit((data) => createMutation.mutate(data))}
-                className="space-y-4"
-              >
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="auto-assign"
-                      checked={useAutoAssign}
-                      onCheckedChange={(checked) => {
-                        setUseAutoAssign(!!checked);
-                        if (checked) {
-                          form.setValue("bayIds", []);
-                        } else {
-                          form.setValue("numberOfBays", 1);
-                        }
-                      }}
-                      data-testid="checkbox-auto-assign"
-                    />
-                    <label
-                      htmlFor="auto-assign"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      Auto-assign bays (recommended)
-                    </label>
-                  </div>
-
-                  {useAutoAssign ? (
-                    <FormField
-                      control={form.control}
-                      name="numberOfBays"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Number of Bays</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              min="1"
-                              max={bays?.filter(b => b.status === "active").length || 10}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                              data-testid="input-number-of-bays"
-                            />
-                          </FormControl>
-                          <p className="text-xs text-muted-foreground">
-                            System will auto-assign {field.value} bay{field.value !== 1 ? 's' : ''} with lowest usage
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  ) : (
-                    <FormField
-                      control={form.control}
-                      name="bayIds"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Select Bays (Manual)</FormLabel>
-                          <div className="space-y-2 border rounded-md p-3 max-h-48 overflow-y-auto">
-                            {bays?.filter(b => b.status === "active").map((bay) => (
-                              <div key={bay.id} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`bay-${bay.id}`}
-                                  checked={field.value?.includes(bay.id) || false}
-                                  onCheckedChange={(checked) => {
-                                    const current = field.value || [];
-                                    if (checked) {
-                                      field.onChange([...current, bay.id]);
-                                    } else {
-                                      field.onChange(current.filter(id => id !== bay.id));
-                                    }
-                                  }}
-                                  data-testid={`checkbox-bay-${bay.id}`}
-                                />
-                                <label
-                                  htmlFor={`bay-${bay.id}`}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center justify-between flex-1 cursor-pointer"
-                                >
-                                  <span>{bay.name}</span>
-                                  <span className="text-xs text-muted-foreground capitalize">{bay.tier}</span>
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {field.value && field.value.length > 0
-                              ? `${field.value.length} bay${field.value.length !== 1 ? 's' : ''} selected`
-                              : "Select at least one bay"}
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-date" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <FormField
-                    control={form.control}
-                    name="date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="date"
-                            data-testid="input-date"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                />
+                
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="startTime"
@@ -346,16 +283,13 @@ export default function BookingsPage() {
                       <FormItem>
                         <FormLabel>Start Time</FormLabel>
                         <FormControl>
-                          <Input
-                            {...field}
-                            type="time"
-                            data-testid="input-start-time"
-                          />
+                          <Input type="time" {...field} data-testid="input-start-time" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  
                   <FormField
                     control={form.control}
                     name="endTime"
@@ -363,26 +297,23 @@ export default function BookingsPage() {
                       <FormItem>
                         <FormLabel>End Time</FormLabel>
                         <FormControl>
-                          <Input
-                            {...field}
-                            type="time"
-                            data-testid="input-end-time"
-                          />
+                          <Input type="time" {...field} data-testid="input-end-time" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+
                 <FormField
                   control={form.control}
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Type</FormLabel>
+                      <FormLabel>Booking Type</FormLabel>
                       <Select
+                        value={field.value}
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger data-testid="select-type">
@@ -390,15 +321,111 @@ export default function BookingsPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="rental">Rental</SelectItem>
+                          <SelectItem value="rental">Sim Rental</SelectItem>
                           <SelectItem value="lesson">Lesson</SelectItem>
-                          <SelectItem value="fitting">Fitting</SelectItem>
+                          <SelectItem value="fitting">Club Fitting</SelectItem>
+                          <SelectItem value="event">Event</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={form.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Method</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-payment-method">
+                            <SelectValue placeholder="Select payment method" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="new_card">Paid Online</SelectItem>
+                          <SelectItem value="membership">Member</SelectItem>
+                          <SelectItem value="pay_at_desk">Pay At Desk</SelectItem>
+                          <SelectItem value="card_on_file">Card on File</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="auto-assign"
+                    checked={useAutoAssign}
+                    onCheckedChange={(checked) => setUseAutoAssign(checked as boolean)}
+                    data-testid="checkbox-auto-assign"
+                  />
+                  <label
+                    htmlFor="auto-assign"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Auto-assign best available bay
+                  </label>
+                </div>
+
+                {!useAutoAssign && (
+                  <FormField
+                    control={form.control}
+                    name="bayIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Select Bays</FormLabel>
+                        <Select
+                          value={field.value?.[0] || ""}
+                          onValueChange={(value) => field.onChange([value])}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-bay">
+                              <SelectValue placeholder="Choose a bay" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {bays?.map((bay) => (
+                              <SelectItem key={bay.id} value={bay.id}>
+                                {bay.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {useAutoAssign && (
+                  <FormField
+                    control={form.control}
+                    name="numberOfBays"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Number of Bays</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            data-testid="input-number-of-bays"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
                 <FormField
                   control={form.control}
                   name="referredBy"
@@ -406,16 +433,15 @@ export default function BookingsPage() {
                     <FormItem>
                       <FormLabel>Referred By (Optional)</FormLabel>
                       <Select
-                        onValueChange={field.onChange}
                         value={field.value || ""}
+                        onValueChange={field.onChange}
                       >
                         <FormControl>
-                          <SelectTrigger data-testid="select-referred-by">
+                          <SelectTrigger data-testid="select-referral">
                             <SelectValue placeholder="Select staff member" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
                           {staffMembers.map((staff) => (
                             <SelectItem key={staff.id} value={staff.id}>
                               {staff.firstName} {staff.lastName}
@@ -469,102 +495,121 @@ export default function BookingsPage() {
             {bookings.map((booking) => (
               <div
                 key={booking.id}
-                className="flex items-center justify-between p-4 rounded-lg border hover-elevate"
+                className="grid grid-cols-[1fr_auto] gap-4 p-4 rounded-lg border hover-elevate"
                 data-testid={`booking-item-${booking.id}`}
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    <div className="flex flex-wrap gap-1">
-                      {booking.bays && booking.bays.length > 0 ? (
-                        booking.bays.map((bay, idx) => (
-                          <span key={bay?.id || idx} className="font-medium">
-                            {bay?.name}{idx < booking.bays.length - 1 ? ',' : ''}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="font-medium text-muted-foreground">No bays</span>
-                      )}
+                {/* Left side: Booking info */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      <div className="flex flex-wrap gap-1">
+                        {booking.bays && booking.bays.length > 0 ? (
+                          booking.bays.map((bay, idx) => (
+                            <span key={bay?.id || idx} className="font-medium">
+                              {bay?.name}{idx < booking.bays.length - 1 ? ',' : ''}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="font-medium text-muted-foreground">No bays</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span className="text-sm font-mono">
+                        {format(new Date(booking.startTime), "MMM d, h:mm a")} -{" "}
+                        {format(new Date(booking.endTime), "h:mm a")}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <UserIcon className="w-4 h-4" />
+                      {booking.user?.firstName} {booking.user?.lastName}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm font-mono">
-                      {format(new Date(booking.startTime), "MMM d, h:mm a")} -{" "}
-                      {format(new Date(booking.endTime), "h:mm a")}
-                    </span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {booking.user?.firstName} {booking.user?.lastName}
+
+                  {/* Check-in status */}
+                  <div className="flex items-center gap-2">
+                    {booking.checkInStatus === 'checked_in' && (
+                      <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Checked In
+                      </Badge>
+                    )}
+                    {booking.checkInStatus === 'no_show' && (
+                      <Badge variant="default" className="bg-red-600 hover:bg-red-700 text-xs flex items-center gap-1">
+                        <X className="w-3 h-3" />
+                        No Show
+                      </Badge>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary" className="capitalize">
-                    {booking.type}
-                  </Badge>
-                  {booking.paymentMethod === 'pay_at_desk' && booking.paymentStatus !== 'paid' && (
-                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 flex items-center gap-1">
-                      <DollarSign className="w-3 h-3" />
-                      PAY AT DESK
-                    </Badge>
-                  )}
-                  {booking.paymentMethod && booking.paymentMethod !== 'pay_at_desk' && (
-                    <Badge variant="secondary" className="capitalize text-xs">
-                      {booking.paymentMethod.replace(/_/g, ' ')}
-                    </Badge>
-                  )}
-                  <Badge
-                    variant={booking.paymentStatus === 'paid' ? 'default' : 'secondary'}
-                    className="capitalize"
-                  >
-                    {booking.paymentStatus}
-                  </Badge>
-                  {booking.checkInStatus === 'checked_in' && (
-                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs flex items-center gap-1">
+
+                {/* Right side: Dropdowns and actions */}
+                <div className="flex items-center gap-3">
+                  {/* Booking Type Dropdown */}
+                  <div className="w-36">
+                    <Select
+                      value={booking.type}
+                      onValueChange={(value) => updateTypeMutation.mutate({ id: booking.id, type: value })}
+                      disabled={updateTypeMutation.isPending}
+                    >
+                      <SelectTrigger className="h-9 text-xs" data-testid={`select-type-${booking.id}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="rental">Sim Rental</SelectItem>
+                        <SelectItem value="lesson">Lesson</SelectItem>
+                        <SelectItem value="fitting">Club Fitting</SelectItem>
+                        <SelectItem value="event">Event</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Payment Method Dropdown */}
+                  <div className="w-36">
+                    <Select
+                      value={booking.paymentMethod || "pay_at_desk"}
+                      onValueChange={(value) => updatePaymentMethodMutation.mutate({ id: booking.id, paymentMethod: value })}
+                      disabled={updatePaymentMethodMutation.isPending || booking.paymentStatus === 'paid'}
+                    >
+                      <SelectTrigger className="h-9 text-xs" data-testid={`select-payment-method-${booking.id}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new_card">Paid Online</SelectItem>
+                        <SelectItem value="membership">Member</SelectItem>
+                        <SelectItem value="pay_at_desk">Pay At Desk</SelectItem>
+                        <SelectItem value="card_on_file">Card on File</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Payment Status Badge */}
+                  {booking.paymentStatus === 'paid' ? (
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />
-                      Checked In
+                      Paid
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" />
+                      Pending
                     </Badge>
                   )}
-                  {booking.checkInStatus === 'no_show' && (
-                    <Badge variant="default" className="bg-red-600 hover:bg-red-700 text-xs flex items-center gap-1">
-                      <X className="w-3 h-3" />
-                      No Show
-                    </Badge>
-                  )}
-                  {booking.checkInStatus === 'pending' && (
-                    <Badge variant="secondary" className="text-xs">
-                      Not Checked In
-                    </Badge>
-                  )}
+
+                  {/* Payment Action Button */}
                   {booking.paymentStatus === 'pending' && (
-                    <div className="flex items-center gap-2 ml-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleMarkAsPaid(booking.id);
-                        }}
-                        disabled={markAsPaidMutation.isPending}
-                        data-testid={`button-mark-paid-${booking.id}`}
-                      >
-                        <Check className="w-3 h-3 mr-1" />
-                        {markAsPaidMutation.isPending ? "Updating..." : "Mark as Paid"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCollectPayment(booking.id);
-                        }}
-                        disabled={markAsPaidMutation.isPending}
-                        data-testid={`button-collect-payment-${booking.id}`}
-                      >
-                        <CreditCard className="w-3 h-3 mr-1" />
-                        Collect Payment
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => handleCollectPayment(booking.id)}
+                      disabled={markAsPaidMutation.isPending}
+                      data-testid={`button-collect-payment-${booking.id}`}
+                    >
+                      <CreditCard className="w-3 h-3 mr-1" />
+                      Collect Payment
+                    </Button>
                   )}
                 </div>
               </div>
@@ -575,45 +620,112 @@ export default function BookingsPage() {
 
       {/* Payment Collection Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent data-testid="dialog-collect-payment">
+        <DialogContent className="sm:max-w-lg" data-testid="dialog-collect-payment">
           <DialogHeader>
             <DialogTitle>Collect Payment</DialogTitle>
             <DialogDescription>
-              Process payment for this booking using your payment terminal or Stripe integration.
+              Choose how to process payment for this booking
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             {selectedBookingForPayment && bookings?.find(b => b.id === selectedBookingForPayment) && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
-                  <span className="text-sm font-medium">Booking Details</span>
-                  <div className="text-right">
-                    <div className="text-sm font-mono">
-                      {format(
-                        new Date(bookings.find(b => b.id === selectedBookingForPayment)!.startTime),
-                        "MMM d, h:mm a"
-                      )}
+              <>
+                {/* Booking Summary */}
+                <Card className="p-4 bg-muted/30">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Booking</span>
+                      <span className="text-sm font-mono">
+                        {format(
+                          new Date(bookings.find(b => b.id === selectedBookingForPayment)!.startTime),
+                          "MMM d, h:mm a"
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Customer</span>
+                      <span className="text-sm font-medium">
+                        {bookings.find(b => b.id === selectedBookingForPayment)!.user?.firstName}{" "}
+                        {bookings.find(b => b.id === selectedBookingForPayment)!.user?.lastName}
+                      </span>
                     </div>
                   </div>
+                </Card>
+
+                {/* Payment Method Selection */}
+                <div className="space-y-3">
+                  <Label>Payment Method</Label>
+                  <div className="grid gap-2">
+                    <button
+                      onClick={() => setPaymentType('card_on_file')}
+                      className={`p-4 rounded-lg border-2 text-left transition-colors hover-elevate ${
+                        paymentType === 'card_on_file'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border'
+                      }`}
+                      data-testid="option-card-on-file"
+                    >
+                      <div className="flex items-start gap-3">
+                        <CreditCard className="w-5 h-5 text-primary mt-0.5" />
+                        <div className="flex-1">
+                          <div className="font-medium mb-1">Charge Card on File</div>
+                          <div className="text-sm text-muted-foreground">
+                            Process payment using customer's saved card
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => setPaymentType('new_card')}
+                      className={`p-4 rounded-lg border-2 text-left transition-colors hover-elevate ${
+                        paymentType === 'new_card'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border'
+                      }`}
+                      data-testid="option-new-card"
+                    >
+                      <div className="flex items-start gap-3">
+                        <CreditCard className="w-5 h-5 text-primary mt-0.5" />
+                        <div className="flex-1">
+                          <div className="font-medium mb-1">Enter New Card / POS</div>
+                          <div className="text-sm text-muted-foreground">
+                            Manually enter card details or use POS terminal
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
-                
-                <div className="p-4 rounded-lg border border-amber-500/20 bg-amber-50 dark:bg-amber-950/20">
+
+                {/* Stripe Integration Notice */}
+                <Card className="p-4 border-amber-500/20 bg-amber-50 dark:bg-amber-950/20">
                   <div className="flex items-start gap-3">
-                    <CreditCard className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5" />
+                    <DollarSign className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <h4 className="font-medium text-amber-900 dark:text-amber-100 mb-1">
-                        Stripe Integration Required
+                        Payment Processing Coming Soon
                       </h4>
-                      <p className="text-sm text-amber-800 dark:text-amber-200">
-                        Full payment processing through Stripe will be available soon. 
-                        For now, please collect payment manually (cash, card terminal, etc.) 
-                        and use the "Mark as Paid" button to update the booking status.
+                      <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                        Stripe integration for automated payment processing will be available soon.
                       </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          handleMarkAsPaid(selectedBookingForPayment);
+                          setIsPaymentDialogOpen(false);
+                          setSelectedBookingForPayment(null);
+                        }}
+                        data-testid="button-mark-paid-dialog"
+                      >
+                        Mark as Paid (Manual)
+                      </Button>
                     </div>
                   </div>
-                </div>
-              </div>
+                </Card>
+              </>
             )}
           </div>
 
@@ -627,14 +739,6 @@ export default function BookingsPage() {
               data-testid="button-cancel-payment"
             >
               Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={processPayment}
-              data-testid="button-process-payment"
-            >
-              <CreditCard className="w-4 h-4 mr-2" />
-              Process Payment (Coming Soon)
             </Button>
           </DialogFooter>
         </DialogContent>
