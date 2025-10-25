@@ -448,7 +448,15 @@ export class DatabaseStorage implements IStorage {
     start: Date,
     end: Date
   ): Promise<Booking[]> {
-    return await db
+    console.log('[Storage] getBookingsByDateRange input:', {
+      facilityId,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      startType: typeof start,
+      endType: typeof end
+    });
+    
+    const result = await db
       .select()
       .from(bookings)
       .where(
@@ -459,6 +467,17 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(asc(bookings.startTime));
+      
+    console.log('[Storage] getBookingsByDateRange result:', {
+      count: result.length,
+      bookings: result.map(b => ({
+        id: b.id,
+        startTime: b.startTime,
+        endTime: b.endTime
+      }))
+    });
+    
+    return result;
   }
 
   // Membership Tiers

@@ -1034,11 +1034,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Support date range filtering for week/month views
       let bookings;
       if (start && end && user?.facilityId) {
+        const startDate = new Date(start as string);
+        const endDate = new Date(end as string);
+        console.log('[Bookings Query] Date range:', { 
+          start: startDate.toISOString(), 
+          end: endDate.toISOString(),
+          facilityId: user.facilityId
+        });
         bookings = await storage.getBookingsByDateRange(
           user.facilityId,
-          new Date(start as string),
-          new Date(end as string)
+          startDate,
+          endDate
         );
+        console.log('[Bookings Query] Found bookings:', bookings.length);
       } else {
         bookings = await storage.getBookings(user?.facilityId || undefined);
       }

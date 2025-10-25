@@ -317,16 +317,6 @@ export default function Schedule() {
                   <Badge variant="default" className="text-[10px]">Today</Badge>
                 )}
               </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedDate(new Date())}
-                data-testid="button-today"
-                className="ml-2"
-              >
-                Today
-              </Button>
             </div>
 
             <Button
