@@ -107,6 +107,16 @@ export const facilities = pgTable("facilities", {
   // Membership billing
   billingPeriod: varchar("billing_period").default("monthly"), // "monthly" or "annual"
   
+  // Booking buffer settings (in minutes)
+  bayBookingBufferMinutes: integer("bay_booking_buffer_minutes").default(30), // Minimum time before booking (e.g., 30 min)
+  lessonBookingBufferMinutes: integer("lesson_booking_buffer_minutes").default(1440), // 24 hours for lessons
+  fittingBookingBufferMinutes: integer("fitting_booking_buffer_minutes").default(1440), // 24 hours for fittings
+  
+  // Buffer between bookings (in minutes)
+  bayBufferBetweenMinutes: integer("bay_buffer_between_minutes").default(5), // Gap between bay bookings
+  lessonBufferBetweenMinutes: integer("lesson_buffer_between_minutes").default(15), // Gap between lessons
+  fittingBufferBetweenMinutes: integer("fitting_buffer_between_minutes").default(15), // Gap between fittings
+  
   // Stripe Connect (for later)
   stripeAccountId: varchar("stripe_account_id"),
   

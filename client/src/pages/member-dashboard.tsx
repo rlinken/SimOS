@@ -764,17 +764,29 @@ export default function MemberDashboard() {
                         const slotBookings = getSlotBookings(date, hour);
                         const booking = slotBookings[0]; // Primary booking to display
                         const isBooked = slotBookings.length > 0;
-                        const isPast = date < new Date() || (isSameDay(date, new Date()) && hour < new Date().getHours());
+                        
+                        // Check if slot is in the past
+                        const slotDateTime = new Date(date);
+                        slotDateTime.setHours(hour, 0, 0, 0);
+                        const now = new Date();
+                        const isPast = slotDateTime < now;
+                        
+                        // Check booking buffer (minimum time before a booking can be made)
+                        const bayBufferMinutes = facility?.bayBookingBufferMinutes || 30;
+                        const minutesUntilSlot = (slotDateTime.getTime() - now.getTime()) / (1000 * 60);
+                        const isWithinBookingBuffer = minutesUntilSlot < bayBufferMinutes && minutesUntilSlot >= 0;
+                        
                         const isMyBooking = slotBookings.some(b => b.userId === user?.id);
                         const myBooking = slotBookings.find(b => b.userId === user?.id);
                         const occupancy = getSlotOccupancy(date, hour);
                         const isFullyBooked = occupancy >= 100;
+                        const isUnavailable = isPast || isWithinBookingBuffer;
 
                         return (
                           <div
                             key={`${date.toISOString()}-${hour}`}
                             className={`group relative min-h-[60px] rounded border p-2 transition-all ${
-                              isPast
+                              isUnavailable
                                 ? "bg-muted/50 cursor-not-allowed border-muted"
                                 : isFullyBooked
                                 ? "bg-red-500/10 border-red-500/30 cursor-not-allowed"
@@ -784,7 +796,7 @@ export default function MemberDashboard() {
                                 ? "border-dashed cursor-pointer hover-elevate"
                                 : `${getOccupancyColor(occupancy)} cursor-pointer hover-elevate`
                             }`}
-                            onClick={() => !isPast && !isFullyBooked && !isMyBooking && handleTimeSlotClick(date, hour)}
+                            onClick={() => !isUnavailable && !isFullyBooked && !isMyBooking && handleTimeSlotClick(date, hour)}
                             data-testid={`timeslot-${format(date, "yyyy-MM-dd")}-${hour}`}
                           >
                             {isMyBooking ? (
@@ -796,12 +808,12 @@ export default function MemberDashboard() {
                                   {format(parseISO(myBooking!.startTime as any), "h:mm a")} - {format(parseISO(myBooking!.endTime as any), "h:mm a")}
                                 </div>
                               </div>
-                            ) : isFullyBooked && !isPast ? (
+                            ) : isFullyBooked && !isUnavailable ? (
                               <div className="text-xs text-center">
                                 <div className="font-medium text-red-600 dark:text-red-400">Fully Booked</div>
                                 <div className="text-xs opacity-75">{slotBookings.length} of {bays.length}</div>
                               </div>
-                            ) : isBooked && !isPast ? (
+                            ) : isBooked && !isUnavailable ? (
                               <div className="text-xs text-center">
                                 <div className="font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                                   Click to book
@@ -810,9 +822,13 @@ export default function MemberDashboard() {
                                   {slotBookings.length} of {bays.length} bays
                                 </div>
                               </div>
-                            ) : !isPast ? (
+                            ) : !isUnavailable ? (
                               <div className="text-xs text-muted-foreground text-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 Click to book
+                              </div>
+                            ) : isWithinBookingBuffer && !isPast ? (
+                              <div className="text-xs text-center text-muted-foreground">
+                                <div className="opacity-60">Too soon</div>
                               </div>
                             ) : null}
                           </div>

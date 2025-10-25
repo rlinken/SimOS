@@ -158,6 +158,129 @@ export default function SettingsPage() {
               </div>
             </div>
           </Card>
+
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Booking Buffers</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Configure minimum advance booking times and gaps between bookings
+            </p>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bay-booking-buffer">Bay Booking Advance (minutes)</Label>
+                  <Input
+                    id="bay-booking-buffer"
+                    type="number"
+                    min="0"
+                    value={facility?.bayBookingBufferMinutes || 30}
+                    onChange={(e) => 
+                      updateSettingsMutation.mutate({ bayBookingBufferMinutes: parseInt(e.target.value) })
+                    }
+                    disabled={isLoading || updateSettingsMutation.isPending}
+                    data-testid="input-bay-booking-buffer"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Minimum time before a bay can be booked (e.g., 30 minutes)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bay-buffer-between">Bay Buffer Between (minutes)</Label>
+                  <Input
+                    id="bay-buffer-between"
+                    type="number"
+                    min="0"
+                    value={facility?.bayBufferBetweenMinutes || 5}
+                    onChange={(e) => 
+                      updateSettingsMutation.mutate({ bayBufferBetweenMinutes: parseInt(e.target.value) })
+                    }
+                    disabled={isLoading || updateSettingsMutation.isPending}
+                    data-testid="input-bay-buffer-between"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gap time between consecutive bay bookings (e.g., 5 minutes)
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t pt-6 grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="lesson-booking-buffer">Lesson Booking Advance (minutes)</Label>
+                  <Input
+                    id="lesson-booking-buffer"
+                    type="number"
+                    min="0"
+                    value={facility?.lessonBookingBufferMinutes || 1440}
+                    onChange={(e) => 
+                      updateSettingsMutation.mutate({ lessonBookingBufferMinutes: parseInt(e.target.value) })
+                    }
+                    disabled={isLoading || updateSettingsMutation.isPending}
+                    data-testid="input-lesson-booking-buffer"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Minimum advance time for lessons (e.g., 1440 = 24 hours)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="lesson-buffer-between">Lesson Buffer Between (minutes)</Label>
+                  <Input
+                    id="lesson-buffer-between"
+                    type="number"
+                    min="0"
+                    value={facility?.lessonBufferBetweenMinutes || 15}
+                    onChange={(e) => 
+                      updateSettingsMutation.mutate({ lessonBufferBetweenMinutes: parseInt(e.target.value) })
+                    }
+                    disabled={isLoading || updateSettingsMutation.isPending}
+                    data-testid="input-lesson-buffer-between"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gap time between consecutive lessons (e.g., 15 minutes)
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t pt-6 grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fitting-booking-buffer">Fitting Booking Advance (minutes)</Label>
+                  <Input
+                    id="fitting-booking-buffer"
+                    type="number"
+                    min="0"
+                    value={facility?.fittingBookingBufferMinutes || 1440}
+                    onChange={(e) => 
+                      updateSettingsMutation.mutate({ fittingBookingBufferMinutes: parseInt(e.target.value) })
+                    }
+                    disabled={isLoading || updateSettingsMutation.isPending}
+                    data-testid="input-fitting-booking-buffer"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Minimum advance time for fittings (e.g., 1440 = 24 hours)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="fitting-buffer-between">Fitting Buffer Between (minutes)</Label>
+                  <Input
+                    id="fitting-buffer-between"
+                    type="number"
+                    min="0"
+                    value={facility?.fittingBufferBetweenMinutes || 15}
+                    onChange={(e) => 
+                      updateSettingsMutation.mutate({ fittingBufferBetweenMinutes: parseInt(e.target.value) })
+                    }
+                    disabled={isLoading || updateSettingsMutation.isPending}
+                    data-testid="input-fitting-buffer-between"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gap time between consecutive fittings (e.g., 15 minutes)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
         </TabsContent>
 
         <TabsContent value="widgets" className="space-y-6">
