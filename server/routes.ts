@@ -315,6 +315,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Onboarding Route
+  // ============================================================================
+
+  app.post("/api/onboarding/complete", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Check if user already has a facility
+      if (user.facilityId) {
+        return res.status(400).json({ message: "User already has a facility" });
+      }
+
+      const {
+        name,
+        subdomain,
+        logo,
+        address,
+        phone,
+        email,
+        bays,
+        lessonsEnabled,
+        fittingsEnabled,
+        membershipTiers,
+      } = req.body;
+
+      // Validation
+      if (!name || !subdomain) {
+        return res.status(400).json({ message: "Name and subdomain are required" });
+      }
+      if (!bays || bays.length === 0) {
+        return res.status(400).json({ message: "At least one bay is required" });
+      }
+      if (!membershipTiers || membershipTiers.length === 0) {
+        return res.status(400).json({ message: "At least one membership tier is required" });
+      }
+
+      // Create facility
+      const facility = await storage.createFacility({
+        name,
+        subdomain,
+        logo,
+        address,
+        phone,
+        email,
+        lessonsEnabled,
+        fittingsEnabled,
+      });
+
+      // Update user to be facility admin
+      await storage.updateUserFacility(userId, facility.id, "facility_admin");
+
+      // Create bays with custom names and tiers
+      const bayPromises = bays.map((bay: any) =>
+        storage.createBay({
+          facilityId: facility.id,
+          name: bay.name,
+          description: `${bay.tier} tier bay`,
+          tier: bay.tier,
+          status: "active",
+        })
+      );
+      await Promise.all(bayPromises);
+
+      // Create membership tiers
+      const tierPromises = membershipTiers.map((tier: any) =>
+        storage.createMembershipTier({
+          facilityId: facility.id,
+          name: tier.name,
+          tierLevel: tier.tierLevel,
+          monthlyPrice: tier.monthlyPrice,
+          hourlyRate: tier.hourlyRate,
+          monthlyHours: tier.monthlyHours,
+          allowedBayTiers: ["standard", "premium", "vip"],
+        })
+      );
+      await Promise.all(tierPromises);
+
+      res.json({
+        success: true,
+        facility,
+        message: "Onboarding complete!",
+      });
+    } catch (error: any) {
+      console.error("Error completing onboarding:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Dashboard Stats Route
   // ============================================================================
 

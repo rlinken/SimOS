@@ -17,11 +17,13 @@ import LessonsPage from "@/pages/lessons";
 import FittingsPage from "@/pages/fittings";
 import FacilitiesPage from "@/pages/facilities";
 import SettingsPage from "@/pages/settings";
+import OnboardingPage from "@/pages/onboarding";
 
 function AuthenticatedRoutes() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/bays" component={BaysPage} />
       <Route path="/bookings" component={BookingsPage} />
       <Route path="/members" component={MembersPage} />
