@@ -409,16 +409,26 @@ function QuickBookDialog({
       return;
     }
 
-    createBookingMutation.mutate({
+    const bookingData: any = {
       bayIds: [bay.id],
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       type: 'rental',
-      userId: selectedCustomer?.id,
-      notes: selectedCustomer 
-        ? `Booking for existing customer: ${selectedCustomer.firstName} ${selectedCustomer.lastName}`
-        : `New customer booking: ${manualName} (${manualEmail || 'no email'})`,
-    });
+    };
+    
+    // If existing customer selected, use their ID
+    if (selectedCustomer) {
+      bookingData.customerId = selectedCustomer.id;
+      bookingData.notes = `Booking for ${selectedCustomer.firstName} ${selectedCustomer.lastName}`;
+    } else {
+      // Walk-in customer - send guest details
+      bookingData.guestName = manualName;
+      bookingData.guestEmail = manualEmail;
+      bookingData.guestPhone = manualPhone;
+      bookingData.notes = `Walk-in booking: ${manualName}${manualEmail ? ` (${manualEmail})` : ''}`;
+    }
+    
+    createBookingMutation.mutate(bookingData);
   };
 
   return (

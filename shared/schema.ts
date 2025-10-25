@@ -744,9 +744,18 @@ export const bookings = pgTable("bookings", {
   facilityId: varchar("facility_id")
     .references(() => facilities.id, { onDelete: "cascade" })
     .notNull(),
+  
+  // Customer & Staff tracking
+  customerId: varchar("customer_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(), // The customer the booking is for
+  createdBy: varchar("created_by")
+    .references(() => users.id, { onDelete: "set null" }), // Staff member who created it (null if customer self-booked)
+  
   userId: varchar("user_id")
     .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
+    .notNull(), // DEPRECATED: kept for backward compatibility, will be removed in future
+  
   bayIds: varchar("bay_ids").array().notNull(),
   
   startTime: timestamp("start_time").notNull(),
@@ -789,9 +798,17 @@ export const insertBookingSchema = createInsertSchema(bookings)
     id: true,
     createdAt: true,
     updatedAt: true,
+    userId: true, // DEPRECATED - use customerId instead
   })
   .extend({
     bayIds: z.array(z.string()).min(1).optional(), // Optional - will be auto-assigned if not provided
+    customerId: z.string(), // Required - the customer the booking is for
+    createdBy: z.string().optional(), // Optional - staff member who created it
+    
+    // Guest customer fields (for walk-ins without existing accounts)
+    guestName: z.string().optional(),
+    guestEmail: z.string().email().optional(),
+    guestPhone: z.string().optional(),
   });
 
 export type Booking = typeof bookings.$inferSelect;

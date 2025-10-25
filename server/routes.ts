@@ -1037,8 +1037,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const bays = await Promise.all(
             (booking.bayIds || []).map(bayId => storage.getBay(bayId))
           );
-          const bookingUser = await storage.getUser(booking.userId);
-          return { ...booking, bays: bays.filter(Boolean), user: bookingUser };
+          // Fetch customer info using customerId (new) or userId (deprecated fallback)
+          const customer = await storage.getUser(booking.customerId || booking.userId);
+          // Fetch staff who created it (if applicable)
+          const createdByUser = booking.createdBy ? await storage.getUser(booking.createdBy) : null;
+          return { 
+            ...booking, 
+            bays: bays.filter(Boolean), 
+            customer, 
+            createdByUser,
+            user: customer, // DEPRECATED: for backward compatibility
+          };
         })
       );
       
@@ -1056,10 +1065,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No facility associated" });
       }
 
+      let customerId = req.body.customerId;
+      
+      // Handle walk-in customers (guest with no existing account)
+      if (!customerId && req.body.guestEmail) {
+        // Try to find existing customer by email
+        const existingCustomers = await storage.getUsers();
+        const existingCustomer = existingCustomers.find(
+          u => u.email.toLowerCase() === req.body.guestEmail.toLowerCase() && u.facilityId === user.facilityId
+        );
+        
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
+        } else {
+          // Create a minimal customer record for walk-in
+          const [firstName, ...lastNameParts] = (req.body.guestName || 'Guest').split(' ');
+          const lastName = lastNameParts.join(' ') || '';
+          
+          const newCustomer = await storage.createUser({
+            email: req.body.guestEmail,
+            firstName,
+            lastName,
+            phone: req.body.guestPhone || '',
+            role: 'customer',
+            facilityId: user.facilityId,
+            sub: `guest-${Date.now()}-${Math.random().toString(36).substring(7)}`, // Temporary sub for guest
+          });
+          customerId = newCustomer.id;
+        }
+      }
+      
+      if (!customerId) {
+        return res.status(400).json({ message: "Customer ID or guest information required" });
+      }
+
       const validatedData = insertBookingSchema.parse({
         ...req.body,
         facilityId: user.facilityId,
-        userId: user.id,
+        customerId, // The customer the booking is for
+        createdBy: user.id, // Staff member creating the booking
+        userId: customerId, // DEPRECATED: for backward compatibility
       });
 
       // Smart bay assignment - find bays with lowest usage
