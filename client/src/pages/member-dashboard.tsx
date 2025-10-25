@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, MapPin, User, CreditCard, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { Booking, MembershipTier } from "@shared/schema";
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from "date-fns";
+import { format, addDays, isSameDay, parseISO } from "date-fns";
 
 type EnrichedBooking = Booking & {
   user?: any;
@@ -41,9 +41,8 @@ export default function MemberDashboard() {
     ? membershipTiers.find((t) => t.id === user.membershipTierId)
     : null;
 
-  // Get week dates for calendar view
-  const weekStart = startOfWeek(selectedDate);
-  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // Get week dates for calendar view - always start with today on the left
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(selectedDate, i));
 
   // Filter bookings by view mode
   const filteredBookings = myBookings.filter((booking) => {
@@ -205,7 +204,7 @@ export default function MemberDashboard() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold">
-                {format(weekStart, "MMM d")} - {format(endOfWeek(weekStart), "MMM d, yyyy")}
+                {format(selectedDate, "MMM d")} - {format(addDays(selectedDate, 6), "MMM d, yyyy")}
               </h2>
               <div className="flex gap-2">
                 <Button
