@@ -29,7 +29,8 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar, Plus, Clock, MapPin, Sparkles } from "lucide-react";
+import { Calendar, Plus, Clock, MapPin, Sparkles, DollarSign, CheckCircle2, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { Booking, Bay, User } from "@shared/schema";
@@ -455,17 +456,44 @@ export default function BookingsPage() {
                     {booking.user?.firstName} {booking.user?.lastName}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="px-2 py-1 rounded-md text-xs font-medium border capitalize">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="secondary" className="capitalize">
                     {booking.type}
-                  </div>
-                  <div
-                    className={`px-2 py-1 rounded-md text-xs font-medium ${getPaymentStatusColor(
-                      booking.paymentStatus
-                    )}`}
+                  </Badge>
+                  {booking.paymentMethod === 'pay_at_desk' && booking.paymentStatus !== 'paid' && (
+                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" />
+                      PAY AT DESK
+                    </Badge>
+                  )}
+                  {booking.paymentMethod && booking.paymentMethod !== 'pay_at_desk' && (
+                    <Badge variant="secondary" className="capitalize text-xs">
+                      {booking.paymentMethod.replace(/_/g, ' ')}
+                    </Badge>
+                  )}
+                  <Badge
+                    variant={booking.paymentStatus === 'paid' ? 'default' : 'secondary'}
+                    className="capitalize"
                   >
                     {booking.paymentStatus}
-                  </div>
+                  </Badge>
+                  {booking.checkInStatus === 'checked_in' && (
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Checked In
+                    </Badge>
+                  )}
+                  {booking.checkInStatus === 'no_show' && (
+                    <Badge variant="default" className="bg-red-600 hover:bg-red-700 text-xs flex items-center gap-1">
+                      <X className="w-3 h-3" />
+                      No Show
+                    </Badge>
+                  )}
+                  {booking.checkInStatus === 'pending' && (
+                    <Badge variant="secondary" className="text-xs">
+                      Not Checked In
+                    </Badge>
+                  )}
                 </div>
               </div>
             ))}

@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ChevronLeft, ChevronRight, Clock, User, Mail, Phone, Plus, X, Check, ChevronsUpDown, CalendarDays, CalendarRange, CalendarClock } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar, ChevronLeft, ChevronRight, Clock, User, Mail, Phone, Plus, X, Check, ChevronsUpDown, CalendarDays, CalendarRange, CalendarClock, DollarSign, CreditCard, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { format, addDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, setHours, setMinutes, isSameDay, isWithinInterval, eachDayOfInterval, addWeeks, addMonths } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -34,6 +35,9 @@ type Booking = {
   userPhone?: string;
   amount?: string;
   paymentStatus?: string;
+  paymentMethod?: "pay_at_desk" | "new_card" | "card_on_file" | "membership";
+  checkInStatus?: "pending" | "checked_in" | "no_show";
+  checkedInAt?: string;
 };
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -426,6 +430,29 @@ export default function Schedule() {
                               <Clock className="w-3 h-3" />
                               {format(new Date(booking.startTime), "h:mm")} - {format(new Date(booking.endTime), "h:mm a")}
                             </div>
+                            {booking.paymentMethod === 'pay_at_desk' && booking.paymentStatus !== 'paid' && (
+                              <Badge variant="default" className="text-[9px] bg-amber-500 hover:bg-amber-600 flex items-center gap-1">
+                                <DollarSign className="w-3 h-3" />
+                                PAY AT DESK
+                              </Badge>
+                            )}
+                            {booking.checkInStatus === 'pending' && (
+                              <Badge variant="secondary" className="text-[9px]">
+                                Not checked in
+                              </Badge>
+                            )}
+                            {booking.checkInStatus === 'checked_in' && (
+                              <Badge variant="default" className="text-[9px] bg-green-600 hover:bg-green-700 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Checked In
+                              </Badge>
+                            )}
+                            {booking.checkInStatus === 'no_show' && (
+                              <Badge variant="default" className="text-[9px] bg-red-600 hover:bg-red-700 flex items-center gap-1">
+                                <X className="w-3 h-3" />
+                                No Show
+                              </Badge>
+                            )}
                             <div className="absolute inset-0 border-2 border-transparent group-hover:border-primary/50 rounded transition-colors pointer-events-none" />
                           </div>
                         ) : isAvailable ? (
@@ -704,6 +731,7 @@ function QuickBookDialog({
   const [manualName, setManualName] = useState("");
   const [manualEmail, setManualEmail] = useState("");
   const [manualPhone, setManualPhone] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"pay_at_desk" | "new_card" | "card_on_file" | "membership">("pay_at_desk");
   const { toast } = useToast();
 
   // Fetch all customers/members
@@ -767,6 +795,7 @@ function QuickBookDialog({
     setManualEmail("");
     setManualPhone("");
     setDuration(1);
+    setPaymentMethod("pay_at_desk");
     onClose();
   };
 
@@ -815,6 +844,7 @@ function QuickBookDialog({
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       type: 'rental',
+      paymentMethod,
     };
     
     // If existing customer selected, use their ID
@@ -994,6 +1024,48 @@ function QuickBookDialog({
               </div>
             </>
           )}
+
+          {/* Payment Method */}
+          <div className="border-t pt-4 space-y-2">
+            <Label htmlFor="payment-method">Payment Method</Label>
+            <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+              <SelectTrigger id="payment-method" data-testid="select-payment-method">
+                <SelectValue placeholder="Select payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pay_at_desk" data-testid="payment-option-pay-at-desk">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Pay at Desk
+                  </div>
+                </SelectItem>
+                <SelectItem value="new_card" data-testid="payment-option-new-card">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4" />
+                    Charge Card Now
+                  </div>
+                </SelectItem>
+                <SelectItem value="card_on_file" data-testid="payment-option-card-on-file">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4" />
+                    Card on File
+                  </div>
+                </SelectItem>
+                <SelectItem value="membership" data-testid="payment-option-membership">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Use Membership Hours
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            {paymentMethod === "pay_at_desk" && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">
+                <AlertCircle className="w-3 h-3" />
+                Remember to collect payment when customer arrives
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -1024,7 +1096,37 @@ function BookingDetailsDialog({
   onClose: () => void;
   booking: Booking | null;
 }) {
+  const { toast } = useToast();
+
+  const checkInMutation = useMutation({
+    mutationFn: async (status: "checked_in" | "no_show") => {
+      return apiRequest(`/api/bookings/${booking!.id}/check-in`, {
+        method: 'PATCH',
+        body: JSON.stringify({ checkInStatus: status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({
+        title: "Check-in Updated",
+        description: "Booking check-in status has been updated.",
+      });
+      onClose();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update check-in status.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!booking) return null;
+
+  const handleCheckIn = () => {
+    checkInMutation.mutate("checked_in");
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -1075,12 +1177,57 @@ function BookingDetailsDialog({
                 <span className="font-semibold">${booking.amount}</span>
               </div>
             )}
+            
+            {/* Payment Method - Prominent for Pay at Desk */}
+            {booking.paymentMethod && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Payment Method</span>
+                {booking.paymentMethod === 'pay_at_desk' && booking.paymentStatus !== 'paid' ? (
+                  <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 flex items-center gap-1">
+                    <DollarSign className="w-3 h-3" />
+                    PAY AT DESK
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="capitalize">
+                    {booking.paymentMethod.replace(/_/g, ' ')}
+                  </Badge>
+                )}
+              </div>
+            )}
+            
             {booking.paymentStatus && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Payment Status</span>
                 <Badge variant={booking.paymentStatus === 'paid' ? 'default' : 'secondary'} className="capitalize">
                   {booking.paymentStatus}
                 </Badge>
+              </div>
+            )}
+
+            {/* Check-in Status */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Check-in Status</span>
+              {booking.checkInStatus === 'checked_in' ? (
+                <Badge variant="default" className="bg-green-600 hover:bg-green-700 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Checked In
+                </Badge>
+              ) : booking.checkInStatus === 'no_show' ? (
+                <Badge variant="default" className="bg-red-600 hover:bg-red-700 flex items-center gap-1">
+                  <X className="w-3 h-3" />
+                  No Show
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="capitalize">
+                  {booking.checkInStatus?.replace(/_/g, ' ') || 'pending'}
+                </Badge>
+              )}
+            </div>
+
+            {booking.checkedInAt && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Checked In At</span>
+                <span className="font-mono text-sm">{format(new Date(booking.checkedInAt), "MMM d, h:mm a")}</span>
               </div>
             )}
           </div>
@@ -1090,9 +1237,17 @@ function BookingDetailsDialog({
           <Button variant="outline" onClick={onClose} className="flex-1" data-testid="button-close">
             Close
           </Button>
-          <Button variant="default" className="flex-1" data-testid="button-view-profile">
-            View Customer Profile
-          </Button>
+          {booking.checkInStatus === 'pending' && (
+            <Button 
+              variant="default" 
+              className="flex-1 bg-green-600 hover:bg-green-700" 
+              onClick={handleCheckIn}
+              disabled={checkInMutation.isPending}
+              data-testid="button-check-in"
+            >
+              {checkInMutation.isPending ? "Checking In..." : "Check In"}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

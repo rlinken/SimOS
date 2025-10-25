@@ -1165,6 +1165,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check-in endpoint - update booking check-in status
+  app.patch("/api/bookings/:id/check-in", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking || booking.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const { checkInStatus } = req.body;
+      
+      if (!["pending", "checked_in", "no_show"].includes(checkInStatus)) {
+        return res.status(400).json({ message: "Invalid check-in status" });
+      }
+
+      const updated = await storage.updateBooking(req.params.id, {
+        checkInStatus,
+        checkedInAt: checkInStatus === "checked_in" ? new Date() : null,
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating booking check-in status:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ============================================================================
   // Membership Tiers Routes
   // ============================================================================

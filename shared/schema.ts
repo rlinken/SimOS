@@ -124,6 +124,19 @@ export const recurringCommissionTypeEnum = pgEnum("recurring_commission_type", [
   "forever", // Commission on all recurring payments
 ]);
 
+export const paymentMethodEnum = pgEnum("payment_method", [
+  "card_on_file", // Charge saved card
+  "new_card", // Process new card payment
+  "pay_at_desk", // Customer pays when arriving
+  "membership", // Covered by membership hours
+]);
+
+export const checkInStatusEnum = pgEnum("check_in_status", [
+  "pending", // Not yet checked in
+  "checked_in", // Customer has arrived
+  "no_show", // Customer didn't show up
+]);
+
 export const productTypeEnum = pgEnum("product_type", [
   "booking",
   "lesson",
@@ -766,8 +779,14 @@ export const bookings = pgTable("bookings", {
   paymentStatus: paymentStatusEnum("payment_status")
     .notNull()
     .default("pending"),
+  paymentMethod: paymentMethodEnum("payment_method").default("pay_at_desk"), // How customer will pay
   amount: numeric("amount", { precision: 10, scale: 2 }),
   stripePaymentId: varchar("stripe_payment_id"),
+  stripePaymentMethodId: varchar("stripe_payment_method_id"), // Saved payment method ID for card_on_file
+  
+  // Check-in tracking
+  checkInStatus: checkInStatusEnum("check_in_status").notNull().default("pending"),
+  checkedInAt: timestamp("checked_in_at"), // When customer checked in
   
   // Membership usage tracking
   usedMembershipHours: boolean("used_membership_hours").default(false), // Was this covered by membership?
@@ -798,6 +817,7 @@ export const insertBookingSchema = createInsertSchema(bookings)
     id: true,
     createdAt: true,
     updatedAt: true,
+    checkedInAt: true, // Set automatically when checking in
   })
   .extend({
     startTime: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
@@ -806,6 +826,10 @@ export const insertBookingSchema = createInsertSchema(bookings)
     customerId: z.string(), // Required - the customer the booking is for
     userId: z.string(), // DEPRECATED - kept for backward compatibility, same as customerId
     createdBy: z.string().optional(), // Optional - staff member who created it
+    
+    // Payment fields
+    paymentMethod: z.enum(["card_on_file", "new_card", "pay_at_desk", "membership"]).optional().default("pay_at_desk"),
+    stripePaymentMethodId: z.string().optional(), // Required if paymentMethod is "card_on_file"
     
     // Guest customer fields (for walk-ins without existing accounts)
     guestName: z.string().optional(),
