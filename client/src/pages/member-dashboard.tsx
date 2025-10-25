@@ -1,23 +1,66 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, User, CreditCard, Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar as CalendarIcon, Clock, MapPin, User, CreditCard, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import type { Booking, MembershipTier } from "@shared/schema";
-import { format, addDays, isSameDay, parseISO } from "date-fns";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Booking, MembershipTier, Bay, Offering } from "@shared/schema";
+import { format, addDays, isSameDay, parseISO, addMinutes } from "date-fns";
 
 type EnrichedBooking = Booking & {
   user?: any;
   bay?: any;
 };
 
+const bookingSchema = z.object({
+  bayId: z.number({ required_error: "Please select a bay" }),
+  offeringId: z.number().optional(),
+  date: z.string().min(1, "Date is required"),
+  time: z.string().min(1, "Time is required"),
+  duration: z.string().min(1, "Duration is required"),
+  notes: z.string().optional(),
+});
+
+type BookingFormData = z.infer<typeof bookingSchema>;
+
 export default function MemberDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"all" | "bays" | "lessons" | "fittings">("all");
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
+  const [bookingType, setBookingType] = useState<"rental" | "lesson" | "fitting">("rental");
 
   const { data: bookings = [] } = useQuery<EnrichedBooking[]>({
     queryKey: ["/api/bookings"],
@@ -25,6 +68,75 @@ export default function MemberDashboard() {
 
   const { data: membershipTiers = [] } = useQuery<MembershipTier[]>({
     queryKey: ["/api/membership-tiers"],
+  });
+
+  const { data: bays = [] } = useQuery<Bay[]>({
+    queryKey: ["/api/bays"],
+  });
+
+  const { data: offerings = [] } = useQuery<Offering[]>({
+    queryKey: ["/api/offerings"],
+  });
+
+  const form = useForm<BookingFormData>({
+    resolver: zodResolver(bookingSchema),
+    defaultValues: {
+      date: format(new Date(), "yyyy-MM-dd"),
+      time: "09:00",
+      duration: "60",
+      notes: "",
+    },
+  });
+
+  const createBookingMutation = useMutation({
+    mutationFn: async (data: BookingFormData) => {
+      const startTime = new Date(`${data.date}T${data.time}`);
+      const endTime = addMinutes(startTime, parseInt(data.duration));
+
+      return apiRequest("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          bayId: data.bayId,
+          offeringId: data.offeringId,
+          type: bookingType,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          notes: data.notes,
+          paymentStatus: "pending",
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking Created",
+        description: "Your booking has been successfully created.",
+      });
+      setBookingDialogOpen(false);
+      form.reset();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleOpenBooking = (type: "rental" | "lesson" | "fitting") => {
+    setBookingType(type);
+    setBookingDialogOpen(true);
+  };
+
+  const onSubmitBooking = (data: BookingFormData) => {
+    createBookingMutation.mutate(data);
+  };
+
+  const filteredOfferings = offerings.filter((offering) => {
+    if (bookingType === "lesson") return offering.type === "lesson";
+    if (bookingType === "fitting") return offering.type === "fitting";
+    return false;
   });
 
   // Filter user's bookings
@@ -126,28 +238,212 @@ export default function MemberDashboard() {
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="p-6 hover-elevate cursor-pointer" data-testid="card-book-bay">
+        <Card
+          className="p-6 hover-elevate cursor-pointer"
+          onClick={() => handleOpenBooking("rental")}
+          data-testid="card-book-bay"
+        >
           <MapPin className="w-8 h-8 mb-3 text-primary" />
           <h3 className="font-semibold mb-1">Book a Bay</h3>
           <p className="text-sm text-muted-foreground">Reserve simulator time</p>
         </Card>
-        <Card className="p-6 hover-elevate cursor-pointer" data-testid="card-book-lesson">
+        <Card
+          className="p-6 hover-elevate cursor-pointer"
+          onClick={() => handleOpenBooking("lesson")}
+          data-testid="card-book-lesson"
+        >
           <User className="w-8 h-8 mb-3 text-purple-600 dark:text-purple-400" />
           <h3 className="font-semibold mb-1">Schedule Lesson</h3>
           <p className="text-sm text-muted-foreground">Book with an instructor</p>
         </Card>
-        <Card className="p-6 hover-elevate cursor-pointer" data-testid="card-book-fitting">
+        <Card
+          className="p-6 hover-elevate cursor-pointer"
+          onClick={() => handleOpenBooking("fitting")}
+          data-testid="card-book-fitting"
+        >
           <Clock className="w-8 h-8 mb-3 text-blue-600 dark:text-blue-400" />
           <h3 className="font-semibold mb-1">Club Fitting</h3>
           <p className="text-sm text-muted-foreground">Get professionally fitted</p>
         </Card>
       </div>
 
+      {/* Booking Dialog */}
+      <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {bookingType === "rental" && "Book a Bay"}
+              {bookingType === "lesson" && "Schedule a Lesson"}
+              {bookingType === "fitting" && "Book a Club Fitting"}
+            </DialogTitle>
+            <DialogDescription>
+              {bookingType === "rental" && "Select a bay and time for your simulator session"}
+              {bookingType === "lesson" && "Choose an instructor and schedule your lesson"}
+              {bookingType === "fitting" && "Book a professional club fitting session"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmitBooking)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="bayId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Select Bay</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-bay">
+                          <SelectValue placeholder="Choose a bay" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {bays.map((bay) => (
+                          <SelectItem key={bay.id} value={bay.id.toString()}>
+                            {bay.name} - {bay.tier}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {(bookingType === "lesson" || bookingType === "fitting") && (
+                <FormField
+                  control={form.control}
+                  name="offeringId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {bookingType === "lesson" ? "Select Lesson" : "Select Fitting"}
+                      </FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        value={field.value?.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-offering">
+                            <SelectValue placeholder="Choose an option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {filteredOfferings.map((offering) => (
+                            <SelectItem key={offering.id} value={offering.id.toString()}>
+                              {offering.name} - ${offering.price}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-date" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid="input-time" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Duration (minutes)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-duration">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="30">30 minutes</SelectItem>
+                        <SelectItem value="60">1 hour</SelectItem>
+                        <SelectItem value="90">1.5 hours</SelectItem>
+                        <SelectItem value="120">2 hours</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Any special requests or notes..."
+                        {...field}
+                        data-testid="input-notes"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setBookingDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createBookingMutation.isPending}
+                  data-testid="button-confirm-booking"
+                >
+                  {createBookingMutation.isPending ? "Creating..." : "Confirm Booking"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Calendar and Bookings */}
       <Tabs defaultValue="calendar" className="space-y-6">
         <TabsList>
           <TabsTrigger value="calendar" data-testid="tab-calendar">
-            <Calendar className="w-4 h-4 mr-2" />
+            <CalendarIcon className="w-4 h-4 mr-2" />
             Calendar
           </TabsTrigger>
           <TabsTrigger value="upcoming" data-testid="tab-upcoming">
@@ -283,7 +579,7 @@ export default function MemberDashboard() {
         <TabsContent value="upcoming" className="space-y-4">
           {upcomingBookings.length === 0 ? (
             <Card className="p-12 text-center">
-              <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <CalendarIcon className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">No Upcoming Bookings</h3>
               <p className="text-muted-foreground mb-4">
                 Schedule your next bay time, lesson, or fitting
@@ -307,7 +603,7 @@ export default function MemberDashboard() {
                       </div>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
+                          <CalendarIcon className="w-4 h-4 text-muted-foreground" />
                           <span>{format(parseISO(booking.startTime as any), "EEEE, MMMM d, yyyy")}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -354,7 +650,7 @@ export default function MemberDashboard() {
                       </div>
                       <div className="space-y-1 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
+                          <CalendarIcon className="w-4 h-4" />
                           <span>{format(parseISO(booking.startTime as any), "EEEE, MMMM d, yyyy")}</span>
                         </div>
                         <div className="flex items-center gap-2">
