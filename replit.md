@@ -18,6 +18,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - ✅ Club fitting scheduling with customer selection
 - ✅ CRM with lead tracking (new, contacted, qualified, converted, lost)
 - ✅ Shareable membership purchase URLs with public access (no login required)
+- ✅ Transformation Packages - comprehensive training bundles with lessons, club fittings, bay access, and on-course practice
 
 ### In Progress
 - 🔨 Facility onboarding wizard
@@ -38,6 +39,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - **membership_tiers**: Customizable membership plans per facility
 - **lessons**: Instructor-student scheduling
 - **lesson_packages**: Lesson pricing packages (pay-per-lesson, bundles, recurring subscriptions)
+- **transformation_packages**: Comprehensive training programs bundling lessons, fittings, bay access, and on-course practice
 - **fittings**: Club fitting appointments
 - **leads**: CRM lead tracking with status pipeline
 - **sessions**: Replit Auth session storage
@@ -85,6 +87,12 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - `PATCH /api/lesson-packages/:id` - Update lesson package (admin only)
 - `DELETE /api/lesson-packages/:id` - Delete lesson package (admin only)
 
+#### Transformation Packages
+- `GET /api/transformation-packages` - List transformation packages
+- `POST /api/transformation-packages` - Create transformation package (admin only)
+- `PATCH /api/transformation-packages/:id` - Update transformation package (admin only)
+- `DELETE /api/transformation-packages/:id` - Delete transformation package (admin only)
+
 #### Fittings
 - `GET /api/fittings` - List fittings with fitter/user data
 - `POST /api/fittings` - Create fitting
@@ -95,6 +103,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 #### Public Purchase Pages (No Authentication)
 - `GET /api/public/membership/:id` - Get membership tier details with facility branding
 - `GET /api/public/lesson-package/:id` - Get lesson package details with facility branding
+- `GET /api/public/transformation-package/:id` - Get transformation package details with facility branding
 - `GET /api/public/offer/:id` - Get offer details with facility branding
 - `GET /api/public/facility/:id` - Get facility details and bays for booking
 
@@ -171,6 +180,7 @@ The sidebar is organized into three sections:
 - Bays
 - Bookings
 - Memberships (Membership tiers/plans)
+- Transformation Packages
 - Lessons
 - Fittings
 
@@ -185,6 +195,14 @@ Admins can copy shareable links for memberships that allow customers to view det
   - Facility branding (logo, colors)
   - Success/error state handling
   - **Admin Action**: Click "Copy Shareable Link" button on any membership tier card
+
+- **Transformation Packages**: `/buy/transformation-package/:id` - Complete implementation
+  - Displays package details with all included services (lessons, fittings, bay access, on-course practice)
+  - Billing frequency display (one-time, monthly, quarterly, annual)
+  - Duration and enrollment limits
+  - Customer signup form with waitlist support for full packages
+  - Facility branding
+  - **Admin Action**: Click "Copy Shareable Link" button on any transformation package card
 
 ### Pending Implementation (Same Pattern)
 - **Lesson Packages**: `/buy/lesson-package/:id` 
