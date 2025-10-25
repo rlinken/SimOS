@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard } from "lucide-react";
 
 type TimeUnit = "minutes" | "hours" | "days";
 
@@ -103,6 +103,10 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState("stripe");
+  const [stripePublishableKey, setStripePublishableKey] = useState("");
+  const [stripeSecretKey, setStripeSecretKey] = useState("");
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
 
   const facilityId = user?.facilityId || "";
 
@@ -111,12 +115,23 @@ export default function SettingsPage() {
     enabled: !!facilityId,
   });
 
+  const { data: paymentSettings, isLoading: isLoadingPaymentSettings } = useQuery<any>({
+    queryKey: ["/api/payment-settings"],
+    enabled: !!facilityId,
+  });
+
+  useEffect(() => {
+    if (paymentSettings) {
+      setPaymentProvider(paymentSettings.paymentProvider || "stripe");
+      setStripePublishableKey(paymentSettings.stripePublishableKey || "");
+      setStripeSecretKey(paymentSettings.stripeSecretKey || "");
+      setPaymentsEnabled(paymentSettings.paymentsEnabled || false);
+    }
+  }, [paymentSettings]);
+
   const updateSettingsMutation = useMutation({
     mutationFn: async (updates: any) => {
-      return apiRequest(`/api/facility`, {
-        method: "PATCH",
-        body: JSON.stringify(updates),
-      });
+      return apiRequest("PATCH", `/api/facility`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/facility"] });
@@ -129,6 +144,26 @@ export default function SettingsPage() {
       toast({
         title: "Error",
         description: "Failed to update settings. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updatePaymentSettingsMutation = useMutation({
+    mutationFn: async (updates: any) => {
+      return apiRequest("PATCH", `/api/payment-settings`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-settings"] });
+      toast({
+        title: "Payment Settings Updated",
+        description: "Your payment settings have been saved.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update payment settings. Please try again.",
         variant: "destructive",
       });
     },
@@ -194,6 +229,10 @@ export default function SettingsPage() {
           <TabsTrigger value="widgets" data-testid="tab-widgets">
             <Code className="w-4 h-4 mr-2" />
             Embeddable Widgets
+          </TabsTrigger>
+          <TabsTrigger value="payments" data-testid="tab-payments">
+            <CreditCard className="w-4 h-4 mr-2" />
+            Payments
           </TabsTrigger>
           <TabsTrigger value="general" data-testid="tab-general">
             <SettingsIcon className="w-4 h-4 mr-2" />
@@ -425,6 +464,128 @@ export default function SettingsPage() {
               <li>Save and publish your changes</li>
               <li>The calendar will automatically update with your facility's availability</li>
             </ol>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payments" className="space-y-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Payment Settings</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Configure Stripe payment credentials to enable membership and package purchases
+            </p>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="payment-provider">Payment Provider</Label>
+                <Select
+                  value={paymentProvider}
+                  onValueChange={setPaymentProvider}
+                  disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
+                >
+                  <SelectTrigger id="payment-provider" data-testid="select-payment-provider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stripe">Stripe</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Currently only Stripe is supported
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="stripe-publishable-key">Stripe Publishable Key</Label>
+                <Input
+                  id="stripe-publishable-key"
+                  type="text"
+                  placeholder="pk_..."
+                  value={stripePublishableKey}
+                  onChange={(e) => setStripePublishableKey(e.target.value)}
+                  disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
+                  data-testid="input-stripe-publishable-key"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your publishable key is safe to use in client-side code
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="stripe-secret-key">Stripe Secret Key</Label>
+                <Input
+                  id="stripe-secret-key"
+                  type="password"
+                  placeholder={stripeSecretKey && paymentSettings?.stripeSecretKey ? "sk_****" : "sk_..."}
+                  value={stripeSecretKey}
+                  onChange={(e) => setStripeSecretKey(e.target.value)}
+                  disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
+                  data-testid="input-stripe-secret-key"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your secret key will be encrypted and stored securely
+                </p>
+              </div>
+
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="payments-enabled">Enable Payments</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Allow customers to purchase memberships and packages online
+                    </p>
+                  </div>
+                  <Switch
+                    id="payments-enabled"
+                    checked={paymentsEnabled}
+                    onCheckedChange={setPaymentsEnabled}
+                    disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
+                    data-testid="switch-payments-enabled"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
+                <Button
+                  onClick={() => {
+                    updatePaymentSettingsMutation.mutate({
+                      provider: paymentProvider,
+                      stripePublishableKey,
+                      stripeSecretKey,
+                      enabled: paymentsEnabled,
+                    });
+                  }}
+                  disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
+                  data-testid="button-save-payment-settings"
+                >
+                  {updatePaymentSettingsMutation.isPending ? "Saving..." : "Save Payment Settings"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 bg-muted/50">
+            <h3 className="font-semibold mb-2">Getting Your Stripe API Keys</h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+              <li>
+                Visit your{" "}
+                <a
+                  href="https://dashboard.stripe.com/apikeys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                  data-testid="link-stripe-dashboard"
+                >
+                  Stripe Dashboard API Keys page
+                </a>
+              </li>
+              <li>Copy your Publishable key (starts with "pk_")</li>
+              <li>Copy your Secret key (starts with "sk_")</li>
+              <li>Paste both keys in the fields above</li>
+              <li>Enable payments and click "Save Payment Settings"</li>
+            </ol>
+            <p className="text-xs text-muted-foreground mt-4">
+              <strong>Note:</strong> For testing, use your test mode keys. For production, use your live mode keys.
+            </p>
           </Card>
         </TabsContent>
 

@@ -204,6 +204,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Payment Settings Routes (Admin only)
+  // ============================================================================
+
+  app.get("/api/payment-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const facility = await storage.getFacility(user.facilityId);
+      if (!facility) {
+        return res.status(404).json({ message: "Facility not found" });
+      }
+
+      // Return payment settings without exposing the full secret key
+      res.json({
+        stripePublishableKey: facility.stripePublishableKey || "",
+        stripeSecretKey: facility.stripeSecretKey ? "sk_****" : "", // Masked for security
+        paymentProvider: facility.paymentProvider || "stripe",
+        paymentsEnabled: facility.paymentsEnabled || false,
+        hasStripeSecretKey: !!facility.stripeSecretKey,
+      });
+    } catch (error: any) {
+      console.error("Error fetching payment settings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/payment-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const paymentSettingsSchema = z.object({
+        stripePublishableKey: z.string().optional(),
+        stripeSecretKey: z.string().optional(),
+        paymentProvider: z.string().optional(),
+        paymentsEnabled: z.boolean().optional(),
+      });
+
+      const validatedData = paymentSettingsSchema.parse(req.body);
+      
+      // Build update object, only including provided fields
+      const updates: any = {};
+      if (validatedData.stripePublishableKey !== undefined) {
+        updates.stripePublishableKey = validatedData.stripePublishableKey;
+      }
+      if (validatedData.stripeSecretKey !== undefined && validatedData.stripeSecretKey !== "sk_****") {
+        // Only update if not the masked value
+        updates.stripeSecretKey = validatedData.stripeSecretKey;
+      }
+      if (validatedData.paymentProvider !== undefined) {
+        updates.paymentProvider = validatedData.paymentProvider;
+      }
+      if (validatedData.paymentsEnabled !== undefined) {
+        updates.paymentsEnabled = validatedData.paymentsEnabled;
+      }
+
+      await storage.updateFacility(user.facilityId, updates);
+      
+      res.json({ message: "Payment settings updated successfully" });
+    } catch (error: any) {
+      console.error("Error updating payment settings:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Bays Routes
   // ============================================================================
 
