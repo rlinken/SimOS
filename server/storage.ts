@@ -20,6 +20,7 @@ import {
   tasks,
   commissions,
   tips,
+  customRoles,
   type User,
   type UpsertUser,
   type Facility,
@@ -64,6 +65,8 @@ import {
   type InsertCommission,
   type Tip,
   type InsertTip,
+  type CustomRole,
+  type InsertCustomRole,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, gt, lt, asc, desc } from "drizzle-orm";
@@ -199,6 +202,13 @@ export interface IStorage {
   getStaffMembers(facilityId: string): Promise<User[]>;
   updateUser(id: string, user: Partial<UpsertUser>): Promise<User>;
   updateFacility(id: string, facility: Partial<InsertFacility>): Promise<Facility>;
+  
+  // Custom Roles
+  getCustomRoles(facilityId: string): Promise<CustomRole[]>;
+  getCustomRole(id: string): Promise<CustomRole | undefined>;
+  createCustomRole(role: InsertCustomRole): Promise<CustomRole>;
+  updateCustomRole(id: string, role: Partial<InsertCustomRole>): Promise<CustomRole>;
+  deleteCustomRole(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1044,6 +1054,47 @@ export class DatabaseStorage implements IStorage {
       .where(eq(facilities.id, id))
       .returning();
     return result;
+  }
+
+  // Custom Roles
+  async getCustomRoles(facilityId: string): Promise<CustomRole[]> {
+    return await db
+      .select()
+      .from(customRoles)
+      .where(eq(customRoles.facilityId, facilityId))
+      .orderBy(asc(customRoles.name));
+  }
+
+  async getCustomRole(id: string): Promise<CustomRole | undefined> {
+    const [role] = await db
+      .select()
+      .from(customRoles)
+      .where(eq(customRoles.id, id));
+    return role;
+  }
+
+  async createCustomRole(role: InsertCustomRole): Promise<CustomRole> {
+    const [newRole] = await db
+      .insert(customRoles)
+      .values(role)
+      .returning();
+    return newRole;
+  }
+
+  async updateCustomRole(id: string, role: Partial<InsertCustomRole>): Promise<CustomRole> {
+    const [updatedRole] = await db
+      .update(customRoles)
+      .set({
+        ...role,
+        updatedAt: new Date(),
+      })
+      .where(eq(customRoles.id, id))
+      .returning();
+    return updatedRole;
+  }
+
+  async deleteCustomRole(id: string): Promise<void> {
+    await db.delete(customRoles).where(eq(customRoles.id, id));
   }
 }
 
