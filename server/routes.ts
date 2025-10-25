@@ -7,6 +7,8 @@ import {
   insertFacilitySchema,
   insertBaySchema,
   updateBaySchema,
+  insertBayBlockSchema,
+  updateBayBlockSchema,
   insertBookingSchema,
   insertMembershipTierSchema,
   insertLessonSchema,
@@ -143,6 +145,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting bay:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Bay Blocks Routes
+  // ============================================================================
+
+  app.get("/api/bay-blocks", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const blocks = await storage.getBayBlocks(user?.facilityId || undefined);
+      
+      // Enrich with bay data
+      const enrichedBlocks = await Promise.all(
+        blocks.map(async (block) => {
+          const bay = await storage.getBay(block.bayId);
+          return { ...block, bay };
+        })
+      );
+      
+      res.json(enrichedBlocks);
+    } catch (error: any) {
+      console.error("Error fetching bay blocks:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/bay-blocks", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertBayBlockSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+
+      // Verify bay belongs to facility
+      const bay = await storage.getBay(validatedData.bayId);
+      if (!bay || bay.facilityId !== user.facilityId) {
+        return res.status(400).json({ message: "Bay not found or not owned by your facility" });
+      }
+
+      const block = await storage.createBayBlock(validatedData);
+      res.status(201).json(block);
+    } catch (error: any) {
+      console.error("Error creating bay block:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/bay-blocks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const block = await storage.getBayBlock(req.params.id);
+      if (!block || block.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Bay block not found" });
+      }
+
+      const validatedData = updateBayBlockSchema.parse(req.body);
+      const updatedBlock = await storage.updateBayBlock(req.params.id, validatedData);
+      res.json(updatedBlock);
+    } catch (error: any) {
+      console.error("Error updating bay block:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/bay-blocks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const block = await storage.getBayBlock(req.params.id);
+      if (!block || block.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Bay block not found" });
+      }
+
+      await storage.deleteBayBlock(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting bay block:", error);
       res.status(400).json({ message: error.message });
     }
   });

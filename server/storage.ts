@@ -3,6 +3,7 @@ import {
   users,
   facilities,
   bays,
+  bayBlocks,
   bookings,
   membershipTiers,
   lessons,
@@ -13,6 +14,8 @@ import {
   type InsertFacility,
   type Bay,
   type InsertBay,
+  type BayBlock,
+  type InsertBayBlock,
   type Booking,
   type InsertBooking,
   type MembershipTier,
@@ -23,7 +26,7 @@ import {
   type InsertFitting,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, asc, desc } from "drizzle-orm";
+import { eq, and, gte, lte, gt, lt, asc, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -43,6 +46,15 @@ export interface IStorage {
   updateBay(id: string, bay: Partial<InsertBay>): Promise<Bay>;
   updateBayUsage(id: string, hours: number): Promise<void>;
   deleteBay(id: string): Promise<void>;
+  
+  // Bay Blocks
+  getBayBlocks(facilityId?: string): Promise<BayBlock[]>;
+  getBayBlock(id: string): Promise<BayBlock | undefined>;
+  getBayBlocksByBay(bayId: string): Promise<BayBlock[]>;
+  getBayBlocksByDateRange(facilityId: string, start: Date, end: Date): Promise<BayBlock[]>;
+  createBayBlock(block: InsertBayBlock): Promise<BayBlock>;
+  updateBayBlock(id: string, block: Partial<InsertBayBlock>): Promise<BayBlock>;
+  deleteBayBlock(id: string): Promise<void>;
   
   // Bookings
   getBookings(facilityId?: string): Promise<Booking[]>;
@@ -163,6 +175,76 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBay(id: string): Promise<void> {
     await db.delete(bays).where(eq(bays.id, id));
+  }
+
+  // Bay Blocks
+  async getBayBlocks(facilityId?: string): Promise<BayBlock[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(bayBlocks)
+        .where(eq(bayBlocks.facilityId, facilityId))
+        .orderBy(asc(bayBlocks.startTime));
+    }
+    return await db.select().from(bayBlocks).orderBy(asc(bayBlocks.startTime));
+  }
+
+  async getBayBlock(id: string): Promise<BayBlock | undefined> {
+    const [block] = await db
+      .select()
+      .from(bayBlocks)
+      .where(eq(bayBlocks.id, id));
+    return block;
+  }
+
+  async getBayBlocksByBay(bayId: string): Promise<BayBlock[]> {
+    return await db
+      .select()
+      .from(bayBlocks)
+      .where(eq(bayBlocks.bayId, bayId))
+      .orderBy(asc(bayBlocks.startTime));
+  }
+
+  async getBayBlocksByDateRange(
+    facilityId: string,
+    start: Date,
+    end: Date
+  ): Promise<BayBlock[]> {
+    return await db
+      .select()
+      .from(bayBlocks)
+      .where(
+        and(
+          eq(bayBlocks.facilityId, facilityId),
+          lt(bayBlocks.startTime, end),
+          gt(bayBlocks.endTime, start)
+        )
+      )
+      .orderBy(asc(bayBlocks.startTime));
+  }
+
+  async createBayBlock(blockData: InsertBayBlock): Promise<BayBlock> {
+    const [block] = await db
+      .insert(bayBlocks)
+      .values(blockData)
+      .returning();
+    return block;
+  }
+
+  async updateBayBlock(
+    id: string,
+    blockData: Partial<InsertBayBlock>
+  ): Promise<BayBlock> {
+    const [block] = await db
+      .update(bayBlocks)
+      .set({ ...blockData, updatedAt: new Date() })
+      .where(eq(bayBlocks.id, id))
+      .returning();
+    return block;
+  }
+
+  async deleteBayBlock(id: string): Promise<void> {
+    await db.delete(bayBlocks).where(eq(bayBlocks.id, id));
   }
 
   // Bookings

@@ -272,6 +272,59 @@ export type InsertBay = z.infer<typeof insertBaySchema>;
 export type UpdateBay = z.infer<typeof updateBaySchema>;
 
 // ============================================================================
+// BAY BLOCKS TABLE (For maintenance, events, etc.)
+// ============================================================================
+
+export const bayBlocks = pgTable("bay_blocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  bayId: varchar("bay_id")
+    .references(() => bays.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  reason: text("reason").notNull(), // "Maintenance", "Event", "Closed", etc.
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const bayBlocksRelations = relations(bayBlocks, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [bayBlocks.facilityId],
+    references: [facilities.id],
+  }),
+  bay: one(bays, {
+    fields: [bayBlocks.bayId],
+    references: [bays.id],
+  }),
+}));
+
+export const insertBayBlockSchema = createInsertSchema(bayBlocks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateBayBlockSchema = createInsertSchema(bayBlocks)
+  .omit({
+    id: true,
+    facilityId: true,
+    bayId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .partial();
+
+export type BayBlock = typeof bayBlocks.$inferSelect;
+export type InsertBayBlock = z.infer<typeof insertBayBlockSchema>;
+export type UpdateBayBlock = z.infer<typeof updateBayBlockSchema>;
+
+// ============================================================================
 // BOOKINGS TABLE
 // ============================================================================
 
