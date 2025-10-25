@@ -339,11 +339,11 @@ export default function Schedule() {
       {view === 'day' && (
         <Card className="overflow-hidden border-0 shadow-sm">
           <div className="overflow-x-auto max-w-full" ref={scheduleRef}>
-            <div className="inline-block relative">
+            <div className="inline-block min-w-full relative">
               {/* Header Row */}
               <div 
                 className="grid bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm"
-                style={{ gridTemplateColumns: `80px repeat(${hours.length}, 1fr)` }}
+                style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
               >
                 <div className="p-3 font-semibold border-r border-b flex items-center justify-center sticky left-0 z-20 bg-gradient-to-br from-muted/80 to-muted/40">
                   <span className="text-xs">Bays</span>
@@ -379,7 +379,7 @@ export default function Schedule() {
                 <div 
                   key={bay.id} 
                   className={`grid border-b last:border-b-0 transition-all ${getTierColor(bay.tier)}`}
-                  style={{ gridTemplateColumns: `80px repeat(${hours.length}, 1fr)` }}
+                  style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
                   data-testid={`bay-row-${bay.id}`}
                 >
                   {/* Bay Name Column */}
