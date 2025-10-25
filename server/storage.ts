@@ -8,6 +8,10 @@ import {
   membershipTiers,
   lessons,
   fittings,
+  offerings,
+  staffAvailabilityHours,
+  googleCalendarTokens,
+  googleCalendarEvents,
   type User,
   type UpsertUser,
   type Facility,
@@ -24,6 +28,15 @@ import {
   type InsertLesson,
   type Fitting,
   type InsertFitting,
+  type Offering,
+  type InsertOffering,
+  type UpdateOffering,
+  type StaffAvailabilityHours,
+  type InsertStaffAvailabilityHours,
+  type GoogleCalendarToken,
+  type InsertGoogleCalendarToken,
+  type GoogleCalendarEvent,
+  type InsertGoogleCalendarEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, gt, lt, asc, desc } from "drizzle-orm";
@@ -79,6 +92,28 @@ export interface IStorage {
   getFittings(facilityId?: string): Promise<Fitting[]>;
   getFitting(id: string): Promise<Fitting | undefined>;
   createFitting(fitting: InsertFitting): Promise<Fitting>;
+  
+  // Offerings
+  getOfferings(facilityId?: string): Promise<Offering[]>;
+  getOffering(id: string): Promise<Offering | undefined>;
+  createOffering(offering: InsertOffering): Promise<Offering>;
+  updateOffering(id: string, offering: UpdateOffering): Promise<Offering>;
+  deleteOffering(id: string): Promise<void>;
+  
+  // Staff Availability Hours
+  getStaffAvailabilityHours(staffId: string): Promise<StaffAvailabilityHours[]>;
+  createStaffAvailabilityHours(hours: InsertStaffAvailabilityHours): Promise<StaffAvailabilityHours>;
+  deleteStaffAvailabilityHours(id: string): Promise<void>;
+  
+  // Google Calendar Tokens
+  getGoogleCalendarToken(staffId: string): Promise<GoogleCalendarToken | undefined>;
+  upsertGoogleCalendarToken(token: InsertGoogleCalendarToken): Promise<GoogleCalendarToken>;
+  deleteGoogleCalendarToken(staffId: string): Promise<void>;
+  
+  // Google Calendar Events
+  getGoogleCalendarEvents(staffId: string, start: Date, end: Date): Promise<GoogleCalendarEvent[]>;
+  upsertGoogleCalendarEvent(event: InsertGoogleCalendarEvent): Promise<GoogleCalendarEvent>;
+  deleteOldGoogleCalendarEvents(staffId: string, before: Date): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -383,6 +418,152 @@ export class DatabaseStorage implements IStorage {
   async createFitting(fittingData: InsertFitting): Promise<Fitting> {
     const [fitting] = await db.insert(fittings).values(fittingData).returning();
     return fitting;
+  }
+  
+  // Offerings
+  async getOfferings(facilityId?: string): Promise<Offering[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(offerings)
+        .where(eq(offerings.facilityId, facilityId))
+        .orderBy(desc(offerings.createdAt));
+    }
+    return await db.select().from(offerings).orderBy(desc(offerings.createdAt));
+  }
+  
+  async getOffering(id: string): Promise<Offering | undefined> {
+    const [offering] = await db
+      .select()
+      .from(offerings)
+      .where(eq(offerings.id, id));
+    return offering;
+  }
+  
+  async createOffering(offering: InsertOffering): Promise<Offering> {
+    const [result] = await db
+      .insert(offerings)
+      .values(offering)
+      .returning();
+    return result;
+  }
+  
+  async updateOffering(id: string, offering: UpdateOffering): Promise<Offering> {
+    const [result] = await db
+      .update(offerings)
+      .set({ ...offering, updatedAt: new Date() })
+      .where(eq(offerings.id, id))
+      .returning();
+    return result;
+  }
+  
+  async deleteOffering(id: string): Promise<void> {
+    await db.delete(offerings).where(eq(offerings.id, id));
+  }
+  
+  // Staff Availability Hours
+  async getStaffAvailabilityHours(staffId: string): Promise<StaffAvailabilityHours[]> {
+    return await db
+      .select()
+      .from(staffAvailabilityHours)
+      .where(
+        and(
+          eq(staffAvailabilityHours.staffId, staffId),
+          eq(staffAvailabilityHours.isActive, true)
+        )
+      )
+      .orderBy(asc(staffAvailabilityHours.dayOfWeek), asc(staffAvailabilityHours.startTime));
+  }
+  
+  async createStaffAvailabilityHours(
+    hours: InsertStaffAvailabilityHours
+  ): Promise<StaffAvailabilityHours> {
+    const [result] = await db
+      .insert(staffAvailabilityHours)
+      .values(hours)
+      .returning();
+    return result;
+  }
+  
+  async deleteStaffAvailabilityHours(id: string): Promise<void> {
+    await db.delete(staffAvailabilityHours).where(eq(staffAvailabilityHours.id, id));
+  }
+  
+  // Google Calendar Tokens
+  async getGoogleCalendarToken(staffId: string): Promise<GoogleCalendarToken | undefined> {
+    const [token] = await db
+      .select()
+      .from(googleCalendarTokens)
+      .where(eq(googleCalendarTokens.staffId, staffId));
+    return token;
+  }
+  
+  async upsertGoogleCalendarToken(
+    token: InsertGoogleCalendarToken
+  ): Promise<GoogleCalendarToken> {
+    const [result] = await db
+      .insert(googleCalendarTokens)
+      .values(token)
+      .onConflictDoUpdate({
+        target: googleCalendarTokens.staffId,
+        set: {
+          ...token,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+  
+  async deleteGoogleCalendarToken(staffId: string): Promise<void> {
+    await db.delete(googleCalendarTokens).where(eq(googleCalendarTokens.staffId, staffId));
+  }
+  
+  // Google Calendar Events
+  async getGoogleCalendarEvents(
+    staffId: string,
+    start: Date,
+    end: Date
+  ): Promise<GoogleCalendarEvent[]> {
+    return await db
+      .select()
+      .from(googleCalendarEvents)
+      .where(
+        and(
+          eq(googleCalendarEvents.staffId, staffId),
+          lt(googleCalendarEvents.startTime, end),
+          gt(googleCalendarEvents.endTime, start)
+        )
+      )
+      .orderBy(asc(googleCalendarEvents.startTime));
+  }
+  
+  async upsertGoogleCalendarEvent(
+    event: InsertGoogleCalendarEvent
+  ): Promise<GoogleCalendarEvent> {
+    const [result] = await db
+      .insert(googleCalendarEvents)
+      .values(event)
+      .onConflictDoUpdate({
+        target: googleCalendarEvents.googleEventId,
+        set: {
+          ...event,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+  
+  async deleteOldGoogleCalendarEvents(staffId: string, before: Date): Promise<void> {
+    await db
+      .delete(googleCalendarEvents)
+      .where(
+        and(
+          eq(googleCalendarEvents.staffId, staffId),
+          lt(googleCalendarEvents.endTime, before)
+        )
+      );
   }
 }
 

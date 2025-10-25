@@ -49,6 +49,13 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "refunded",
 ]);
 
+export const offeringTypeEnum = pgEnum("offering_type", [
+  "lesson",
+  "fitting",
+  "product",
+  "membership",
+]);
+
 // ============================================================================
 // SESSION TABLE (Required for Replit Auth)
 // ============================================================================
@@ -505,3 +512,218 @@ export const insertFittingSchema = createInsertSchema(fittings).omit({
 
 export type Fitting = typeof fittings.$inferSelect;
 export type InsertFitting = z.infer<typeof insertFittingSchema>;
+
+// ============================================================================
+// OFFERINGS TABLE (Products/Services Templates)
+// ============================================================================
+
+export const offerings = pgTable("offerings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Staff assignment (optional - null for retail products)
+  assignedStaffId: varchar("assigned_staff_id").references(() => users.id),
+  
+  type: offeringTypeEnum("type").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Pricing
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  
+  // Duration (for services like lessons/fittings, null for products)
+  durationMinutes: integer("duration_minutes"),
+  
+  // Availability
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  // Stripe (for later)
+  stripePriceId: varchar("stripe_price_id"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const offeringsRelations = relations(offerings, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [offerings.facilityId],
+    references: [facilities.id],
+  }),
+  assignedStaff: one(users, {
+    fields: [offerings.assignedStaffId],
+    references: [users.id],
+  }),
+}));
+
+export const insertOfferingSchema = createInsertSchema(offerings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateOfferingSchema = createInsertSchema(offerings)
+  .omit({
+    id: true,
+    facilityId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .partial();
+
+export type Offering = typeof offerings.$inferSelect;
+export type InsertOffering = z.infer<typeof insertOfferingSchema>;
+export type UpdateOffering = z.infer<typeof updateOfferingSchema>;
+
+// ============================================================================
+// STAFF AVAILABILITY HOURS TABLE (Weekly recurring schedule)
+// ============================================================================
+
+export const staffAvailabilityHours = pgTable("staff_availability_hours", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Day of week (0 = Sunday, 6 = Saturday)
+  dayOfWeek: integer("day_of_week").notNull(),
+  
+  // Time ranges (e.g., "09:00", "17:00")
+  startTime: varchar("start_time", { length: 5 }).notNull(),
+  endTime: varchar("end_time", { length: 5 }).notNull(),
+  
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const staffAvailabilityHoursRelations = relations(
+  staffAvailabilityHours,
+  ({ one }) => ({
+    facility: one(facilities, {
+      fields: [staffAvailabilityHours.facilityId],
+      references: [facilities.id],
+    }),
+    staff: one(users, {
+      fields: [staffAvailabilityHours.staffId],
+      references: [users.id],
+    }),
+  })
+);
+
+export const insertStaffAvailabilityHoursSchema = createInsertSchema(
+  staffAvailabilityHours
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type StaffAvailabilityHours = typeof staffAvailabilityHours.$inferSelect;
+export type InsertStaffAvailabilityHours = z.infer<
+  typeof insertStaffAvailabilityHoursSchema
+>;
+
+// ============================================================================
+// GOOGLE CALENDAR TOKENS TABLE (OAuth credentials)
+// ============================================================================
+
+export const googleCalendarTokens = pgTable("google_calendar_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(),
+  
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  // Google Calendar ID to sync
+  calendarId: varchar("calendar_id").default("primary"),
+  
+  // Settings
+  autoMarkBusy: boolean("auto_mark_busy").default(true).notNull(),
+  
+  lastSyncedAt: timestamp("last_synced_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const googleCalendarTokensRelations = relations(
+  googleCalendarTokens,
+  ({ one }) => ({
+    staff: one(users, {
+      fields: [googleCalendarTokens.staffId],
+      references: [users.id],
+    }),
+  })
+);
+
+export const insertGoogleCalendarTokenSchema = createInsertSchema(
+  googleCalendarTokens
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type GoogleCalendarToken = typeof googleCalendarTokens.$inferSelect;
+export type InsertGoogleCalendarToken = z.infer<
+  typeof insertGoogleCalendarTokenSchema
+>;
+
+// ============================================================================
+// GOOGLE CALENDAR EVENTS TABLE (Cached events)
+// ============================================================================
+
+export const googleCalendarEvents = pgTable("google_calendar_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Google event ID (for deduplication and updates)
+  googleEventId: varchar("google_event_id").notNull(),
+  
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  
+  summary: text("summary"),
+  isBusy: boolean("is_busy").default(true).notNull(),
+  
+  // Sync metadata
+  lastSyncedAt: timestamp("last_synced_at").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const googleCalendarEventsRelations = relations(
+  googleCalendarEvents,
+  ({ one }) => ({
+    staff: one(users, {
+      fields: [googleCalendarEvents.staffId],
+      references: [users.id],
+    }),
+  })
+);
+
+export const insertGoogleCalendarEventSchema = createInsertSchema(
+  googleCalendarEvents
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type GoogleCalendarEvent = typeof googleCalendarEvents.$inferSelect;
+export type InsertGoogleCalendarEvent = z.infer<
+  typeof insertGoogleCalendarEventSchema
+>;
