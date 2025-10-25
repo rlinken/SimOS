@@ -24,6 +24,8 @@ import {
   insertLeadSchema,
   updateLeadSchema,
   insertLessonSchema,
+  insertLessonPackageSchema,
+  updateLessonPackageSchema,
   insertFittingSchema,
   insertOfferingSchema,
   updateOfferingSchema,
@@ -854,6 +856,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating lesson:", error);
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Lesson Packages Routes
+  // ============================================================================
+
+  app.get("/api/lesson-packages", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const packages = await storage.getLessonPackages(user?.facilityId || undefined);
+      res.json(packages);
+    } catch (error: any) {
+      console.error("Error fetching lesson packages:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/lesson-packages", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertLessonPackageSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+      const pkg = await storage.createLessonPackage(validatedData);
+      res.status(201).json(pkg);
+    } catch (error: any) {
+      console.error("Error creating lesson package:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/lesson-packages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = updateLessonPackageSchema.parse(req.body);
+      const pkg = await storage.updateLessonPackage(req.params.id, validatedData);
+      res.json(pkg);
+    } catch (error: any) {
+      console.error("Error updating lesson package:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/lesson-packages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await storage.deleteLessonPackage(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting lesson package:", error);
+      res.status(500).json({ message: error.message });
     }
   });
 

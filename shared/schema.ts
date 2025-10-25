@@ -648,6 +648,81 @@ export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 
 // ============================================================================
+// LESSON PACKAGES TABLE
+// ============================================================================
+
+export const lessonPackageTypeEnum = pgEnum("lesson_package_type", [
+  "pay_per_lesson",  // Single lesson purchase
+  "package",         // Multi-lesson package (one-time)
+  "recurring",       // Subscription/recurring payment
+]);
+
+export const billingIntervalEnum = pgEnum("billing_interval", [
+  "monthly",
+  "quarterly",
+  "annual",
+]);
+
+export const lessonPackages = pgTable("lesson_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Package details
+  name: text("name").notNull(),
+  description: text("description"),
+  packageType: lessonPackageTypeEnum("package_type").notNull(),
+  
+  // Pricing
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  
+  // Lessons included
+  lessonsIncluded: integer("lessons_included").notNull().default(1), // 1 for pay-per-lesson, N for packages
+  
+  // Recurring details (for recurring packages)
+  billingInterval: billingIntervalEnum("billing_interval"), // null for non-recurring
+  
+  // Validity
+  validityDays: integer("validity_days"), // How long the package is valid (null = unlimited)
+  
+  // Status
+  active: boolean("active").default(true).notNull(),
+  
+  // Stripe (for future)
+  stripePriceId: varchar("stripe_price_id"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const lessonPackagesRelations = relations(lessonPackages, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [lessonPackages.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const insertLessonPackageSchema = createInsertSchema(lessonPackages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateLessonPackageSchema = createInsertSchema(lessonPackages)
+  .omit({
+    id: true,
+    facilityId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .partial();
+
+export type LessonPackage = typeof lessonPackages.$inferSelect;
+export type InsertLessonPackage = z.infer<typeof insertLessonPackageSchema>;
+export type UpdateLessonPackage = z.infer<typeof updateLessonPackageSchema>;
+
+// ============================================================================
 // FITTINGS TABLE
 // ============================================================================
 

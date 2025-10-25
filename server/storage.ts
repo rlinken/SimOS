@@ -8,6 +8,7 @@ import {
   membershipTiers,
   leads,
   lessons,
+  lessonPackages,
   fittings,
   offerings,
   staffAvailabilityHours,
@@ -30,6 +31,9 @@ import {
   type UpdateLead,
   type Lesson,
   type InsertLesson,
+  type LessonPackage,
+  type InsertLessonPackage,
+  type UpdateLessonPackage,
   type Fitting,
   type InsertFitting,
   type Offering,
@@ -98,6 +102,13 @@ export interface IStorage {
   getLessons(facilityId?: string): Promise<Lesson[]>;
   getLesson(id: string): Promise<Lesson | undefined>;
   createLesson(lesson: InsertLesson): Promise<Lesson>;
+  
+  // Lesson Packages
+  getLessonPackages(facilityId?: string): Promise<LessonPackage[]>;
+  getLessonPackage(id: string): Promise<LessonPackage | undefined>;
+  createLessonPackage(pkg: InsertLessonPackage): Promise<LessonPackage>;
+  updateLessonPackage(id: string, pkg: UpdateLessonPackage): Promise<LessonPackage>;
+  deleteLessonPackage(id: string): Promise<void>;
   
   // Fittings
   getFittings(facilityId?: string): Promise<Fitting[]>;
@@ -445,6 +456,41 @@ export class DatabaseStorage implements IStorage {
   async createLesson(lessonData: InsertLesson): Promise<Lesson> {
     const [lesson] = await db.insert(lessons).values(lessonData).returning();
     return lesson;
+  }
+
+  // Lesson Packages
+  async getLessonPackages(facilityId?: string): Promise<LessonPackage[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(lessonPackages)
+        .where(eq(lessonPackages.facilityId, facilityId))
+        .orderBy(desc(lessonPackages.createdAt));
+    }
+    return await db.select().from(lessonPackages).orderBy(desc(lessonPackages.createdAt));
+  }
+
+  async getLessonPackage(id: string): Promise<LessonPackage | undefined> {
+    const [pkg] = await db.select().from(lessonPackages).where(eq(lessonPackages.id, id));
+    return pkg;
+  }
+
+  async createLessonPackage(pkgData: InsertLessonPackage): Promise<LessonPackage> {
+    const [pkg] = await db.insert(lessonPackages).values(pkgData).returning();
+    return pkg;
+  }
+
+  async updateLessonPackage(id: string, pkgData: UpdateLessonPackage): Promise<LessonPackage> {
+    const [pkg] = await db
+      .update(lessonPackages)
+      .set(pkgData)
+      .where(eq(lessonPackages.id, id))
+      .returning();
+    return pkg;
+  }
+
+  async deleteLessonPackage(id: string): Promise<void> {
+    await db.delete(lessonPackages).where(eq(lessonPackages.id, id));
   }
 
   // Fittings
