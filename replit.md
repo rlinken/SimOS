@@ -7,7 +7,7 @@ GolfSimOS is a multi-tenant SaaS platform designed for indoor golf simulator fac
 I want the agent to prioritize core functionality and stable releases. I prefer iterative development with clear communication on progress and potential roadblocks. Do not make changes to the `replit.nix` file. Do not make changes to the `.replit` file. I prefer detailed explanations for complex technical decisions.
 
 ### System Architecture
-**UI/UX Decisions:** The platform features a professional, golf-themed UI with a primary green color (#22c55e), designed with Tailwind CSS for a modern aesthetic, professional spacing, and clear hierarchy. Sidebar navigation is organized into "Operations" (daily activities like Schedule, Bookings, Lessons, Fittings) and "Business" (configuration, sales, marketing) to optimize staff workflow, with "Operations" appearing first. All product/service pages (Memberships, Transformation Packages, Fittings, Offers, Lessons) implement a unified edit functionality where clicking a card opens an edit dialog, pre-populating the form with existing data.
+**UI/UX Decisions:** The platform features a professional, golf-themed UI with a primary green color (#22c55e), designed with Tailwind CSS for a modern aesthetic, professional spacing, and clear hierarchy. Sidebar navigation is organized into "Operations" (daily activities like Schedule, Bookings, Lessons, Fittings) and "Business" (configuration, sales, marketing) to optimize staff workflow, with "Operations" appearing first. All product/service pages (Memberships, Transformation Packages, Fittings, Offers, Lessons) implement a unified edit functionality where clicking a card opens an edit dialog, pre-populating the form with existing data. The bookings page features inline editable dropdowns for booking type and payment method, plus a single "Collect Payment" button that opens a comprehensive payment dialog with card-on-file and new-card/POS options. Unpaid bookings display with a yellow/amber border for visual identification.
 
 **Technical Implementations:**
 *   **Database:** PostgreSQL with a multi-tenant schema where all queries are filtered by `facilityId` (except for super-admin). Uses `varchar` UUIDs for primary keys and UTC timestamps.
@@ -23,7 +23,7 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 
 **Feature Specifications:**
 *   **Facility Management:** Super-admin can create and manage facilities, each with customizable branding, subdomain, feature flags, and individual payment settings.
-*   **Booking Management:** Supports bay reservations with automatic optimal bay assignment. Bookings include referral tracking.
+*   **Booking Management:** Supports bay reservations with automatic optimal bay assignment. Bookings include referral tracking, inline editable booking types (Sim Rental, Lesson, Club Fitting, Event), and payment methods (Paid Online, Member, Pay At Desk, Card on File). Consolidated payment collection through a single dialog interface.
 *   **Membership Management:** Customizable membership tiers with shareable purchase URLs. Membership sales include referral tracking.
 *   **Lesson & Fitting Management:** Scheduling for lessons (including packages and recurring subscriptions) and club fittings. Fittings include referral tracking.
 *   **Transformation Packages:** Comprehensive training bundles combining lessons, fittings, bay access, and on-course practice, also with shareable purchase URLs. Enrollments include referral tracking.
