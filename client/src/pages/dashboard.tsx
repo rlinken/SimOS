@@ -9,6 +9,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { Link } from "wouter";
 
 interface DashboardStats {
   totalBookings: number;
@@ -115,39 +116,41 @@ export default function Dashboard() {
 
       {/* Recent Activity */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Today's Bookings</h3>
-            <Clock className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <div className="space-y-3">
-            {[
-              { time: "10:00 AM", bay: "Bay 1", member: "John Doe" },
-              { time: "11:30 AM", bay: "Bay 2", member: "Jane Smith" },
-              { time: "2:00 PM", bay: "Bay 3", member: "Bob Johnson" },
-              { time: "4:00 PM", bay: "Bay 1", member: "Alice Williams" },
-            ].map((booking, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between p-3 rounded-lg border hover-elevate"
-                data-testid={`booking-item-${idx}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                  <div>
-                    <div className="font-medium">{booking.bay}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {booking.member}
+        <Link href="/schedule">
+          <Card className="p-6 space-y-4 cursor-pointer hover-elevate" data-testid="card-todays-bookings">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Today's Bookings</h3>
+              <Clock className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="space-y-3">
+              {[
+                { time: "10:00 AM", bay: "Bay 1", member: "John Doe" },
+                { time: "11:30 AM", bay: "Bay 2", member: "Jane Smith" },
+                { time: "2:00 PM", bay: "Bay 3", member: "Bob Johnson" },
+                { time: "4:00 PM", bay: "Bay 1", member: "Alice Williams" },
+              ].map((booking, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 rounded-lg border hover-elevate"
+                  data-testid={`booking-item-${idx}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                    <div>
+                      <div className="font-medium">{booking.bay}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {booking.member}
+                      </div>
                     </div>
                   </div>
+                  <div className="text-sm font-mono text-muted-foreground">
+                    {booking.time}
+                  </div>
                 </div>
-                <div className="text-sm font-mono text-muted-foreground">
-                  {booking.time}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+              ))}
+            </div>
+          </Card>
+        </Link>
 
         <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between">

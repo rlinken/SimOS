@@ -9,6 +9,7 @@ import {
   Building2,
   CreditCard,
   User as UserIcon,
+  CalendarDays,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -66,6 +67,11 @@ function getMenuItems(user: User | undefined) {
   // Facility Admin & Super Admin
   if (isSuperAdmin || isFacilityAdmin) {
     items.push(
+      {
+        title: "Schedule",
+        url: "/schedule",
+        icon: CalendarDays,
+      },
       {
         title: "Bays",
         url: "/bays",

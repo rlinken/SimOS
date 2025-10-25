@@ -23,6 +23,7 @@ import SettingsPage from "@/pages/settings";
 import OnboardingPage from "@/pages/onboarding";
 import WidgetCalendar from "@/pages/widget-calendar";
 import AccountPage from "@/pages/account";
+import SchedulePage from "@/pages/schedule";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -33,6 +34,7 @@ function AuthenticatedRoutes() {
   return (
     <Switch>
       <Route path="/" component={DashboardComponent} />
+      <Route path="/schedule" component={SchedulePage} />
       <Route path="/account" component={AccountPage} />
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/bays" component={BaysPage} />
