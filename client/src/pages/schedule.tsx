@@ -339,7 +339,10 @@ export default function Schedule() {
           <div className="overflow-x-auto" ref={scheduleRef}>
             <div className="min-w-[1200px] relative">
               {/* Header Row */}
-              <div className="grid grid-cols-[80px_repeat(17,1fr)] bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm">
+              <div 
+                className="grid bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm"
+                style={{ gridTemplateColumns: `80px repeat(${hours.length}, 1fr)` }}
+              >
                 <div className="p-3 font-semibold border-r border-b flex items-center justify-center sticky left-0 z-20 bg-gradient-to-br from-muted/80 to-muted/40">
                   <span className="text-xs">Bays</span>
                 </div>
@@ -373,7 +376,8 @@ export default function Schedule() {
               bays.map(bay => (
                 <div 
                   key={bay.id} 
-                  className={`grid grid-cols-[80px_repeat(17,1fr)] border-b last:border-b-0 transition-all ${getTierColor(bay.tier)}`}
+                  className={`grid border-b last:border-b-0 transition-all ${getTierColor(bay.tier)}`}
+                  style={{ gridTemplateColumns: `80px repeat(${hours.length}, 1fr)` }}
                   data-testid={`bay-row-${bay.id}`}
                 >
                   {/* Bay Name Column */}
