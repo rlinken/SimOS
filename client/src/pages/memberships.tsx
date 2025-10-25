@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CreditCard, Plus, Check } from "lucide-react";
+import { CreditCard, Plus, Check, Link as LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { MembershipTier, InsertMembershipTier } from "@shared/schema";
 import { insertMembershipTierSchema } from "@shared/schema";
@@ -337,6 +337,23 @@ export default function MembershipsPage() {
                     </div>
                   )}
               </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const url = `${window.location.origin}/buy/membership/${tier.id}`;
+                  navigator.clipboard.writeText(url);
+                  toast({
+                    title: "Link Copied!",
+                    description: "Shareable membership link copied to clipboard",
+                  });
+                }}
+                data-testid={`button-copy-link-${tier.id}`}
+              >
+                <LinkIcon className="w-4 h-4 mr-2" />
+                Copy Shareable Link
+              </Button>
             </Card>
           ))}
         </div>
