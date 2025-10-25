@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar as CalendarIcon, Clock, MapPin, User, CreditCard, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useForm } from "react-hook-form";
@@ -44,12 +45,13 @@ type EnrichedBooking = Booking & {
 };
 
 const bookingSchema = z.object({
-  bayId: z.number({ required_error: "Please select a bay" }),
+  bayId: z.number().optional(),
   offeringId: z.number().optional(),
   date: z.string().min(1, "Date is required"),
   time: z.string().min(1, "Time is required"),
   duration: z.string().min(1, "Duration is required"),
   notes: z.string().optional(),
+  includeBay: z.boolean().optional(),
 });
 
 type BookingFormData = z.infer<typeof bookingSchema>;
@@ -85,6 +87,7 @@ export default function MemberDashboard() {
       time: "09:00",
       duration: "60",
       notes: "",
+      includeBay: false,
     },
   });
 
@@ -93,17 +96,27 @@ export default function MemberDashboard() {
       const startTime = new Date(`${data.date}T${data.time}`);
       const endTime = addMinutes(startTime, parseInt(data.duration));
 
+      // For rentals, bayId is required. For lessons/fittings, it's optional
+      const payload: any = {
+        type: bookingType,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        notes: data.notes,
+        paymentStatus: "pending",
+      };
+
+      // Only include bayId if it's a rental OR if includeBay is checked
+      if (bookingType === "rental" || data.includeBay) {
+        payload.bayId = data.bayId;
+      }
+
+      if (data.offeringId) {
+        payload.offeringId = data.offeringId;
+      }
+
       return apiRequest("/api/bookings", {
         method: "POST",
-        body: JSON.stringify({
-          bayId: data.bayId,
-          offeringId: data.offeringId,
-          type: bookingType,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          notes: data.notes,
-          paymentStatus: "pending",
-        }),
+        body: JSON.stringify(payload),
       });
     },
     onSuccess: () => {
@@ -285,33 +298,90 @@ export default function MemberDashboard() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmitBooking)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="bayId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Select Bay</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(parseInt(value))}
-                      value={field.value?.toString()}
-                    >
-                      <FormControl>
-                        <SelectTrigger data-testid="select-bay">
-                          <SelectValue placeholder="Choose a bay" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {bays.map((bay) => (
-                          <SelectItem key={bay.id} value={bay.id.toString()}>
-                            {bay.name} - {bay.tier}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Bay selection for rentals (required) */}
+              {bookingType === "rental" && (
+                <FormField
+                  control={form.control}
+                  name="bayId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Select Bay</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        value={field.value?.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-bay">
+                            <SelectValue placeholder="Choose a bay" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {bays.map((bay) => (
+                            <SelectItem key={bay.id} value={bay.id.toString()}>
+                              {bay.name} - {bay.tier}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Optional bay inclusion for lessons/fittings */}
+              {(bookingType === "lesson" || bookingType === "fitting") && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="includeBay"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-2 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="checkbox-include-bay"
+                          />
+                        </FormControl>
+                        <FormLabel className="!mt-0 cursor-pointer">
+                          Include bay reservation
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("includeBay") && (
+                    <FormField
+                      control={form.control}
+                      name="bayId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Select Bay</FormLabel>
+                          <Select
+                            onValueChange={(value) => field.onChange(parseInt(value))}
+                            value={field.value?.toString()}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-bay">
+                                <SelectValue placeholder="Choose a bay" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {bays.map((bay) => (
+                                <SelectItem key={bay.id} value={bay.id.toString()}>
+                                  {bay.name} - {bay.tier}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </>
+              )}
 
               {(bookingType === "lesson" || bookingType === "fitting") && (
                 <FormField
