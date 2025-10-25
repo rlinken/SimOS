@@ -7,11 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar, ChevronLeft, ChevronRight, Clock, User, Mail, Phone, Plus, X, Check, ChevronsUpDown } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, ChevronLeft, ChevronRight, Clock, User, Mail, Phone, Plus, X, Check, ChevronsUpDown, CalendarDays, CalendarRange, CalendarClock } from "lucide-react";
 import { useState, useEffect } from "react";
-import { format, addDays, startOfDay, setHours, setMinutes, isSameDay, isWithinInterval } from "date-fns";
+import { format, addDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, setHours, setMinutes, isSameDay, isWithinInterval, eachDayOfInterval, addWeeks, addMonths } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 type Bay = {
   id: string;
@@ -34,18 +36,68 @@ type Booking = {
   paymentStatus?: string;
 };
 
+type ViewMode = 'day' | 'week' | 'month';
+
 export default function Schedule() {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [location, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(location.split('?')[1] || '');
+  
+  // Get view and date from URL params or use defaults
+  const urlView = searchParams.get('view') as ViewMode || 'day';
+  const urlDate = searchParams.get('date');
+  
+  const [view, setView] = useState<ViewMode>(urlView);
+  const [selectedDate, setSelectedDate] = useState(urlDate ? new Date(urlDate) : new Date());
   const [selectedSlot, setSelectedSlot] = useState<{ bay: Bay; hour: number } | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const { toast } = useToast();
+
+  // Update URL when view or date changes
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('view', view);
+    params.set('date', format(selectedDate, 'yyyy-MM-dd'));
+    setLocation(`/schedule?${params.toString()}`, { replace: true });
+  }, [view, selectedDate]);
   
   const { data: bays = [] } = useQuery<Bay[]>({
     queryKey: ["/api/bays"],
   });
 
+  // Calculate date range based on view
+  const getDateRange = () => {
+    if (view === 'day') {
+      return {
+        start: startOfDay(selectedDate),
+        end: endOfDay(selectedDate),
+      };
+    } else if (view === 'week') {
+      return {
+        start: startOfWeek(selectedDate, { weekStartsOn: 0 }),
+        end: endOfWeek(selectedDate, { weekStartsOn: 0 }),
+      };
+    } else {
+      return {
+        start: startOfMonth(selectedDate),
+        end: endOfMonth(selectedDate),
+      };
+    }
+  };
+
+  const dateRange = getDateRange();
+
   const { data: bookings = [] } = useQuery<Booking[]>({
-    queryKey: ["/api/bookings"],
+    queryKey: ["/api/bookings", { start: dateRange.start.toISOString(), end: dateRange.end.toISOString() }],
+    queryFn: async () => {
+      const url = `/api/bookings?start=${encodeURIComponent(dateRange.start.toISOString())}&end=${encodeURIComponent(dateRange.end.toISOString())}`;
+      const response = await fetch(url, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+      return response.json();
+    },
   });
 
   // Filter bookings for selected date
@@ -99,6 +151,56 @@ export default function Schedule() {
     }
   };
 
+  // Navigation handlers for different views
+  const handlePrevious = () => {
+    if (view === 'day') {
+      setSelectedDate(addDays(selectedDate, -1));
+    } else if (view === 'week') {
+      setSelectedDate(addWeeks(selectedDate, -1));
+    } else {
+      setSelectedDate(addMonths(selectedDate, -1));
+    }
+  };
+
+  const handleNext = () => {
+    if (view === 'day') {
+      setSelectedDate(addDays(selectedDate, 1));
+    } else if (view === 'week') {
+      setSelectedDate(addWeeks(selectedDate, 1));
+    } else {
+      setSelectedDate(addMonths(selectedDate, 1));
+    }
+  };
+
+  const getDisplayText = () => {
+    if (view === 'day') {
+      return {
+        main: format(selectedDate, "EEEE"),
+        sub: format(selectedDate, "MMMM d, yyyy"),
+      };
+    } else if (view === 'week') {
+      const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
+      const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 0 });
+      return {
+        main: "Week View",
+        sub: `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`,
+      };
+    } else {
+      return {
+        main: format(selectedDate, "MMMM yyyy"),
+        sub: "Month View",
+      };
+    }
+  };
+
+  const displayText = getDisplayText();
+
+  // Function to switch to day view when clicking a specific date
+  const handleDayClick = (date: Date) => {
+    setSelectedDate(date);
+    setView('day');
+  };
+
   return (
     <div className="flex-1 space-y-6 p-6 overflow-auto bg-muted/30">
       {/* Header */}
@@ -109,30 +211,48 @@ export default function Schedule() {
             Click any slot to book or view details
           </p>
         </div>
+
+        {/* View Selector */}
+        <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)}>
+          <TabsList>
+            <TabsTrigger value="day" data-testid="view-day">
+              <CalendarClock className="w-4 h-4 mr-2" />
+              Day
+            </TabsTrigger>
+            <TabsTrigger value="week" data-testid="view-week">
+              <CalendarDays className="w-4 h-4 mr-2" />
+              Week
+            </TabsTrigger>
+            <TabsTrigger value="month" data-testid="view-month">
+              <CalendarRange className="w-4 h-4 mr-2" />
+              Month
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      {/* Date Navigation - Apple Style */}
+      {/* Date Navigation */}
       <Card className="overflow-hidden border-0 shadow-sm">
         <div className="p-6 bg-gradient-to-br from-primary/5 to-transparent">
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+              onClick={handlePrevious}
               className="rounded-full"
-              data-testid="button-prev-day"
+              data-testid="button-prev"
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
             
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-1 min-w-[300px]">
               <div className="text-2xl font-semibold">
-                {format(selectedDate, "EEEE")}
+                {displayText.main}
               </div>
               <div className="text-lg text-muted-foreground">
-                {format(selectedDate, "MMMM d, yyyy")}
+                {displayText.sub}
               </div>
-              {isSameDay(selectedDate, new Date()) && (
+              {view === 'day' && isSameDay(selectedDate, new Date()) && (
                 <Badge variant="default" className="mt-1">Today</Badge>
               )}
             </div>
@@ -140,41 +260,53 @@ export default function Schedule() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+              onClick={handleNext}
               className="rounded-full"
-              data-testid="button-next-day"
+              data-testid="button-next"
             >
               <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
+          
+          <div className="flex justify-center mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedDate(new Date())}
+              data-testid="button-today"
+            >
+              Today
             </Button>
           </div>
         </div>
       </Card>
 
-      {/* Schedule Grid - Apple Style */}
-      <Card className="overflow-hidden border-0 shadow-sm">
-        <div className="overflow-x-auto">
-          <div className="min-w-[1200px]">
-            {/* Header Row */}
-            <div className="grid grid-cols-[80px_repeat(17,1fr)] bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm">
-              <div className="p-3 font-semibold border-r border-b flex items-center justify-center">
-                <span className="text-xs">Bays</span>
+      {/* Conditional View Rendering */}
+      {view === 'day' && (
+        <Card className="overflow-hidden border-0 shadow-sm">
+          <div className="overflow-x-auto">
+            <div className="min-w-[1200px]">
+              {/* Header Row */}
+              <div className="grid grid-cols-[80px_repeat(17,1fr)] bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm">
+                <div className="p-3 font-semibold border-r border-b flex items-center justify-center">
+                  <span className="text-xs">Bays</span>
+                </div>
+                {hours.map(hour => {
+                  const showAmPm = hour === 6 || hour === 12 || hour === 18;
+                  return (
+                    <div 
+                      key={hour} 
+                      className="p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center"
+                      data-testid={`header-hour-${hour}`}
+                    >
+                      <div className="text-sm font-semibold">{hour > 12 ? hour - 12 : hour}</div>
+                      {showAmPm && (
+                        <div className="text-[9px] text-muted-foreground uppercase font-medium">{hour < 12 ? 'am' : 'pm'}</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              {hours.map(hour => {
-                const showAmPm = hour === 6 || hour === 12 || hour === 18;
-                return (
-                  <div 
-                    key={hour} 
-                    className="p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center"
-                    data-testid={`header-hour-${hour}`}
-                  >
-                    <div className="text-sm font-semibold">{hour > 12 ? hour - 12 : hour}</div>
-                    {showAmPm && (
-                      <div className="text-[9px] text-muted-foreground uppercase font-medium">{hour < 12 ? 'am' : 'pm'}</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
 
             {/* Bay Rows */}
             {bays.length === 0 ? (
@@ -253,7 +385,28 @@ export default function Schedule() {
             )}
           </div>
         </div>
-      </Card>
+        </Card>
+      )}
+
+      {/* Week View */}
+      {view === 'week' && (
+        <WeekView 
+          bays={bays}
+          bookings={bookings}
+          selectedDate={selectedDate}
+          onDayClick={handleDayClick}
+        />
+      )}
+
+      {/* Month View */}
+      {view === 'month' && (
+        <MonthView 
+          bays={bays}
+          bookings={bookings}
+          selectedDate={selectedDate}
+          onDayClick={handleDayClick}
+        />
+      )}
 
       {/* Quick Booking Dialog */}
       <QuickBookDialog 
@@ -281,6 +434,173 @@ type Customer = {
   email: string;
   phone?: string;
 };
+
+// Week View Component
+function WeekView({ bays, bookings, selectedDate, onDayClick }: {
+  bays: Bay[];
+  bookings: Booking[];
+  selectedDate: Date;
+  onDayClick: (date: Date) => void;
+}) {
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 });
+  const weekDays = eachDayOfInterval({
+    start: weekStart,
+    end: endOfWeek(selectedDate, { weekStartsOn: 0 }),
+  });
+
+  // Count bookings per bay per day
+  const getBookingCount = (bayId: string, date: Date) => {
+    return bookings.filter(b =>
+      b.bayId === bayId &&
+      isSameDay(new Date(b.startTime), date)
+    ).length;
+  };
+
+  return (
+    <Card className="overflow-hidden border-0 shadow-sm">
+      <div className="overflow-x-auto">
+        <div className="min-w-[900px]">
+          {/* Header Row */}
+          <div className="grid grid-cols-8 bg-gradient-to-br from-muted/80 to-muted/40">
+            <div className="p-4 font-semibold border-r border-b">Bays</div>
+            {weekDays.map((day) => (
+              <div
+                key={day.toISOString()}
+                className="p-4 text-center border-r last:border-r-0 border-b"
+              >
+                <div className="font-semibold">{format(day, 'EEE')}</div>
+                <div className="text-sm text-muted-foreground">{format(day, 'MMM d')}</div>
+                {isSameDay(day, new Date()) && (
+                  <Badge variant="secondary" className="mt-1 text-[10px]">Today</Badge>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Bay Rows */}
+          {bays.map((bay) => (
+            <div key={bay.id} className="grid grid-cols-8 border-b last:border-b-0">
+              <div className="p-4 border-r bg-muted/30 font-medium">{bay.name}</div>
+              {weekDays.map((day) => {
+                const bookingCount = getBookingCount(bay.id, day);
+                return (
+                  <div
+                    key={day.toISOString()}
+                    onClick={() => onDayClick(day)}
+                    className="p-4 border-r last:border-r-0 hover-elevate cursor-pointer"
+                    data-testid={`week-cell-${bay.id}-${format(day, 'yyyy-MM-dd')}`}
+                  >
+                    {bookingCount > 0 ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-full h-2 bg-primary/20 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary rounded-full"
+                            style={{ width: `${Math.min(bookingCount * 20, 100)}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {bookingCount} {bookingCount === 1 ? 'booking' : 'bookings'}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-xs text-muted-foreground opacity-50">
+                        Available
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Month View Component
+function MonthView({ bays, bookings, selectedDate, onDayClick }: {
+  bays: Bay[];
+  bookings: Booking[];
+  selectedDate: Date;
+  onDayClick: (date: Date) => void;
+}) {
+  const monthStart = startOfMonth(selectedDate);
+  const monthEnd = endOfMonth(selectedDate);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  
+  const calendarDays = eachDayOfInterval({
+    start: calendarStart,
+    end: calendarEnd,
+  });
+
+  // Calculate total bookings for a day across all bays
+  const getTotalBookings = (date: Date) => {
+    return bookings.filter(b => isSameDay(new Date(b.startTime), date)).length;
+  };
+
+  // Get color based on booking density
+  const getDensityColor = (count: number) => {
+    if (count === 0) return 'bg-muted/20';
+    if (count <= 2) return 'bg-primary/20';
+    if (count <= 5) return 'bg-primary/40';
+    return 'bg-primary/60';
+  };
+
+  const weeks: Date[][] = [];
+  for (let i = 0; i < calendarDays.length; i += 7) {
+    weeks.push(calendarDays.slice(i, i + 7));
+  }
+
+  return (
+    <Card className="overflow-hidden border-0 shadow-sm">
+      <div className="p-6">
+        {/* Day Headers */}
+        <div className="grid grid-cols-7 gap-2 mb-2">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="text-center text-sm font-semibold p-2">
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar Grid */}
+        {weeks.map((week, weekIndex) => (
+          <div key={weekIndex} className="grid grid-cols-7 gap-2 mb-2">
+            {week.map((day) => {
+              const bookingCount = getTotalBookings(day);
+              const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
+              const isToday = isSameDay(day, new Date());
+
+              return (
+                <div
+                  key={day.toISOString()}
+                  onClick={() => onDayClick(day)}
+                  className={`
+                    p-4 rounded-lg border-2 transition-all cursor-pointer hover-elevate
+                    ${isToday ? 'border-primary' : 'border-transparent'}
+                    ${!isCurrentMonth ? 'opacity-30' : ''}
+                    ${getDensityColor(bookingCount)}
+                  `}
+                  data-testid={`month-cell-${format(day, 'yyyy-MM-dd')}`}
+                >
+                  <div className="text-sm font-semibold mb-2">{format(day, 'd')}</div>
+                  {bookingCount > 0 && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                      <span className="text-[10px] font-medium">{bookingCount}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 // Quick Book Dialog Component
 function QuickBookDialog({ 

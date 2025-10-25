@@ -1029,7 +1029,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/bookings", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      const bookings = await storage.getBookings(user?.facilityId || undefined);
+      const { start, end } = req.query;
+      
+      // Support date range filtering for week/month views
+      let bookings;
+      if (start && end && user?.facilityId) {
+        bookings = await storage.getBookingsByDateRange(
+          user.facilityId,
+          new Date(start as string),
+          new Date(end as string)
+        );
+      } else {
+        bookings = await storage.getBookings(user?.facilityId || undefined);
+      }
       
       // Fetch related data for each booking
       const enrichedBookings = await Promise.all(
