@@ -410,7 +410,7 @@ function QuickBookDialog({
     }
 
     createBookingMutation.mutate({
-      bayId: bay.id,
+      bayIds: [bay.id],
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       type: 'rental',
