@@ -8,12 +8,15 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 ### Completed Features
 - ✅ Multi-tenant database schema with PostgreSQL
 - ✅ User authentication with Replit Auth (OIDC)
-- ✅ Role-based access control (super_admin, facility_admin, instructor, member)
+- ✅ Role-based access control (super_admin, owner, administrator, instructor, club_fitter, support, customer, member)
 - ✅ Smart bay assignment algorithm (auto-assigns bay with lowest usage)
 - ✅ Backend API with all CRUD endpoints
-- ✅ Frontend pages: Landing, Dashboard, Bays, Bookings, Members, Memberships, Lessons, Fittings, Facilities, Settings
+- ✅ Frontend pages: Landing, Dashboard, Bays, Bookings, Members, Memberships, Lessons (with Packages), Fittings, Facilities, Settings, Contacts, Sales, Offers, Staff, Schedule
 - ✅ Real-time dashboard statistics from actual data
 - ✅ Professional golf-themed UI with Tailwind CSS
+- ✅ Lesson packages (pay-per-lesson, bundles, recurring subscriptions)
+- ✅ Club fitting scheduling with customer selection
+- ✅ CRM with lead tracking (new, contacted, qualified, converted, lost)
 
 ### In Progress
 - 🔨 Facility onboarding wizard
@@ -33,7 +36,9 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - **bookings**: Reservations with auto bay assignment, payment tracking
 - **membership_tiers**: Customizable membership plans per facility
 - **lessons**: Instructor-student scheduling
+- **lesson_packages**: Lesson pricing packages (pay-per-lesson, bundles, recurring subscriptions)
 - **fittings**: Club fitting appointments
+- **leads**: CRM lead tracking with status pipeline
 - **sessions**: Replit Auth session storage
 
 ### Key Design Decisions
@@ -72,6 +77,12 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 #### Lessons
 - `GET /api/lessons` - List lessons with instructor/student data
 - `POST /api/lessons` - Create lesson
+
+#### Lesson Packages
+- `GET /api/lesson-packages` - List lesson packages
+- `POST /api/lesson-packages` - Create lesson package (admin only)
+- `PATCH /api/lesson-packages/:id` - Update lesson package (admin only)
+- `DELETE /api/lesson-packages/:id` - Delete lesson package (admin only)
 
 #### Fittings
 - `GET /api/fittings` - List fittings with fitter/user data
@@ -132,9 +143,35 @@ npm run db:push  # Sync schema to PostgreSQL
 6. Custom domain support per facility
 7. Template marketplace for quick setup
 
+## Sidebar Navigation Organization
+
+The sidebar is organized into three sections:
+
+### Navigation
+- Dashboard
+- Facilities (super admin only)
+- Settings
+
+### Business
+- Contacts (Leads and CRM)
+- Members (Membership members)
+- Sales
+- Offers
+- Staff
+
+### Operations
+- Schedule
+- Bays
+- Bookings
+- Memberships (Membership tiers/plans)
+- Lessons
+- Fittings
+
 ## Notes
 - Database uses `varchar` UUIDs for all primary keys
 - All timestamps in UTC
 - Frontend uses TanStack Query v5 for data fetching
 - Sidebar navigation with Shadcn components
 - Design follows design_guidelines.md (golf theme, spacing, interactions)
+- Lesson package types: pay_per_lesson, package, recurring with billing intervals (monthly, quarterly, annual)
+- Lead status tracking uses enum: new, contacted, qualified, converted, lost

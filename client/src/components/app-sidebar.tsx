@@ -79,6 +79,11 @@ function getMenuItems(user: User | undefined) {
         icon: UserPlus,
       },
       {
+        title: "Members",
+        url: "/members",
+        icon: Users,
+      },
+      {
         title: "Sales",
         url: "/sales",
         icon: DollarSign,
@@ -113,11 +118,6 @@ function getMenuItems(user: User | undefined) {
         title: "Bookings",
         url: "/bookings",
         icon: Calendar,
-      },
-      {
-        title: "Members",
-        url: "/members",
-        icon: Users,
       },
       {
         title: "Memberships",
