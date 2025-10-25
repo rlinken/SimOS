@@ -1196,6 +1196,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment status endpoint - mark booking as paid
+  app.patch("/api/bookings/:id/payment-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking || booking.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const { paymentStatus } = req.body;
+      
+      if (!["pending", "paid", "refunded"].includes(paymentStatus)) {
+        return res.status(400).json({ message: "Invalid payment status" });
+      }
+
+      const updated = await storage.updateBooking(req.params.id, {
+        paymentStatus,
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating booking payment status:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ============================================================================
   // Membership Tiers Routes
   // ============================================================================

@@ -112,6 +112,7 @@ export interface IStorage {
   getBookings(facilityId?: string): Promise<Booking[]>;
   getBooking(id: string): Promise<Booking | undefined>;
   createBooking(booking: InsertBooking): Promise<Booking>;
+  updateBooking(id: string, booking: Partial<InsertBooking>): Promise<Booking>;
   getBookingsByDateRange(facilityId: string, start: Date, end: Date): Promise<Booking[]>;
   
   // Membership Tiers
@@ -429,6 +430,15 @@ export class DatabaseStorage implements IStorage {
     const [booking] = await db
       .insert(bookings)
       .values(bookingData)
+      .returning();
+    return booking;
+  }
+
+  async updateBooking(id: string, bookingData: Partial<InsertBooking>): Promise<Booking> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ ...bookingData, updatedAt: new Date() })
+      .where(eq(bookings.id, id))
       .returning();
     return booking;
   }
