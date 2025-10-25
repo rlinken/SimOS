@@ -37,7 +37,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Booking, MembershipTier, Bay, Offering } from "@shared/schema";
-import { format, addDays, isSameDay, parseISO, addMinutes, startOfWeek } from "date-fns";
+import { format, addDays, isSameDay, parseISO, addMinutes } from "date-fns";
 
 type EnrichedBooking = Booking & {
   user?: any;
@@ -206,9 +206,10 @@ export default function MemberDashboard() {
     return true;
   });
 
-  // Get week dates for calendar view - always show full week starting from Sunday
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 }); // 0 = Sunday
-  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // Get week dates for calendar view - always start with today, show next 6 days
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(today, i));
 
   // Generate hourly time slots (7 AM to 10 PM)
   const timeSlots = Array.from({ length: 15 }, (_, i) => i + 7); // 7-21 (7am-9pm)
@@ -723,34 +724,8 @@ export default function MemberDashboard() {
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold">
-                {format(selectedDate, "MMM d")} - {format(addDays(selectedDate, 6), "MMM d, yyyy")}
+                Today - {format(addDays(today, 6), "MMM d, yyyy")}
               </h2>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedDate(addDays(selectedDate, -7))}
-                  data-testid="button-prev-week"
-                >
-                  Previous Week
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedDate(new Date())}
-                  data-testid="button-today"
-                >
-                  Today
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedDate(addDays(selectedDate, 7))}
-                  data-testid="button-next-week"
-                >
-                  Next Week
-                </Button>
-              </div>
             </div>
 
             <div className="overflow-x-auto">
