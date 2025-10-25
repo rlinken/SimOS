@@ -59,6 +59,27 @@ export const offeringTypeEnum = pgEnum("offering_type", [
   "membership",
 ]);
 
+export const leadStatusEnum = pgEnum("lead_status", [
+  "new",
+  "contacted",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "won",
+  "lost",
+]);
+
+export const leadSourceEnum = pgEnum("lead_source", [
+  "website",
+  "phone",
+  "email",
+  "referral",
+  "walk_in",
+  "social_media",
+  "event",
+  "other",
+]);
+
 // ============================================================================
 // SESSION TABLE (Required for Replit Auth)
 // ============================================================================
@@ -207,6 +228,80 @@ export const upsertUserSchema = createInsertSchema(users).omit({
 
 export type User = typeof users.$inferSelect;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
+
+// ============================================================================
+// LEADS TABLE (CRM for prospective customers)
+// ============================================================================
+
+export const leads = pgTable("leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Contact info
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  email: varchar("email").notNull(),
+  phone: varchar("phone"),
+  company: varchar("company"),
+  
+  // Lead tracking
+  status: leadStatusEnum("status").notNull().default("new"),
+  source: leadSourceEnum("source").notNull().default("website"),
+  
+  // CRM fields
+  notes: text("notes"),
+  estimatedValue: numeric("estimated_value", { precision: 10, scale: 2 }),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  
+  // Conversion tracking
+  convertedToUserId: varchar("converted_to_user_id").references(() => users.id),
+  convertedAt: timestamp("converted_at"),
+  
+  // Follow-up
+  nextFollowUp: timestamp("next_follow_up"),
+  lastContactedAt: timestamp("last_contacted_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const leadsRelations = relations(leads, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [leads.facilityId],
+    references: [facilities.id],
+  }),
+  assignedStaff: one(users, {
+    fields: [leads.assignedTo],
+    references: [users.id],
+    relationName: "assignedLeads",
+  }),
+  convertedUser: one(users, {
+    fields: [leads.convertedToUserId],
+    references: [users.id],
+    relationName: "convertedFromLead",
+  }),
+}));
+
+export const insertLeadSchema = createInsertSchema(leads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateLeadSchema = createInsertSchema(leads)
+  .omit({
+    id: true,
+    facilityId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .partial();
+
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type UpdateLead = z.infer<typeof updateLeadSchema>;
 
 // ============================================================================
 // MEMBERSHIP TIERS TABLE
