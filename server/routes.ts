@@ -13,6 +13,9 @@ import {
   insertMembershipTierSchema,
   insertLessonSchema,
   insertFittingSchema,
+  insertOfferingSchema,
+  updateOfferingSchema,
+  upsertUserSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -522,6 +525,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting staff:", error);
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Offerings Routes (Products/Services/Packages)
+  // ============================================================================
+
+  app.get("/api/offerings", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const offerings = await storage.getOfferings(user.facilityId);
+      
+      // Enrich with assigned staff data
+      const enrichedOfferings = await Promise.all(
+        offerings.map(async (offering) => {
+          if (offering.assignedStaffId) {
+            const staff = await storage.getUser(offering.assignedStaffId);
+            return { ...offering, assignedStaff: staff };
+          }
+          return offering;
+        })
+      );
+
+      res.json(enrichedOfferings);
+    } catch (error: any) {
+      console.error("Error fetching offerings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/offerings", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // Validate assigned staff belongs to facility
+      if (req.body.assignedStaffId) {
+        const staff = await storage.getUser(req.body.assignedStaffId);
+        if (!staff || staff.facilityId !== user.facilityId) {
+          return res.status(400).json({ message: "Invalid staff assignment" });
+        }
+      }
+
+      const validatedData = insertOfferingSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+
+      const offering = await storage.createOffering(validatedData);
+      res.status(201).json(offering);
+    } catch (error: any) {
+      console.error("Error creating offering:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/offerings/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const offering = await storage.getOffering(req.params.id);
+      if (!offering || offering.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Offering not found" });
+      }
+
+      // Validate assigned staff belongs to facility
+      if (req.body.assignedStaffId) {
+        const staff = await storage.getUser(req.body.assignedStaffId);
+        if (!staff || staff.facilityId !== user.facilityId) {
+          return res.status(400).json({ message: "Invalid staff assignment" });
+        }
+      }
+
+      // Parse and remove facilityId from request to prevent cross-tenant reassignment
+      const { facilityId: _, ...updateData } = req.body;
+      const validatedData = updateOfferingSchema.parse(updateData);
+      const updated = await storage.updateOffering(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating offering:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/offerings/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const offering = await storage.getOffering(req.params.id);
+      if (!offering || offering.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Offering not found" });
+      }
+
+      await storage.deleteOffering(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting offering:", error);
+      res.status(500).json({ message: error.message });
     }
   });
 
