@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar, Plus, Clock, MapPin, DollarSign, CheckCircle2, X, CreditCard, User as UserIcon } from "lucide-react";
+import { Calendar, Plus, Clock, MapPin, DollarSign, CheckCircle2, X, CreditCard, User as UserIcon, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +75,10 @@ export default function BookingsPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<string | null>(null);
   const [paymentType, setPaymentType] = useState<'card_on_file' | 'new_card'>('card_on_file');
+  const [isTopOffDialogOpen, setIsTopOffDialogOpen] = useState(false);
+  const [selectedBookingForTopOff, setSelectedBookingForTopOff] = useState<string | null>(null);
+  const [topOffMinutes, setTopOffMinutes] = useState(30);
+  const [topOffPrice, setTopOffPrice] = useState("32.50");
   const { toast } = useToast();
 
   const { data: bookings, isLoading } = useQuery<(Booking & { bays: Bay[]; user: User })[]>({
@@ -233,6 +237,61 @@ export default function BookingsPage() {
             : "Payment processed successfully",
         });
       },
+    });
+  };
+
+  // Top off mutation to extend booking time
+  const topOffMutation = useMutation({
+    mutationFn: async ({ bookingId, additionalMinutes, price }: { bookingId: string; additionalMinutes: number; price: number }) => {
+      return apiRequest("PATCH", `/api/bookings/${bookingId}/top-off`, {
+        additionalMinutes,
+        price,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Time Added",
+        description: `Successfully added ${topOffMinutes} minutes to the booking`,
+      });
+      setIsTopOffDialogOpen(false);
+      setSelectedBookingForTopOff(null);
+      setTopOffMinutes(30);
+      setTopOffPrice("32.50");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add time to booking",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTopOff = (bookingId: string) => {
+    setSelectedBookingForTopOff(bookingId);
+    setTopOffMinutes(30);
+    setTopOffPrice("32.50");
+    setIsTopOffDialogOpen(true);
+  };
+
+  const processTopOff = () => {
+    if (!selectedBookingForTopOff) return;
+    
+    const price = parseFloat(topOffPrice);
+    if (isNaN(price) || price < 0) {
+      toast({
+        title: "Invalid Price",
+        description: "Please enter a valid price amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    topOffMutation.mutate({
+      bookingId: selectedBookingForTopOff,
+      additionalMinutes: topOffMinutes,
+      price,
     });
   };
 
@@ -615,6 +674,18 @@ export default function BookingsPage() {
                       Collect Payment
                     </Button>
                   )}
+
+                  {/* Top Off Time Button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleTopOff(booking.id)}
+                    disabled={topOffMutation.isPending}
+                    data-testid={`button-top-off-${booking.id}`}
+                  >
+                    <Timer className="w-3 h-3 mr-1" />
+                    Top Off
+                  </Button>
                 </div>
               </div>
             ))}
@@ -735,6 +806,129 @@ export default function BookingsPage() {
             >
               <CreditCard className="w-4 h-4 mr-2" />
               {markAsPaidMutation.isPending ? "Processing..." : "Process Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Top Off Time Dialog */}
+      <Dialog open={isTopOffDialogOpen} onOpenChange={setIsTopOffDialogOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-top-off">
+          <DialogHeader>
+            <DialogTitle>Add Time to Booking</DialogTitle>
+            <DialogDescription>
+              Extend the booking duration and charge for additional time
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {selectedBookingForTopOff && bookings?.find(b => b.id === selectedBookingForTopOff) && (
+              <>
+                {/* Booking Summary */}
+                <Card className="p-4 bg-muted/30">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Current End Time</span>
+                      <span className="text-sm font-mono">
+                        {format(
+                          new Date(bookings.find(b => b.id === selectedBookingForTopOff)!.endTime),
+                          "MMM d, h:mm a"
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Customer</span>
+                      <span className="text-sm font-medium">
+                        {bookings.find(b => b.id === selectedBookingForTopOff)!.user?.firstName}{" "}
+                        {bookings.find(b => b.id === selectedBookingForTopOff)!.user?.lastName}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Time Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="time-increment">Additional Time</Label>
+                  <Select
+                    value={topOffMinutes.toString()}
+                    onValueChange={(value) => setTopOffMinutes(parseInt(value))}
+                  >
+                    <SelectTrigger id="time-increment" data-testid="select-time-increment">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30 minutes</SelectItem>
+                      <SelectItem value="60">1 hour</SelectItem>
+                      <SelectItem value="90">1.5 hours</SelectItem>
+                      <SelectItem value="120">2 hours</SelectItem>
+                      <SelectItem value="150">2.5 hours</SelectItem>
+                      <SelectItem value="180">3 hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Price Input */}
+                <div className="space-y-2">
+                  <Label htmlFor="top-off-price">Price</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="top-off-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={topOffPrice}
+                      onChange={(e) => setTopOffPrice(e.target.value)}
+                      className="pl-9"
+                      placeholder="32.50"
+                      data-testid="input-top-off-price"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Default: $32.50 per 30 minutes
+                  </p>
+                </div>
+
+                {/* New End Time Preview */}
+                <Card className="p-3 bg-primary/5 border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">New End Time</span>
+                    <span className="text-sm font-mono text-primary">
+                      {format(
+                        new Date(
+                          new Date(bookings.find(b => b.id === selectedBookingForTopOff)!.endTime).getTime() + 
+                          topOffMinutes * 60000
+                        ),
+                        "MMM d, h:mm a"
+                      )}
+                    </span>
+                  </div>
+                </Card>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsTopOffDialogOpen(false);
+                setSelectedBookingForTopOff(null);
+                setTopOffMinutes(30);
+                setTopOffPrice("32.50");
+              }}
+              data-testid="button-cancel-top-off"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={processTopOff}
+              disabled={topOffMutation.isPending}
+              data-testid="button-confirm-top-off"
+            >
+              <Timer className="w-4 h-4 mr-2" />
+              {topOffMutation.isPending ? "Adding Time..." : "Add Time"}
             </Button>
           </DialogFooter>
         </DialogContent>
