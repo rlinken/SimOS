@@ -198,9 +198,7 @@ export default function ContactsPage() {
       case "new": return "default";
       case "contacted": return "secondary";
       case "qualified": return "default";
-      case "proposal": return "default";
-      case "negotiation": return "default";
-      case "won": return "default";
+      case "converted": return "default";
       case "lost": return "secondary";
       default: return "secondary";
     }
@@ -514,9 +512,7 @@ export default function ContactsPage() {
                           <SelectItem value="new">New</SelectItem>
                           <SelectItem value="contacted">Contacted</SelectItem>
                           <SelectItem value="qualified">Qualified</SelectItem>
-                          <SelectItem value="proposal">Proposal</SelectItem>
-                          <SelectItem value="negotiation">Negotiation</SelectItem>
-                          <SelectItem value="won">Won</SelectItem>
+                          <SelectItem value="converted">Converted</SelectItem>
                           <SelectItem value="lost">Lost</SelectItem>
                         </SelectContent>
                       </Select>

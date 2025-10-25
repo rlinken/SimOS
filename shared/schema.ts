@@ -63,9 +63,7 @@ export const leadStatusEnum = pgEnum("lead_status", [
   "new",
   "contacted",
   "qualified",
-  "proposal",
-  "negotiation",
-  "won",
+  "converted",
   "lost",
 ]);
 
