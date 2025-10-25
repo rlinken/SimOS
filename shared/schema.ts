@@ -147,8 +147,12 @@ export const facilities = pgTable("facilities", {
   lessonBufferBetweenMinutes: integer("lesson_buffer_between_minutes").default(15), // Gap between lessons
   fittingBufferBetweenMinutes: integer("fitting_buffer_between_minutes").default(15), // Gap between fittings
   
-  // Stripe Connect (for later)
-  stripeAccountId: varchar("stripe_account_id"),
+  // Payment settings
+  stripePublishableKey: text("stripe_publishable_key"),
+  stripeSecretKey: text("stripe_secret_key"),
+  stripeAccountId: varchar("stripe_account_id"), // For Stripe Connect (future)
+  paymentProvider: varchar("payment_provider").default("stripe"), // "stripe", "square", etc.
+  paymentsEnabled: boolean("payments_enabled").default(false),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
