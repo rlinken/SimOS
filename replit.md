@@ -17,12 +17,13 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - ✅ Lesson packages (pay-per-lesson, bundles, recurring subscriptions)
 - ✅ Club fitting scheduling with customer selection
 - ✅ CRM with lead tracking (new, contacted, qualified, converted, lost)
+- ✅ Shareable membership purchase URLs with public access (no login required)
 
 ### In Progress
 - 🔨 Facility onboarding wizard
 - 🔨 Embeddable booking widgets
-- 🔨 Standalone sales pages
 - 🔨 Widget customization dashboard
+- 🔨 Shareable purchase URLs (memberships complete, lessons/offers/bookings pending)
 
 ### Deferred (User Request)
 - ⏸️ Stripe Connect integration (build core functionality first)
@@ -90,6 +91,12 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 
 #### Dashboard
 - `GET /api/dashboard/stats` - Real-time facility statistics
+
+#### Public Purchase Pages (No Authentication)
+- `GET /api/public/membership/:id` - Get membership tier details with facility branding
+- `GET /api/public/lesson-package/:id` - Get lesson package details with facility branding
+- `GET /api/public/offer/:id` - Get offer details with facility branding
+- `GET /api/public/facility/:id` - Get facility details and bays for booking
 
 ## Development Workflow
 
@@ -167,6 +174,30 @@ The sidebar is organized into three sections:
 - Lessons
 - Fittings
 
+## Shareable Purchase URLs
+
+Admins can copy shareable links for memberships that allow customers to view details and sign up without logging in.
+
+### Available Purchase Pages
+- **Memberships**: `/buy/membership/:id` - Complete implementation
+  - Displays tier details, pricing, and benefits
+  - Customer signup form (name, email, phone)
+  - Facility branding (logo, colors)
+  - Success/error state handling
+  - **Admin Action**: Click "Copy Shareable Link" button on any membership tier card
+
+### Pending Implementation (Same Pattern)
+- **Lesson Packages**: `/buy/lesson-package/:id` 
+- **Offers**: `/buy/offer/:id`
+- **Bookings**: `/buy/booking/:facilityId`
+
+### Implementation Details
+- Public API endpoints return data without authentication
+- Purchase pages collect customer information (Stripe integration deferred)
+- All dynamic content includes data-testid attributes for testing
+- Error handling distinguishes network errors from not-found states
+- Responsive design follows design guidelines
+
 ## Notes
 - Database uses `varchar` UUIDs for all primary keys
 - All timestamps in UTC
@@ -175,3 +206,4 @@ The sidebar is organized into three sections:
 - Design follows design_guidelines.md (golf theme, spacing, interactions)
 - Lesson package types: pay_per_lesson, package, recurring with billing intervals (monthly, quarterly, annual)
 - Lead status tracking uses enum: new, contacted, qualified, converted, lost
+- Shareable purchase URLs use pattern: `/buy/{type}/{id}` (public access, no authentication)
