@@ -50,6 +50,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Public Routes (No Authentication Required)
+  // ============================================================================
+
+  // Get membership tier details for shareable purchase page
+  app.get("/api/public/membership/:id", async (req, res) => {
+    try {
+      const membershipTier = await storage.getMembershipTier(req.params.id);
+      if (!membershipTier) {
+        return res.status(404).json({ message: "Membership tier not found" });
+      }
+      // Also fetch facility info for branding
+      const facility = await storage.getFacility(membershipTier.facilityId);
+      res.json({ membershipTier, facility });
+    } catch (error: any) {
+      console.error("Error fetching membership tier:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get lesson package details for shareable purchase page
+  app.get("/api/public/lesson-package/:id", async (req, res) => {
+    try {
+      const lessonPackage = await storage.getLessonPackage(req.params.id);
+      if (!lessonPackage) {
+        return res.status(404).json({ message: "Lesson package not found" });
+      }
+      // Also fetch facility info for branding
+      const facility = await storage.getFacility(lessonPackage.facilityId);
+      res.json({ lessonPackage, facility });
+    } catch (error: any) {
+      console.error("Error fetching lesson package:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get offer details for shareable purchase page
+  app.get("/api/public/offer/:id", async (req, res) => {
+    try {
+      const offer = await storage.getOffering(req.params.id);
+      if (!offer) {
+        return res.status(404).json({ message: "Offer not found" });
+      }
+      // Also fetch facility info for branding
+      const facility = await storage.getFacility(offer.facilityId);
+      res.json({ offer, facility });
+    } catch (error: any) {
+      console.error("Error fetching offer:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get facility details for shareable booking page
+  app.get("/api/public/facility/:id", async (req, res) => {
+    try {
+      const facility = await storage.getFacility(req.params.id);
+      if (!facility) {
+        return res.status(404).json({ message: "Facility not found" });
+      }
+      // Get bays for booking
+      const bays = await storage.getBays(facility.id);
+      res.json({ facility, bays });
+    } catch (error: any) {
+      console.error("Error fetching facility:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Facilities Routes (Super Admin only)
   // ============================================================================
 
