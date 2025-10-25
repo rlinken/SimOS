@@ -26,7 +26,6 @@ import AccountPage from "@/pages/account";
 import SchedulePage from "@/pages/schedule";
 import ContactsPage from "@/pages/contacts";
 import SalesPage from "@/pages/sales";
-import TransformationPackagesPage from "@/pages/transformation-packages";
 import BuyMembership from "@/pages/buy-membership";
 import BuyTransformationPackage from "@/pages/buy-transformation-package";
 
@@ -48,7 +47,6 @@ function AuthenticatedRoutes() {
       <Route path="/bookings" component={BookingsPage} />
       <Route path="/members" component={MembersPage} />
       <Route path="/memberships" component={MembershipsPage} />
-      <Route path="/transformation-packages" component={TransformationPackagesPage} />
       <Route path="/staff" component={StaffPage} />
       <Route path="/offerings" component={OfferingsPage} />
       <Route path="/lessons" component={LessonsPage} />

@@ -124,11 +124,6 @@ function getMenuItems(user: User | undefined) {
         title: "Memberships",
         url: "/memberships",
         icon: CreditCard,
-      },
-      {
-        title: "Transformation Packages",
-        url: "/transformation-packages",
-        icon: Sparkles,
       }
     );
   }
