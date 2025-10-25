@@ -25,11 +25,17 @@ type Bay = {
 
 type Booking = {
   id: string;
-  bayId: string;
+  bayIds: string[];
   startTime: string;
   endTime: string;
   type: string;
   userId: string;
+  user?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+  };
   userName?: string;
   userEmail?: string;
   userPhone?: string;
@@ -38,6 +44,7 @@ type Booking = {
   paymentMethod?: "pay_at_desk" | "new_card" | "card_on_file" | "membership";
   checkInStatus?: "pending" | "checked_in" | "no_show";
   checkedInAt?: string;
+  bays?: Array<{ id: string; name: string }>;
 };
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -553,7 +560,7 @@ function WeekView({ bays, bookings, selectedDate, onDayClick }: {
   // Count bookings per bay per day
   const getBookingCount = (bayId: string, date: Date) => {
     return bookings.filter(b =>
-      b.bayId === bayId &&
+      b.bayIds.includes(bayId) &&
       isSameDay(new Date(b.startTime), date)
     ).length;
   };
