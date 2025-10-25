@@ -11,7 +11,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - ✅ Role-based access control (super_admin, owner, administrator, instructor, club_fitter, support, customer, member)
 - ✅ Smart bay assignment algorithm (auto-assigns bay with lowest usage)
 - ✅ Backend API with all CRUD endpoints
-- ✅ Frontend pages: Landing, Dashboard, Bays, Bookings, Members, Memberships, Lessons (with Packages), Fittings, Facilities, Settings, Contacts, Sales, Offers (includes Transformation Packages), Staff, Schedule
+- ✅ Frontend pages: Landing, Dashboard, Bays, Bookings, Members, Memberships, Lessons (with Packages), Fittings, Facilities, Settings, Contacts, Sales, Offers, Transformation Packages, Staff, Schedule
 - ✅ Real-time dashboard statistics from actual data
 - ✅ Professional golf-themed UI with Tailwind CSS
 - ✅ Lesson packages (pay-per-lesson, bundles, recurring subscriptions)
@@ -172,7 +172,7 @@ The sidebar is organized into three sections:
 - Contacts (Leads and CRM)
 - Members (Membership members)
 - Sales
-- Offers (includes General Offers and Transformation Packages in tabbed interface)
+- Offers (Promotional campaigns and sales pages for services)
 - Staff
 
 ### Operations
@@ -180,6 +180,7 @@ The sidebar is organized into three sections:
 - Bays
 - Bookings
 - Memberships (Membership tiers/plans)
+- Transformation Packages (Comprehensive training programs)
 - Lessons
 - Fittings
 
@@ -201,7 +202,7 @@ Admins can copy shareable links for memberships that allow customers to view det
   - Duration and enrollment limits
   - Customer signup form with waitlist support for full packages
   - Facility branding
-  - **Admin Action**: Navigate to Offers page → Transformation Packages tab → Click "Copy Shareable Link" button on any package card
+  - **Admin Action**: Navigate to Operations > Transformation Packages → Click "Copy Shareable Link" button on any package card
 
 ### Pending Implementation (Same Pattern)
 - **Lesson Packages**: `/buy/lesson-package/:id` 
@@ -224,4 +225,5 @@ Admins can copy shareable links for memberships that allow customers to view det
 - Lesson package types: pay_per_lesson, package, recurring with billing intervals (monthly, quarterly, annual)
 - Lead status tracking uses enum: new, contacted, qualified, converted, lost
 - Shareable purchase URLs use pattern: `/buy/{type}/{id}` (public access, no authentication)
-- Offers page uses tabbed interface: "General Offers" and "Transformation Packages" tabs for organized management
+- Architectural separation: Operations manages services delivered, Business manages sales/marketing
+- Offers page focuses on promotional campaigns and sales pages for any service type (lessons, memberships, fittings, transformation packages)

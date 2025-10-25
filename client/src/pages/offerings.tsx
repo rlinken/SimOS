@@ -295,6 +295,7 @@ export default function OfferingsPage() {
                       <FormControl>
                         <Textarea
                           {...field}
+                          value={field.value || ""}
                           placeholder="Brief description of this offering..."
                           data-testid="input-description"
                         />
