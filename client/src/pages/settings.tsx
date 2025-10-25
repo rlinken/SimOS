@@ -117,11 +117,29 @@ export default function SettingsPage() {
           <Card className="p-6">
             <h2 className="text-xl font-semibold mb-2">Booking Options</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Configure how members can book lessons and club fittings
+              Configure how members can book bays, lessons, and club fittings
             </p>
 
             <div className="space-y-6">
               <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="allow-bay-selection">Allow Bay Selection</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Let customers choose specific bays when booking (can also be enabled per membership tier)
+                  </p>
+                </div>
+                <Switch
+                  id="allow-bay-selection"
+                  checked={facility?.allowBaySelection || false}
+                  onCheckedChange={(checked) => 
+                    updateSettingsMutation.mutate({ allowBaySelection: checked })
+                  }
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  data-testid="switch-allow-bay-selection"
+                />
+              </div>
+
+              <div className="border-t pt-6 flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label htmlFor="allow-bay-lessons">Allow Bay Reservation with Lessons</Label>
                   <p className="text-sm text-muted-foreground">

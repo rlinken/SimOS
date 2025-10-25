@@ -107,6 +107,9 @@ export const facilities = pgTable("facilities", {
   // Membership billing
   billingPeriod: varchar("billing_period").default("monthly"), // "monthly" or "annual"
   
+  // Bay selection settings
+  allowBaySelection: boolean("allow_bay_selection").default(false), // Allow customers to choose specific bays
+  
   // Booking buffer settings (in minutes)
   bayBookingBufferMinutes: integer("bay_booking_buffer_minutes").default(30), // Minimum time before booking (e.g., 30 min)
   lessonBookingBufferMinutes: integer("lesson_booking_buffer_minutes").default(1440), // 24 hours for lessons
@@ -236,6 +239,10 @@ export const membershipTiers = pgTable("membership_tiers", {
   allowedBayTiers: json("allowed_bay_tiers")
     .$type<string[]>()
     .default(sql`'["standard"]'::json`),
+  
+  // Bay access control - which specific bays this tier can book (empty array = all bays)
+  allowedBayIds: integer("allowed_bay_ids").array().default(sql`ARRAY[]::integer[]`), // Array of bay IDs this tier has access to
+  canSelectBays: boolean("can_select_bays").default(false), // Override: allow bay selection for this tier even if facility doesn't
   
   // Stripe (for later)
   stripePriceId: varchar("stripe_price_id"),

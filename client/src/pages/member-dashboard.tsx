@@ -73,16 +73,33 @@ export default function MemberDashboard() {
     queryKey: ["/api/membership-tiers"],
   });
 
+  const { data: facility } = useQuery<any>({
+    queryKey: ["/api/facility"],
+  });
+
   const { data: bays = [] } = useQuery<Bay[]>({
     queryKey: ["/api/bays"],
   });
 
-  const { data: offerings = [] } = useQuery<Offering[]>({
-    queryKey: ["/api/offerings"],
+  const { data: userMembership } = useQuery<MembershipTier | null>({
+    queryKey: ["/api/membership-tiers", user?.membershipTierId],
+    enabled: !!user?.membershipTierId,
   });
 
-  const { data: facility } = useQuery<any>({
-    queryKey: ["/api/facility"],
+  // Check if user can select bays
+  const canSelectBays = facility?.allowBaySelection || userMembership?.canSelectBays || false;
+  
+  // Filter bays based on membership tier restrictions
+  const availableBays = bays.filter(bay => {
+    if (!userMembership) return true; // No membership = can book any bay
+    if (!userMembership.allowedBayIds || userMembership.allowedBayIds.length === 0) {
+      return true; // Empty array = all bays allowed
+    }
+    return userMembership.allowedBayIds.includes(bay.id);
+  });
+
+  const { data: offerings = [] } = useQuery<Offering[]>({
+    queryKey: ["/api/offerings"],
   });
 
   const form = useForm<BookingFormData>({
@@ -191,10 +208,7 @@ export default function MemberDashboard() {
     (b) => new Date(b.startTime) <= new Date()
   );
 
-  // Get user's membership tier
-  const userMembership = user?.membershipTierId
-    ? membershipTiers.find((t) => t.id === user.membershipTierId)
-    : null;
+  // User's membership tier is already fetched via useQuery above
 
   // Filter ALL facility bookings by view mode (not just user's bookings)
   // This ensures we show true availability across all members
@@ -451,25 +465,26 @@ export default function MemberDashboard() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmitBooking)} className="space-y-6">
-              {/* Bay selection for rentals (required) */}
-              {bookingType === "rental" && (
+              {/* Bay selection for rentals - only if allowed by facility or membership tier */}
+              {bookingType === "rental" && canSelectBays && (
                 <FormField
                   control={form.control}
                   name="bayId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Select Bay</FormLabel>
+                      <FormLabel>Select Bay (Optional)</FormLabel>
                       <Select
-                        onValueChange={(value) => field.onChange(parseInt(value))}
-                        value={field.value?.toString()}
+                        onValueChange={(value) => field.onChange(value === "any" ? undefined : parseInt(value))}
+                        value={field.value?.toString() || "any"}
                       >
                         <FormControl>
                           <SelectTrigger data-testid="select-bay">
-                            <SelectValue placeholder="Choose a bay" />
+                            <SelectValue placeholder="Any available bay" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {bays.map((bay) => (
+                          <SelectItem value="any">Any available bay</SelectItem>
+                          {availableBays.map((bay) => (
                             <SelectItem key={bay.id} value={bay.id.toString()}>
                               {bay.name} - {bay.tier}
                             </SelectItem>
@@ -477,6 +492,11 @@ export default function MemberDashboard() {
                         </SelectContent>
                       </Select>
                       <FormMessage />
+                      {availableBays.length < bays.length && (
+                        <p className="text-xs text-muted-foreground">
+                          Some bays are restricted based on your membership tier
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -522,7 +542,7 @@ export default function MemberDashboard() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {bays.map((bay) => (
+                              {availableBays.map((bay) => (
                                 <SelectItem key={bay.id} value={bay.id.toString()}>
                                   {bay.name} - {bay.tier}
                                 </SelectItem>
@@ -530,6 +550,11 @@ export default function MemberDashboard() {
                             </SelectContent>
                           </Select>
                           <FormMessage />
+                          {availableBays.length < bays.length && (
+                            <p className="text-xs text-muted-foreground">
+                              Some bays are restricted based on your membership tier
+                            </p>
+                          )}
                         </FormItem>
                       )}
                     />
