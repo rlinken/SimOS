@@ -29,6 +29,8 @@ import {
   insertFittingSchema,
   insertOfferingSchema,
   updateOfferingSchema,
+  insertTransformationPackageSchema,
+  updateTransformationPackageSchema,
   upsertUserSchema,
   insertStaffAvailabilityHoursSchema,
 } from "@shared/schema";
@@ -997,6 +999,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting lesson package:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Transformation Packages Routes
+  // ============================================================================
+
+  app.get("/api/transformation-packages", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const packages = await storage.getTransformationPackages(user?.facilityId || undefined);
+      res.json(packages);
+    } catch (error: any) {
+      console.error("Error fetching transformation packages:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/transformation-packages", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertTransformationPackageSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+      const pkg = await storage.createTransformationPackage(validatedData);
+      res.status(201).json(pkg);
+    } catch (error: any) {
+      console.error("Error creating transformation package:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/transformation-packages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = updateTransformationPackageSchema.parse(req.body);
+      const pkg = await storage.updateTransformationPackage(req.params.id, validatedData);
+      res.json(pkg);
+    } catch (error: any) {
+      console.error("Error updating transformation package:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/transformation-packages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await storage.deleteTransformationPackage(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting transformation package:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Public route for transformation package purchase page
+  app.get("/api/public/transformation-package/:id", async (req, res) => {
+    try {
+      const pkg = await storage.getTransformationPackage(req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ message: "Transformation package not found" });
+      }
+      const facility = await storage.getFacility(pkg.facilityId);
+      res.json({ package: pkg, facility });
+    } catch (error: any) {
+      console.error("Error fetching transformation package:", error);
       res.status(500).json({ message: error.message });
     }
   });
