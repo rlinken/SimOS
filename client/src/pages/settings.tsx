@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar } from "lucide-react";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -14,6 +17,34 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
 
   const facilityId = user?.facilityId || "";
+
+  const { data: facility, isLoading } = useQuery<any>({
+    queryKey: ["/api/facility"],
+    enabled: !!facilityId,
+  });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (updates: any) => {
+      return apiRequest(`/api/facility`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/facility"] });
+      toast({
+        title: "Settings Updated",
+        description: "Your facility settings have been saved.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update settings. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
   const widgetUrl = `${window.location.origin}/widget/calendar/${facilityId}`;
   const embedCode = `<iframe 
   src="${widgetUrl}" 
@@ -66,8 +97,12 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="widgets" className="space-y-6">
+      <Tabs defaultValue="bookings" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="bookings" data-testid="tab-bookings">
+            <Calendar className="w-4 h-4 mr-2" />
+            Bookings
+          </TabsTrigger>
           <TabsTrigger value="widgets" data-testid="tab-widgets">
             <Code className="w-4 h-4 mr-2" />
             Embeddable Widgets
@@ -77,6 +112,53 @@ export default function SettingsPage() {
             General
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="bookings" className="space-y-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Booking Options</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Configure how members can book lessons and club fittings
+            </p>
+
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="allow-bay-lessons">Allow Bay Reservation with Lessons</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Let members optionally add a bay reservation when booking a lesson
+                  </p>
+                </div>
+                <Switch
+                  id="allow-bay-lessons"
+                  checked={facility?.allowBayWithLessons || false}
+                  onCheckedChange={(checked) => 
+                    updateSettingsMutation.mutate({ allowBayWithLessons: checked })
+                  }
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  data-testid="switch-allow-bay-lessons"
+                />
+              </div>
+
+              <div className="border-t pt-6 flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="allow-bay-fittings">Allow Bay Reservation with Club Fittings</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Let members optionally add a bay reservation when booking a club fitting
+                  </p>
+                </div>
+                <Switch
+                  id="allow-bay-fittings"
+                  checked={facility?.allowBayWithFittings || false}
+                  onCheckedChange={(checked) => 
+                    updateSettingsMutation.mutate({ allowBayWithFittings: checked })
+                  }
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  data-testid="switch-allow-bay-fittings"
+                />
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="widgets" className="space-y-6">
           <Card className="p-6">

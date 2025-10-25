@@ -94,6 +94,10 @@ export const facilities = pgTable("facilities", {
   lessonsEnabled: boolean("lessons_enabled").default(true),
   fittingsEnabled: boolean("fittings_enabled").default(true),
   
+  // Bay reservation options for lessons/fittings
+  allowBayWithLessons: boolean("allow_bay_with_lessons").default(false),
+  allowBayWithFittings: boolean("allow_bay_with_fittings").default(false),
+  
   // Stripe Connect (for later)
   stripeAccountId: varchar("stripe_account_id"),
   

@@ -81,6 +81,10 @@ export default function MemberDashboard() {
     queryKey: ["/api/offerings"],
   });
 
+  const { data: facility } = useQuery<any>({
+    queryKey: ["/api/facility"],
+  });
+
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
@@ -447,8 +451,9 @@ export default function MemberDashboard() {
                 />
               )}
 
-              {/* Optional bay inclusion for lessons/fittings */}
-              {(bookingType === "lesson" || bookingType === "fitting") && (
+              {/* Optional bay inclusion for lessons/fittings - only if facility allows it */}
+              {((bookingType === "lesson" && facility?.allowBayWithLessons) || 
+                (bookingType === "fitting" && facility?.allowBayWithFittings)) && (
                 <>
                   <FormField
                     control={form.control}
