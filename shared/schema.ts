@@ -98,6 +98,14 @@ export const facilities = pgTable("facilities", {
   allowBayWithLessons: boolean("allow_bay_with_lessons").default(false),
   allowBayWithFittings: boolean("allow_bay_with_fittings").default(false),
   
+  // Non-member pricing & access
+  nonMemberBayRate: numeric("non_member_bay_rate", { precision: 10, scale: 2 }).default("50.00"), // Per hour
+  allowNonMemberBookings: boolean("allow_non_member_bookings").default(true),
+  requireAccountForBooking: boolean("require_account_for_booking").default(false), // If false, allows guest bookings
+  
+  // Membership billing
+  billingPeriod: varchar("billing_period").default("monthly"), // "monthly" or "annual"
+  
   // Stripe Connect (for later)
   stripeAccountId: varchar("stripe_account_id"),
   
@@ -202,8 +210,16 @@ export const membershipTiers = pgTable("membership_tiers", {
   
   // Pricing
   monthlyPrice: numeric("monthly_price", { precision: 10, scale: 2 }).notNull(),
-  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }), // Discounted rate
-  monthlyHours: integer("monthly_hours").default(0), // Included hours
+  annualPrice: numeric("annual_price", { precision: 10, scale: 2 }), // Optional annual pricing
+  
+  // Bay rental benefits
+  includedBayHours: integer("included_bay_hours").default(0), // Free hours per billing period
+  memberBayRate: numeric("member_bay_rate", { precision: 10, scale: 2 }), // Discounted rate after hours used
+  
+  // Lesson & fitting discounts (percentage)
+  lessonDiscountPercent: numeric("lesson_discount_percent", { precision: 5, scale: 2 }).default("0"),
+  fittingDiscountPercent: numeric("fitting_discount_percent", { precision: 5, scale: 2 }).default("0"),
+  productDiscountPercent: numeric("product_discount_percent", { precision: 5, scale: 2 }).default("0"),
   
   // Bay access (JSON array of allowed tiers)
   allowedBayTiers: json("allowed_bay_tiers")
@@ -238,6 +254,63 @@ export const insertMembershipTierSchema = createInsertSchema(
 
 export type MembershipTier = typeof membershipTiers.$inferSelect;
 export type InsertMembershipTier = z.infer<typeof insertMembershipTierSchema>;
+
+// ============================================================================
+// MEMBERSHIP USAGE TABLE (Track hours used per billing period)
+// ============================================================================
+
+export const membershipUsage = pgTable("membership_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: varchar("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  membershipTierId: varchar("membership_tier_id")
+    .references(() => membershipTiers.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Billing period tracking
+  billingPeriodStart: timestamp("billing_period_start").notNull(),
+  billingPeriodEnd: timestamp("billing_period_end").notNull(),
+  
+  // Usage tracking
+  hoursUsed: numeric("hours_used", { precision: 10, scale: 2 }).default("0").notNull(),
+  hoursIncluded: integer("hours_included").notNull(), // Snapshot from membership tier
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const membershipUsageRelations = relations(
+  membershipUsage,
+  ({ one }) => ({
+    facility: one(facilities, {
+      fields: [membershipUsage.facilityId],
+      references: [facilities.id],
+    }),
+    user: one(users, {
+      fields: [membershipUsage.userId],
+      references: [users.id],
+    }),
+    membershipTier: one(membershipTiers, {
+      fields: [membershipUsage.membershipTierId],
+      references: [membershipTiers.id],
+    }),
+  })
+);
+
+export const insertMembershipUsageSchema = createInsertSchema(
+  membershipUsage
+).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MembershipUsage = typeof membershipUsage.$inferSelect;
+export type InsertMembershipUsage = z.infer<typeof insertMembershipUsageSchema>;
 
 // ============================================================================
 // BAYS TABLE
@@ -368,6 +441,10 @@ export const bookings = pgTable("bookings", {
     .default("pending"),
   amount: numeric("amount", { precision: 10, scale: 2 }),
   stripePaymentId: varchar("stripe_payment_id"),
+  
+  // Membership usage tracking
+  usedMembershipHours: boolean("used_membership_hours").default(false), // Was this covered by membership?
+  membershipHoursUsed: numeric("membership_hours_used", { precision: 10, scale: 2 }).default("0"), // How many hours from package
   
   notes: text("notes"),
   
