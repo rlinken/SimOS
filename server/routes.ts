@@ -1285,6 +1285,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Top off endpoint - extend booking time and add charge
+  app.patch("/api/bookings/:id/top-off", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking || booking.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const { additionalMinutes, price } = req.body;
+      
+      if (!additionalMinutes || typeof additionalMinutes !== 'number' || additionalMinutes <= 0) {
+        return res.status(400).json({ message: "Invalid additional minutes" });
+      }
+
+      if (price !== undefined && (typeof price !== 'number' || price < 0)) {
+        return res.status(400).json({ message: "Invalid price" });
+      }
+
+      // Calculate new end time
+      const currentEndTime = new Date(booking.endTime);
+      const newEndTime = new Date(currentEndTime.getTime() + (additionalMinutes * 60000));
+
+      const updated = await storage.updateBooking(req.params.id, {
+        endTime: newEndTime,
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error extending booking time:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ============================================================================
   // Membership Tiers Routes
   // ============================================================================
