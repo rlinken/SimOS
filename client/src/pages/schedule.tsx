@@ -5,8 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, ChevronLeft, ChevronRight, Clock, User, Mail, Phone, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar, ChevronLeft, ChevronRight, Clock, User, Mail, Phone, Plus, X, Check, ChevronsUpDown } from "lucide-react";
+import { useState, useEffect } from "react";
 import { format, addDays, startOfDay, setHours, setMinutes, isSameDay, isWithinInterval } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -277,6 +279,14 @@ export default function Schedule() {
   );
 }
 
+type Customer = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+};
+
 // Quick Book Dialog Component
 function QuickBookDialog({ 
   open, 
@@ -292,9 +302,43 @@ function QuickBookDialog({
   selectedDate: Date;
 }) {
   const [duration, setDuration] = useState(1);
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [manualName, setManualName] = useState("");
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
   const { toast } = useToast();
+
+  // Fetch all customers/members
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ['/api/members'],
+    select: (data: any[]) => data.map(member => ({
+      id: member.id || member.userId,
+      firstName: member.firstName || '',
+      lastName: member.lastName || '',
+      email: member.email || '',
+      phone: member.phone || '',
+    })),
+  });
+
+  // Auto-populate customer when email is entered
+  useEffect(() => {
+    if (manualEmail && !selectedCustomer) {
+      const matchingCustomer = customers.find(
+        c => c.email.toLowerCase() === manualEmail.toLowerCase()
+      );
+      if (matchingCustomer) {
+        setSelectedCustomer(matchingCustomer);
+        setManualName(`${matchingCustomer.firstName} ${matchingCustomer.lastName}`);
+        setManualPhone(matchingCustomer.phone || '');
+        toast({
+          title: "Customer Found",
+          description: `Loaded details for ${matchingCustomer.firstName} ${matchingCustomer.lastName}`,
+        });
+      }
+    }
+  }, [manualEmail, customers, selectedCustomer, toast]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -309,10 +353,7 @@ function QuickBookDialog({
         title: "Booking Created",
         description: "The bay has been successfully booked.",
       });
-      onClose();
-      setCustomerName("");
-      setCustomerEmail("");
-      setDuration(1);
+      handleClose();
     },
     onError: () => {
       toast({
@@ -323,18 +364,65 @@ function QuickBookDialog({
     },
   });
 
+  const handleClose = () => {
+    setSelectedCustomer(null);
+    setCustomerSearch("");
+    setManualName("");
+    setManualEmail("");
+    setManualPhone("");
+    setDuration(1);
+    onClose();
+  };
+
+  const handleCustomerSelect = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setManualName(`${customer.firstName} ${customer.lastName}`);
+    setManualEmail(customer.email);
+    setManualPhone(customer.phone || '');
+    setCustomerSearchOpen(false);
+  };
+
+  const handleClearCustomer = () => {
+    setSelectedCustomer(null);
+    setManualName("");
+    setManualEmail("");
+    setManualPhone("");
+  };
+
   if (!bay || hour === undefined) return null;
 
   const startTime = setHours(startOfDay(selectedDate), hour);
   const endTime = setHours(startOfDay(selectedDate), hour + duration);
 
+  const filteredCustomers = customers.filter(c => {
+    const searchLower = customerSearch.toLowerCase();
+    const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+    return fullName.includes(searchLower) || c.email.toLowerCase().includes(searchLower);
+  });
+
+  const displayName = selectedCustomer 
+    ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` 
+    : manualName;
+
   const handleSubmit = () => {
+    if (!displayName) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a customer name or select a customer.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     createBookingMutation.mutate({
       bayId: bay.id,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
       type: 'rental',
-      notes: `Quick booking for ${customerName}`,
+      userId: selectedCustomer?.id,
+      notes: selectedCustomer 
+        ? `Booking for existing customer: ${selectedCustomer.firstName} ${selectedCustomer.lastName}`
+        : `New customer booking: ${manualName} (${manualEmail || 'no email'})`,
     });
   };
 
@@ -384,40 +472,132 @@ function QuickBookDialog({
             />
           </div>
 
-          {/* Customer Name */}
+          {/* Customer Search/Select */}
           <div className="space-y-2">
-            <Label htmlFor="customer-name">Customer Name</Label>
-            <Input
-              id="customer-name"
-              placeholder="Enter customer name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              data-testid="input-customer-name"
-            />
+            <Label>Search Existing Customer</Label>
+            <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={customerSearchOpen}
+                  className="w-full justify-between"
+                  data-testid="button-customer-search"
+                >
+                  {selectedCustomer 
+                    ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` 
+                    : "Search customer..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput 
+                    placeholder="Search customers..." 
+                    value={customerSearch}
+                    onValueChange={setCustomerSearch}
+                  />
+                  <CommandList>
+                    <CommandEmpty>No customer found.</CommandEmpty>
+                    <CommandGroup>
+                      {filteredCustomers.map((customer) => (
+                        <CommandItem
+                          key={customer.id}
+                          value={customer.id}
+                          onSelect={() => handleCustomerSelect(customer)}
+                          data-testid={`customer-option-${customer.id}`}
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${
+                              selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-medium">{customer.firstName} {customer.lastName}</span>
+                            <span className="text-xs text-muted-foreground">{customer.email}</span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {selectedCustomer && (
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  {selectedCustomer.email}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearCustomer}
+                  className="h-6 px-2"
+                  data-testid="button-clear-customer"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Customer Email */}
-          <div className="space-y-2">
-            <Label htmlFor="customer-email">Customer Email (optional)</Label>
-            <Input
-              id="customer-email"
-              type="email"
-              placeholder="customer@example.com"
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-              data-testid="input-customer-email"
-            />
-          </div>
+          {/* Manual Entry (for new customers) */}
+          {!selectedCustomer && (
+            <>
+              <div className="border-t pt-4">
+                <p className="text-sm text-muted-foreground mb-3">Or create new customer:</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="manual-name">Customer Name</Label>
+                <Input
+                  id="manual-name"
+                  placeholder="Enter customer name"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  data-testid="input-customer-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="manual-email">Customer Email</Label>
+                <Input
+                  id="manual-email"
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={manualEmail}
+                  onChange={(e) => setManualEmail(e.target.value)}
+                  data-testid="input-customer-email"
+                />
+                <p className="text-xs text-muted-foreground">
+                  If email matches existing customer, their details will auto-populate
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="manual-phone">Phone (optional)</Label>
+                <Input
+                  id="manual-phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={manualPhone}
+                  onChange={(e) => setManualPhone(e.target.value)}
+                  data-testid="input-customer-phone"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose} className="flex-1" data-testid="button-cancel">
+          <Button variant="outline" onClick={handleClose} className="flex-1" data-testid="button-cancel">
             Cancel
           </Button>
           <Button 
             onClick={handleSubmit} 
             className="flex-1" 
-            disabled={!customerName || createBookingMutation.isPending}
+            disabled={!displayName || createBookingMutation.isPending}
             data-testid="button-create-booking"
           >
             {createBookingMutation.isPending ? "Creating..." : "Create Booking"}
