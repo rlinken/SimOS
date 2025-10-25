@@ -563,6 +563,14 @@ function QuickBookDialog({
   const startTime = setMinutes(setHours(startOfDay(selectedDate), hour), startMinute);
   const endTime = addHours(startTime, duration);
 
+  // Generate time options for the selected hour
+  const timeOptions = [
+    { value: 0, label: format(setMinutes(setHours(startOfDay(selectedDate), hour), 0), 'h:mm a') },
+    { value: 15, label: format(setMinutes(setHours(startOfDay(selectedDate), hour), 15), 'h:mm a') },
+    { value: 30, label: format(setMinutes(setHours(startOfDay(selectedDate), hour), 30), 'h:mm a') },
+    { value: 45, label: format(setMinutes(setHours(startOfDay(selectedDate), hour), 45), 'h:mm a') },
+  ];
+
   const filteredCustomers = customers.filter(c => {
     const searchLower = customerSearch.toLowerCase();
     const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
@@ -637,9 +645,9 @@ function QuickBookDialog({
             </div>
           </Card>
 
-          {/* Start Time Adjustment */}
+          {/* Start Time */}
           <div className="space-y-2">
-            <Label htmlFor="start-minute">Start Time Adjustment</Label>
+            <Label htmlFor="start-minute">Start Time</Label>
             <Select 
               value={startMinute.toString()} 
               onValueChange={(value) => setStartMinute(parseInt(value))}
@@ -648,10 +656,11 @@ function QuickBookDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0">On the hour (:00)</SelectItem>
-                <SelectItem value="15">Quarter past (:15)</SelectItem>
-                <SelectItem value="30">Half past (:30)</SelectItem>
-                <SelectItem value="45">Quarter to (:45)</SelectItem>
+                {timeOptions.map(option => (
+                  <SelectItem key={option.value} value={option.value.toString()}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
