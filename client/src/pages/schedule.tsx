@@ -125,7 +125,7 @@ export default function Schedule() {
     const slotEnd = setMinutes(setHours(dayStart, hour), 59);
 
     return dayBookings.find(booking => {
-      if (booking.bayId !== bayId) return false;
+      if (!booking.bayIds?.includes(bayId)) return false;
       
       const bookingStart = new Date(booking.startTime);
       const bookingEnd = new Date(booking.endTime);
