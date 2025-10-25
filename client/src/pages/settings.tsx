@@ -124,7 +124,9 @@ export default function SettingsPage() {
     if (paymentSettings) {
       setPaymentProvider(paymentSettings.paymentProvider || "stripe");
       setStripePublishableKey(paymentSettings.stripePublishableKey || "");
-      setStripeSecretKey(paymentSettings.stripeSecretKey || "");
+      // Don't set stripeSecretKey to masked value - keep it empty if key exists
+      // User must enter a new key to update it
+      setStripeSecretKey("");
       setPaymentsEnabled(paymentSettings.paymentsEnabled || false);
     }
   }, [paymentSettings]);
@@ -515,14 +517,16 @@ export default function SettingsPage() {
                 <Input
                   id="stripe-secret-key"
                   type="password"
-                  placeholder={stripeSecretKey && paymentSettings?.stripeSecretKey ? "sk_****" : "sk_..."}
+                  placeholder={paymentSettings?.hasStripeSecretKey ? "sk_**** (already set)" : "sk_..."}
                   value={stripeSecretKey}
                   onChange={(e) => setStripeSecretKey(e.target.value)}
                   disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
                   data-testid="input-stripe-secret-key"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Your secret key will be encrypted and stored securely
+                  {paymentSettings?.hasStripeSecretKey 
+                    ? "Key is already configured. Enter a new key to update it." 
+                    : "Your secret key will be encrypted and stored securely"}
                 </p>
               </div>
 
@@ -547,12 +551,16 @@ export default function SettingsPage() {
               <div className="border-t pt-6">
                 <Button
                   onClick={() => {
-                    updatePaymentSettingsMutation.mutate({
-                      provider: paymentProvider,
+                    const updates: any = {
+                      paymentProvider,
                       stripePublishableKey,
-                      stripeSecretKey,
-                      enabled: paymentsEnabled,
-                    });
+                      paymentsEnabled,
+                    };
+                    // Only include secret key if user entered a new value
+                    if (stripeSecretKey.trim()) {
+                      updates.stripeSecretKey = stripeSecretKey;
+                    }
+                    updatePaymentSettingsMutation.mutate(updates);
                   }}
                   disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
                   data-testid="button-save-payment-settings"

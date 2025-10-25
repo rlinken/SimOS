@@ -260,8 +260,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (validatedData.stripePublishableKey !== undefined) {
         updates.stripePublishableKey = validatedData.stripePublishableKey;
       }
-      if (validatedData.stripeSecretKey !== undefined && validatedData.stripeSecretKey !== "sk_****") {
-        // Only update if not the masked value
+      if (validatedData.stripeSecretKey !== undefined && 
+          validatedData.stripeSecretKey !== "sk_****" &&
+          validatedData.stripeSecretKey.trim() !== "") {
+        // Only update if not the masked value and not empty/whitespace
         updates.stripeSecretKey = validatedData.stripeSecretKey;
       }
       if (validatedData.paymentProvider !== undefined) {
