@@ -120,7 +120,7 @@ export const commissionTypeEnum = pgEnum("commission_type", [
 
 export const recurringCommissionTypeEnum = pgEnum("recurring_commission_type", [
   "one_time", // Commission on initial payment only
-  "X_months", // Commission for specific number of months
+  "x_months", // Commission for specific number of months
   "forever", // Commission on all recurring payments
 ]);
 
