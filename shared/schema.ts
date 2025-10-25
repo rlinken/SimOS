@@ -57,6 +57,14 @@ export const offeringTypeEnum = pgEnum("offering_type", [
   "fitting",
   "product",
   "membership",
+  "transformation_package",
+]);
+
+export const billingFrequencyEnum = pgEnum("billing_frequency", [
+  "one_time",
+  "monthly",
+  "quarterly",
+  "annual",
 ]);
 
 export const leadStatusEnum = pgEnum("lead_status", [
@@ -844,6 +852,183 @@ export const updateOfferingSchema = createInsertSchema(offerings)
 export type Offering = typeof offerings.$inferSelect;
 export type InsertOffering = z.infer<typeof insertOfferingSchema>;
 export type UpdateOffering = z.infer<typeof updateOfferingSchema>;
+
+// ============================================================================
+// TRANSFORMATION PACKAGES TABLE (Comprehensive bundled offerings)
+// ============================================================================
+
+export const transformationPackages = pgTable("transformation_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Basic info
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Pricing
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  billingFrequency: billingFrequencyEnum("billing_frequency").notNull().default("one_time"),
+  
+  // Duration
+  durationMonths: integer("duration_months").notNull(), // e.g., 3, 6, 12 months
+  
+  // Lesson components
+  includeLessons: boolean("include_lessons").default(true).notNull(),
+  totalLessons: integer("total_lessons").default(0), // Total number of lessons included
+  lessonDurationMinutes: integer("lesson_duration_minutes").default(60),
+  lessonsPerWeek: integer("lessons_per_week").default(0), // For weekly scheduling
+  lessonsPerMonth: integer("lessons_per_month").default(0), // For monthly scheduling
+  assignedInstructorId: varchar("assigned_instructor_id").references(() => users.id),
+  
+  // Club fitting
+  includeClubFitting: boolean("include_club_fitting").default(false).notNull(),
+  clubFittingSessions: integer("club_fitting_sessions").default(1),
+  assignedFitterId: varchar("assigned_fitter_id").references(() => users.id),
+  
+  // Bay access
+  includeBayAccess: boolean("include_bay_access").default(true).notNull(),
+  bayAccessHours: integer("bay_access_hours").default(0), // Total hours of bay access
+  bayAccessPerWeek: integer("bay_access_per_week").default(0), // Hours per week if recurring
+  allowedBayTiers: json("allowed_bay_tiers")
+    .$type<string[]>()
+    .default(sql`'["standard"]'::json`),
+  
+  // On-course practice
+  includeOnCoursePractice: boolean("include_on_course_practice").default(false).notNull(),
+  onCoursePracticeSessions: integer("on_course_practice_sessions").default(0),
+  
+  // Additional features
+  features: json("features").$type<string[]>().default(sql`'[]'::json`), // Array of additional features
+  
+  // Availability
+  isActive: boolean("is_active").default(true).notNull(),
+  maxEnrollments: integer("max_enrollments"), // null = unlimited
+  currentEnrollments: integer("current_enrollments").default(0).notNull(),
+  
+  // Stripe (for later)
+  stripePriceId: varchar("stripe_price_id"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const transformationPackagesRelations = relations(
+  transformationPackages,
+  ({ one }) => ({
+    facility: one(facilities, {
+      fields: [transformationPackages.facilityId],
+      references: [facilities.id],
+    }),
+    assignedInstructor: one(users, {
+      fields: [transformationPackages.assignedInstructorId],
+      references: [users.id],
+      relationName: "packageInstructor",
+    }),
+    assignedFitter: one(users, {
+      fields: [transformationPackages.assignedFitterId],
+      references: [users.id],
+      relationName: "packageFitter",
+    }),
+  })
+);
+
+export const insertTransformationPackageSchema = createInsertSchema(
+  transformationPackages
+).omit({
+  id: true,
+  currentEnrollments: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateTransformationPackageSchema = createInsertSchema(
+  transformationPackages
+)
+  .omit({
+    id: true,
+    facilityId: true,
+    currentEnrollments: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .partial();
+
+export type TransformationPackage = typeof transformationPackages.$inferSelect;
+export type InsertTransformationPackage = z.infer<typeof insertTransformationPackageSchema>;
+export type UpdateTransformationPackage = z.infer<typeof updateTransformationPackageSchema>;
+
+// ============================================================================
+// TRANSFORMATION PACKAGE ENROLLMENTS TABLE (Track customer enrollments)
+// ============================================================================
+
+export const transformationPackageEnrollments = pgTable("transformation_package_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  packageId: varchar("package_id")
+    .references(() => transformationPackages.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: varchar("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Enrollment period
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  
+  // Usage tracking
+  lessonsCompleted: integer("lessons_completed").default(0).notNull(),
+  bayHoursUsed: numeric("bay_hours_used", { precision: 10, scale: 2 }).default("0").notNull(),
+  fittingsCompleted: integer("fittings_completed").default(0).notNull(),
+  onCoursePracticeCompleted: integer("on_course_practice_completed").default(0).notNull(),
+  
+  // Payment tracking
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
+  totalPaid: numeric("total_paid", { precision: 10, scale: 2 }).default("0").notNull(),
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const transformationPackageEnrollmentsRelations = relations(
+  transformationPackageEnrollments,
+  ({ one }) => ({
+    facility: one(facilities, {
+      fields: [transformationPackageEnrollments.facilityId],
+      references: [facilities.id],
+    }),
+    package: one(transformationPackages, {
+      fields: [transformationPackageEnrollments.packageId],
+      references: [transformationPackages.id],
+    }),
+    user: one(users, {
+      fields: [transformationPackageEnrollments.userId],
+      references: [users.id],
+    }),
+  })
+);
+
+export const insertTransformationPackageEnrollmentSchema = createInsertSchema(
+  transformationPackageEnrollments
+).omit({
+  id: true,
+  lessonsCompleted: true,
+  bayHoursUsed: true,
+  fittingsCompleted: true,
+  onCoursePracticeCompleted: true,
+  totalPaid: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TransformationPackageEnrollment = typeof transformationPackageEnrollments.$inferSelect;
+export type InsertTransformationPackageEnrollment = z.infer<typeof insertTransformationPackageEnrollmentSchema>;
 
 // ============================================================================
 // STAFF AVAILABILITY HOURS TABLE (Weekly recurring schedule)

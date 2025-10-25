@@ -11,6 +11,8 @@ import {
   lessonPackages,
   fittings,
   offerings,
+  transformationPackages,
+  transformationPackageEnrollments,
   staffAvailabilityHours,
   googleCalendarTokens,
   googleCalendarEvents,
@@ -39,6 +41,11 @@ import {
   type Offering,
   type InsertOffering,
   type UpdateOffering,
+  type TransformationPackage,
+  type InsertTransformationPackage,
+  type UpdateTransformationPackage,
+  type TransformationPackageEnrollment,
+  type InsertTransformationPackageEnrollment,
   type StaffAvailabilityHours,
   type InsertStaffAvailabilityHours,
   type GoogleCalendarToken,
@@ -136,6 +143,18 @@ export interface IStorage {
   getGoogleCalendarEvents(staffId: string, start: Date, end: Date): Promise<GoogleCalendarEvent[]>;
   upsertGoogleCalendarEvent(event: InsertGoogleCalendarEvent): Promise<GoogleCalendarEvent>;
   deleteOldGoogleCalendarEvents(staffId: string, before: Date): Promise<void>;
+  
+  // Transformation Packages
+  getTransformationPackages(facilityId?: string): Promise<TransformationPackage[]>;
+  getTransformationPackage(id: string): Promise<TransformationPackage | undefined>;
+  createTransformationPackage(pkg: InsertTransformationPackage): Promise<TransformationPackage>;
+  updateTransformationPackage(id: string, pkg: UpdateTransformationPackage): Promise<TransformationPackage>;
+  deleteTransformationPackage(id: string): Promise<void>;
+  
+  // Transformation Package Enrollments
+  getTransformationPackageEnrollments(facilityId?: string): Promise<TransformationPackageEnrollment[]>;
+  getTransformationPackageEnrollment(id: string): Promise<TransformationPackageEnrollment | undefined>;
+  createTransformationPackageEnrollment(enrollment: InsertTransformationPackageEnrollment): Promise<TransformationPackageEnrollment>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -662,6 +681,92 @@ export class DatabaseStorage implements IStorage {
           lt(googleCalendarEvents.endTime, before)
         )
       );
+  }
+  
+  // Transformation Packages
+  async getTransformationPackages(facilityId?: string): Promise<TransformationPackage[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(transformationPackages)
+        .where(eq(transformationPackages.facilityId, facilityId))
+        .orderBy(desc(transformationPackages.createdAt));
+    }
+    return await db
+      .select()
+      .from(transformationPackages)
+      .orderBy(desc(transformationPackages.createdAt));
+  }
+  
+  async getTransformationPackage(id: string): Promise<TransformationPackage | undefined> {
+    const [pkg] = await db
+      .select()
+      .from(transformationPackages)
+      .where(eq(transformationPackages.id, id));
+    return pkg;
+  }
+  
+  async createTransformationPackage(
+    pkg: InsertTransformationPackage
+  ): Promise<TransformationPackage> {
+    const [result] = await db.insert(transformationPackages).values(pkg).returning();
+    return result;
+  }
+  
+  async updateTransformationPackage(
+    id: string,
+    pkg: UpdateTransformationPackage
+  ): Promise<TransformationPackage> {
+    const [result] = await db
+      .update(transformationPackages)
+      .set({
+        ...pkg,
+        updatedAt: new Date(),
+      })
+      .where(eq(transformationPackages.id, id))
+      .returning();
+    return result;
+  }
+  
+  async deleteTransformationPackage(id: string): Promise<void> {
+    await db.delete(transformationPackages).where(eq(transformationPackages.id, id));
+  }
+  
+  // Transformation Package Enrollments
+  async getTransformationPackageEnrollments(
+    facilityId?: string
+  ): Promise<TransformationPackageEnrollment[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(transformationPackageEnrollments)
+        .where(eq(transformationPackageEnrollments.facilityId, facilityId))
+        .orderBy(desc(transformationPackageEnrollments.createdAt));
+    }
+    return await db
+      .select()
+      .from(transformationPackageEnrollments)
+      .orderBy(desc(transformationPackageEnrollments.createdAt));
+  }
+  
+  async getTransformationPackageEnrollment(
+    id: string
+  ): Promise<TransformationPackageEnrollment | undefined> {
+    const [enrollment] = await db
+      .select()
+      .from(transformationPackageEnrollments)
+      .where(eq(transformationPackageEnrollments.id, id));
+    return enrollment;
+  }
+  
+  async createTransformationPackageEnrollment(
+    enrollment: InsertTransformationPackageEnrollment
+  ): Promise<TransformationPackageEnrollment> {
+    const [result] = await db
+      .insert(transformationPackageEnrollments)
+      .values(enrollment)
+      .returning();
+    return result;
   }
 }
 
