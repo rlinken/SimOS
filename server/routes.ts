@@ -3,6 +3,16 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+
+// Helper function to check if user has admin privileges
+function isAdmin(role: string): boolean {
+  return role === "super_admin" || role === "owner" || role === "administrator";
+}
+
+// Helper function to check if user is staff (can provide services)
+function isStaff(role: string): boolean {
+  return role === "instructor" || role === "club_fitter" || role === "owner" || role === "administrator";
+}
 import {
   insertFacilitySchema,
   insertBaySchema,
@@ -90,7 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -112,7 +122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -136,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -183,7 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -212,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -236,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -362,7 +372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -417,18 +427,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      // Get all users with staff roles (instructor, club_fitter, facility_admin)
+      // Get all users with staff roles (instructor, club_fitter, owner, administrator)
       const allUsers = await storage.getMembers(user.facilityId);
-      const staff = allUsers.filter(
-        (u) =>
-          u.role === "instructor" ||
-          u.role === "club_fitter" ||
-          u.role === "facility_admin"
-      );
+      const staff = allUsers.filter((u) => isStaff(u.role) || u.role === "support");
 
       res.json(staff);
     } catch (error: any) {
@@ -443,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -477,7 +482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -506,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -566,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -597,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -631,7 +636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user?.facilityId) {
         return res.status(400).json({ message: "No facility associated" });
       }
-      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+      if (!isAdmin(user.role)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 
@@ -868,7 +873,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Update user to be facility admin
-      await storage.updateUserFacility(userId, facility.id, "facility_admin");
+      // Assign creator as owner of the facility
+      await storage.updateUserFacility(userId, facility.id, "owner");
 
       // Create bays with custom names and tiers
       const bayPromises = bays.map((bay: any) =>

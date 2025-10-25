@@ -62,7 +62,7 @@ export default function StaffPage() {
       firstName: "",
       lastName: "",
       phone: "",
-      role: "instructor",
+      role: "administrator",
       bio: "",
       specialties: "",
       hourlyRate: "",
@@ -132,12 +132,16 @@ export default function StaffPage() {
 
   const getRoleLabel = (role: string) => {
     switch (role) {
+      case "owner":
+        return "Owner";
+      case "administrator":
+        return "Administrator";
       case "instructor":
         return "Instructor";
       case "club_fitter":
         return "Club Fitter";
-      case "facility_admin":
-        return "Admin";
+      case "support":
+        return "Support";
       default:
         return role;
     }
@@ -270,9 +274,10 @@ export default function StaffPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value="administrator">Administrator</SelectItem>
                             <SelectItem value="instructor">Instructor</SelectItem>
                             <SelectItem value="club_fitter">Club Fitter</SelectItem>
-                            <SelectItem value="facility_admin">Admin</SelectItem>
+                            <SelectItem value="support">Support</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
