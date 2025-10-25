@@ -106,6 +106,13 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "other",
 ]);
 
+export const paymentTypeEnum = pgEnum("payment_type", [
+  "hourly", // Default - paid by the hour
+  "salary", // Fixed annual/monthly salary
+  "commission", // Paid based on sales/bookings commission
+  "tips", // Primarily tips-based (e.g., service staff)
+]);
+
 // ============================================================================
 // PERMISSIONS (for custom roles)
 // ============================================================================
@@ -292,8 +299,12 @@ export const users = pgTable("users", {
   // Staff-specific fields (for instructors, fitters, admins)
   bio: text("bio"),
   specialties: varchar("specialties").array(),
-  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }),
-  commissionRate: numeric("commission_rate", { precision: 5, scale: 2 }), // Percentage (e.g., 15.00 = 15%)
+  
+  // Payment structure
+  paymentType: paymentTypeEnum("payment_type").default("hourly"),
+  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }), // For hourly payment type
+  salary: numeric("salary", { precision: 10, scale: 2 }), // Annual salary for salary payment type
+  commissionRate: numeric("commission_rate", { precision: 5, scale: 2 }), // Percentage (e.g., 15.00 = 15%) for commission type
   taxId: varchar("tax_id"), // For payroll reporting (SSN/EIN)
   googleCalendarId: varchar("google_calendar_id"),
   
