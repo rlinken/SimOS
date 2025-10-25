@@ -27,7 +27,8 @@ export const userRoleEnum = pgEnum("user_role", [
   "instructor",
   "club_fitter",
   "support",
-  "member",
+  "customer", // Any user with an account (may or may not have purchased a membership package)
+  "member", // Deprecated: use "customer" instead
 ]);
 
 export const bayTierEnum = pgEnum("bay_tier", ["standard", "premium", "vip"]);

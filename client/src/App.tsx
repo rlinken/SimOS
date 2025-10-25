@@ -26,8 +26,8 @@ import WidgetCalendar from "@/pages/widget-calendar";
 function AuthenticatedRoutes() {
   const { user } = useAuth();
   
-  // Show member dashboard for regular members, admin dashboard for staff
-  const DashboardComponent = user?.role === "member" ? MemberDashboard : Dashboard;
+  // Show customer dashboard for customers, admin dashboard for staff
+  const DashboardComponent = (user?.role === "customer" || user?.role === "member") ? MemberDashboard : Dashboard;
   
   return (
     <Switch>

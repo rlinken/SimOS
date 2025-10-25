@@ -520,10 +520,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Staff member not found" });
       }
 
-      // Soft delete by changing role to "member" instead of actual deletion
+      // Soft delete by changing role to "customer" instead of actual deletion
       await storage.upsertUser({
         id: req.params.id,
-        role: "member",
+        role: "customer",
         facilityId: user.facilityId,
       });
 
