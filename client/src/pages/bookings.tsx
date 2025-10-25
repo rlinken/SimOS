@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar, Plus, Clock, MapPin } from "lucide-react";
+import { Calendar, Plus, Clock, MapPin, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Booking, Bay, User } from "@shared/schema";
 import { insertBookingSchema } from "@shared/schema";
@@ -39,11 +39,11 @@ import { z } from "zod";
 
 const bookingFormSchema = insertBookingSchema
   .omit({ 
-    bayId: true,
     facilityId: true,
     userId: true,
   })
   .extend({
+    bayId: z.string().optional(),
     date: z.string(),
     startTime: z.string(),
     endTime: z.string(),
@@ -66,6 +66,7 @@ export default function BookingsPage() {
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
+      bayId: "",
       date: format(new Date(), "yyyy-MM-dd"),
       startTime: "09:00",
       endTime: "10:00",
@@ -79,12 +80,16 @@ export default function BookingsPage() {
       const startTime = new Date(`${data.date}T${data.startTime}:00`);
       const endTime = new Date(`${data.date}T${data.endTime}:00`);
       
-      const bookingData = {
+      const bookingData: any = {
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         type: data.type,
         paymentStatus: data.paymentStatus,
       };
+      
+      if (data.bayId && data.bayId !== "auto") {
+        bookingData.bayId = data.bayId;
+      }
       
       return apiRequest("POST", "/api/bookings", bookingData);
     },
@@ -167,11 +172,49 @@ export default function BookingsPage() {
                 onSubmit={form.handleSubmit((data) => createMutation.mutate(data))}
                 className="space-y-4"
               >
-                <div className="p-4 bg-primary/10 border border-primary/20 rounded-md">
-                  <p className="text-sm text-muted-foreground">
-                    Bay will be automatically assigned based on availability and usage optimization
-                  </p>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="bayId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bay Assignment</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value || "auto"}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-bay">
+                            <SelectValue placeholder="Auto-assign (recommended)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="auto">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4" />
+                              <span>Auto-assign (recommended)</span>
+                            </div>
+                          </SelectItem>
+                          {bays?.filter(b => b.status === "active").map((bay) => (
+                            <SelectItem key={bay.id} value={bay.id}>
+                              <div className="flex items-center justify-between gap-2 w-full">
+                                <span>{bay.name}</span>
+                                <span className="text-xs text-muted-foreground capitalize">
+                                  {bay.tier}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {field.value === "auto" || !field.value
+                          ? "System will assign the best available bay"
+                          : "Manual bay selection - ensure no conflicts"}
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="grid gap-4 md:grid-cols-3">
                   <FormField
                     control={form.control}
