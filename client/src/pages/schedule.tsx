@@ -443,7 +443,11 @@ export default function Schedule() {
                                 No Show
                               </Badge>
                             )}
-                            <div className="absolute inset-0 border-2 border-transparent group-hover:border-primary/50 rounded transition-colors pointer-events-none" />
+                            <div className={`absolute inset-0 border-2 rounded transition-colors pointer-events-none ${
+                              booking.paymentStatus === 'pending' 
+                                ? 'border-amber-500 group-hover:border-amber-600' 
+                                : 'border-transparent group-hover:border-primary/50'
+                            }`} />
                           </div>
                         ) : isAvailable ? (
                           <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
