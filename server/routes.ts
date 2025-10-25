@@ -21,12 +21,14 @@ import {
   updateBayBlockSchema,
   insertBookingSchema,
   insertMembershipTierSchema,
+  updateMembershipTierSchema,
   insertLeadSchema,
   updateLeadSchema,
   insertLessonSchema,
   insertLessonPackageSchema,
   updateLessonPackageSchema,
   insertFittingSchema,
+  updateFittingSchema,
   insertOfferingSchema,
   updateOfferingSchema,
   insertTransformationPackageSchema,
@@ -506,6 +508,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(tier);
     } catch (error: any) {
       console.error("Error creating membership tier:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/memberships/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const tier = await storage.getMembershipTier(req.params.id);
+      if (!tier || tier.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Membership tier not found" });
+      }
+
+      const validatedData = updateMembershipTierSchema.parse(req.body);
+      const updated = await storage.updateMembershipTier(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating membership tier:", error);
       res.status(400).json({ message: error.message });
     }
   });
@@ -1180,6 +1206,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(fitting);
     } catch (error: any) {
       console.error("Error creating fitting:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/fittings/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const fitting = await storage.getFitting(req.params.id);
+      if (!fitting || fitting.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Fitting not found" });
+      }
+
+      const validatedData = updateFittingSchema.parse(req.body);
+      const updated = await storage.updateFitting(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating fitting:", error);
       res.status(400).json({ message: error.message });
     }
   });

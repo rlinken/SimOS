@@ -371,6 +371,10 @@ export const insertMembershipTierSchema = createInsertSchema(
   updatedAt: true,
 });
 
+export const updateMembershipTierSchema = insertMembershipTierSchema.partial().omit({
+  facilityId: true,
+});
+
 export type MembershipTier = typeof membershipTiers.$inferSelect;
 export type InsertMembershipTier = z.infer<typeof insertMembershipTierSchema>;
 
@@ -785,6 +789,10 @@ export const insertFittingSchema = createInsertSchema(fittings).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const updateFittingSchema = insertFittingSchema.partial().omit({
+  facilityId: true,
 });
 
 export type Fitting = typeof fittings.$inferSelect;
