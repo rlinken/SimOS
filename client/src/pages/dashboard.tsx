@@ -64,19 +64,8 @@ export default function Dashboard() {
     isSameDay(parseISO(b.startTime), selectedDate)
   );
 
-  // Dynamic operating hours based on current time
-  const hours = (() => {
-    const isToday = isSameDay(selectedDate, now);
-    if (isToday) {
-      const currentHour = now.getHours();
-      const startHour = Math.max(6, Math.min(currentHour, 22)); // Start from current hour, but not before 6 AM or after 10 PM
-      const endHour = 23; // Go until 11 PM (last slot is 10 PM)
-      const hourCount = endHour - startHour;
-      return Array.from({ length: hourCount }, (_, i) => startHour + i);
-    }
-    // For other dates, show full operating hours (6 AM to 10 PM)
-    return Array.from({ length: 17 }, (_, i) => i + 6);
-  })();
+  // Operating hours (6 AM to 10 PM) - show all hours
+  const hours = Array.from({ length: 17 }, (_, i) => i + 6);
 
   // Check if a time slot is in the past
   const isPastHour = (hour: number) => {
@@ -136,6 +125,20 @@ export default function Dashboard() {
   };
 
   const timePosition = getCurrentTimePosition();
+
+  // Auto-scroll to current time on mount
+  useEffect(() => {
+    if (isSameDay(selectedDate, now) && currentTimeRef.current && scheduleRef.current) {
+      const timer = setTimeout(() => {
+        currentTimeRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest',
+          inline: 'center' 
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedDate]);
 
   if (bookingsLoading) {
     return (

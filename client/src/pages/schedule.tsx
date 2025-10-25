@@ -112,20 +112,8 @@ export default function Schedule() {
     return isSameDay(bookingStart, selectedDate);
   });
 
-  // Dynamic operating hours based on current time
-  const hours = (() => {
-    const now = new Date();
-    const isToday = isSameDay(selectedDate, now);
-    if (isToday) {
-      const currentHour = now.getHours();
-      const startHour = Math.max(6, Math.min(currentHour, 22)); // Start from current hour, but not before 6 AM or after 10 PM
-      const endHour = 23; // Go until 11 PM (last slot is 10 PM)
-      const hourCount = endHour - startHour;
-      return Array.from({ length: hourCount }, (_, i) => startHour + i);
-    }
-    // For other dates, show full operating hours (6 AM to 10 PM)
-    return Array.from({ length: 17 }, (_, i) => i + 6);
-  })();
+  // Operating hours (6 AM to 10 PM) - show all hours
+  const hours = Array.from({ length: 17 }, (_, i) => i + 6);
 
   // Helper to check if a bay is booked at a specific hour
   const isBooked = (bayId: string, hour: number) => {
@@ -251,6 +239,20 @@ export default function Schedule() {
   };
 
   const timePosition = getCurrentTimePosition();
+
+  // Auto-scroll to current time on mount for day view
+  useEffect(() => {
+    if (view === 'day' && isSameDay(selectedDate, new Date()) && currentTimeRef.current && scheduleRef.current) {
+      const timer = setTimeout(() => {
+        currentTimeRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest',
+          inline: 'center' 
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [view, selectedDate]);
 
   return (
     <div className="flex-1 space-y-6 p-6 overflow-auto bg-muted/30">
