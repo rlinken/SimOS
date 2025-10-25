@@ -1173,6 +1173,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // General booking update endpoint - for type, payment method, payment status
+  app.patch("/api/bookings/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking || booking.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const updates: any = {};
+      
+      // Validate and set booking type
+      if (req.body.type !== undefined) {
+        if (!["rental", "lesson", "fitting", "event"].includes(req.body.type)) {
+          return res.status(400).json({ message: "Invalid booking type" });
+        }
+        updates.type = req.body.type;
+      }
+      
+      // Validate and set payment method
+      if (req.body.paymentMethod !== undefined) {
+        if (!["card_on_file", "new_card", "pay_at_desk", "membership"].includes(req.body.paymentMethod)) {
+          return res.status(400).json({ message: "Invalid payment method" });
+        }
+        updates.paymentMethod = req.body.paymentMethod;
+      }
+      
+      // Validate and set payment status
+      if (req.body.paymentStatus !== undefined) {
+        if (!["pending", "paid", "cancelled", "refunded"].includes(req.body.paymentStatus)) {
+          return res.status(400).json({ message: "Invalid payment status" });
+        }
+        updates.paymentStatus = req.body.paymentStatus;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+
+      const updated = await storage.updateBooking(req.params.id, updates);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating booking:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // Check-in endpoint - update booking check-in status
   app.patch("/api/bookings/:id/check-in", isAuthenticated, async (req: any, res) => {
     try {
