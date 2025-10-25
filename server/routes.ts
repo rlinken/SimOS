@@ -409,6 +409,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Widget Routes (Public - no authentication required)
+  // ============================================================================
+
+  app.get("/api/facilities/:id", async (req, res) => {
+    try {
+      const facility = await storage.getFacility(req.params.id);
+      if (!facility) {
+        return res.status(404).json({ message: "Facility not found" });
+      }
+      res.json(facility);
+    } catch (error: any) {
+      console.error("Error fetching facility:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/widget/availability/:facilityId", async (req, res) => {
+    try {
+      const { facilityId } = req.params;
+      const { date } = req.query;
+      
+      const selectedDate = date ? new Date(date as string) : new Date();
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      const nextDay = new Date(selectedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      const bays = await storage.getBays(facilityId);
+      const bookings = await storage.getBookingsByDateRange(facilityId, selectedDate, nextDay);
+      
+      const activeBays = bays.filter(b => b.status === "active");
+      
+      const timeSlots: { time: string; available: boolean }[] = [];
+      
+      for (let hour = 9; hour < 21; hour++) {
+        for (const minutes of ["00", "30"]) {
+          const time = `${hour.toString().padStart(2, "0")}:${minutes}`;
+          const [h, m] = time.split(":").map(Number);
+          const slotTime = new Date(selectedDate);
+          slotTime.setHours(h, m, 0, 0);
+          const slotEnd = new Date(slotTime.getTime() + 60 * 60000);
+          
+          const hasAvailableBay = activeBays.some(bay => {
+            const conflictingBookings = bookings.filter(b => {
+              if (b.bayId !== bay.id) return false;
+              const bookingStart = new Date(b.startTime);
+              const bookingEnd = new Date(bookingStart.getTime() + (b.duration || 60) * 60000);
+              return (slotTime < bookingEnd && slotEnd > bookingStart);
+            });
+            return conflictingBookings.length === 0;
+          });
+          
+          timeSlots.push({ time, available: hasAvailableBay });
+        }
+      }
+      
+      res.json(timeSlots);
+    } catch (error: any) {
+      console.error("Error fetching availability:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/widget/bookings/:facilityId", async (req, res) => {
+    try {
+      const { facilityId } = req.params;
+      const { startTime, duration, customerName, customerEmail } = req.body;
+      
+      if (!startTime || !customerName || !customerEmail) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const facility = await storage.getFacility(facilityId);
+      if (!facility) {
+        return res.status(404).json({ message: "Facility not found" });
+      }
+      
+      const bookingStart = new Date(startTime);
+      const bookingDuration = duration || 60;
+      const bookingEnd = new Date(bookingStart.getTime() + bookingDuration * 60000);
+      
+      const bays = await storage.getBays(facilityId);
+      const activeBays = bays.filter(b => b.status === "active");
+      
+      if (activeBays.length === 0) {
+        return res.status(400).json({ message: "No bays available at this facility" });
+      }
+      
+      const dayStart = new Date(bookingStart);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      
+      const existingBookings = await storage.getBookingsByDateRange(facilityId, dayStart, dayEnd);
+      
+      let assignedBay = null;
+      for (const bay of activeBays) {
+        const conflictingBookings = existingBookings.filter(b => {
+          if (b.bayId !== bay.id) return false;
+          const existingStart = new Date(b.startTime);
+          const existingEnd = new Date(existingStart.getTime() + (b.duration || 60) * 60000);
+          return (bookingStart < existingEnd && bookingEnd > existingStart);
+        });
+        
+        if (conflictingBookings.length === 0) {
+          assignedBay = bay;
+          break;
+        }
+      }
+      
+      if (!assignedBay) {
+        return res.status(400).json({ message: "No bays available at this time. Please select another time slot." });
+      }
+      
+      const validatedData = insertBookingSchema.parse({
+        facilityId,
+        bayId: assignedBay.id,
+        userId: null,
+        startTime: bookingStart,
+        duration: bookingDuration,
+        type: "rental",
+        customerName,
+        customerEmail,
+        paymentStatus: "pending",
+      });
+      
+      const booking = await storage.createBooking(validatedData);
+      
+      res.status(201).json({ success: true, booking });
+    } catch (error: any) {
+      console.error("Error creating widget booking:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Dashboard Stats Route
   // ============================================================================
 

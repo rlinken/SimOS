@@ -18,6 +18,7 @@ import FittingsPage from "@/pages/fittings";
 import FacilitiesPage from "@/pages/facilities";
 import SettingsPage from "@/pages/settings";
 import OnboardingPage from "@/pages/onboarding";
+import WidgetCalendar from "@/pages/widget-calendar";
 
 function AuthenticatedRoutes() {
   return (
@@ -60,24 +61,34 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    return <UnauthenticatedRoutes />;
+    return (
+      <Switch>
+        <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
+        <UnauthenticatedRoutes />
+      </Switch>
+    );
   }
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center h-16 px-6 border-b gap-4">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex-1" />
-          </header>
-          <main className="flex-1 overflow-auto p-8">
-            <AuthenticatedRoutes />
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <Switch>
+      <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
+      <Route>
+        <SidebarProvider style={style as React.CSSProperties}>
+          <div className="flex h-screen w-full">
+            <AppSidebar />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className="flex items-center h-16 px-6 border-b gap-4">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+                <div className="flex-1" />
+              </header>
+              <main className="flex-1 overflow-auto p-8">
+                <AuthenticatedRoutes />
+              </main>
+            </div>
+          </div>
+        </SidebarProvider>
+      </Route>
+    </Switch>
   );
 }
 
