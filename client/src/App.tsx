@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
+import MemberDashboard from "@/pages/member-dashboard";
 import BaysPage from "@/pages/bays";
 import BookingsPage from "@/pages/bookings";
 import MembersPage from "@/pages/members";
@@ -23,9 +24,14 @@ import OnboardingPage from "@/pages/onboarding";
 import WidgetCalendar from "@/pages/widget-calendar";
 
 function AuthenticatedRoutes() {
+  const { user } = useAuth();
+  
+  // Show member dashboard for regular members, admin dashboard for staff
+  const DashboardComponent = user?.role === "member" ? MemberDashboard : Dashboard;
+  
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={DashboardComponent} />
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/bays" component={BaysPage} />
       <Route path="/bookings" component={BookingsPage} />
