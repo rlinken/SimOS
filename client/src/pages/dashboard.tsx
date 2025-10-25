@@ -141,41 +141,41 @@ export default function Dashboard() {
       {/* Two Column Layout: Next Bookings + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Next Bookings */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold">Next Bookings</h3>
-            <Clock className="w-5 h-5 text-muted-foreground" />
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold">Next Bookings</h3>
+            <Clock className="w-4 h-4 text-muted-foreground" />
           </div>
           {upcomingBookings.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-20" />
-              <p>No upcoming bookings</p>
+            <div className="text-center py-8 text-muted-foreground">
+              <Calendar className="w-10 h-10 mx-auto mb-2 opacity-20" />
+              <p className="text-sm">No upcoming bookings</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {upcomingBookings.slice(0, 5).map((booking) => (
                 <div
                   key={booking.id}
-                  className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
+                  className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
                   onClick={() => setLocation('/schedule')}
                   data-testid={`booking-item-${booking.id}`}
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">
+                      <div className="font-medium text-sm truncate">
                         {booking.bays.map(b => b.name).join(', ')}
                       </div>
-                      <div className="text-sm text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate">
                         {booking.user?.firstName} {booking.user?.lastName}
                       </div>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 ml-3">
-                    <div className="text-sm font-mono">
+                  <div className="text-right flex-shrink-0 ml-2">
+                    <div className="text-xs font-mono">
                       {format(parseISO(booking.startTime), "h:mm a")}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-[10px] text-muted-foreground">
                       {format(parseISO(booking.startTime), "MMM d")}
                     </div>
                   </div>
@@ -186,68 +186,68 @@ export default function Dashboard() {
         </Card>
 
         {/* Right Column: Quick Actions */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold">Quick Actions</h3>
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold">Quick Actions</h3>
           </div>
           <div className="space-y-2">
             <Link href="/members">
               <button
-                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
+                className="w-full p-3 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
                 data-testid="button-manage-members"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="font-medium">Manage Members</div>
+                  <div className="font-medium text-sm">Manage Members</div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </button>
             </Link>
 
             <Link href="/lessons">
               <button
-                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
+                className="w-full p-3 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
                 data-testid="button-schedule-lessons"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <GraduationCap className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="font-medium">Schedule Lessons</div>
+                  <div className="font-medium text-sm">Schedule Lessons</div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </button>
             </Link>
 
             <Link href="/fittings">
               <button
-                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
+                className="w-full p-3 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
                 data-testid="button-schedule-fitting"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Target className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Target className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="font-medium">Schedule Fitting</div>
+                  <div className="font-medium text-sm">Schedule Fitting</div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </button>
             </Link>
 
             <Link href="/products">
               <button
-                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
+                className="w-full p-3 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
                 data-testid="button-products"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Package className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Package className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="font-medium">Products</div>
+                  <div className="font-medium text-sm">Products</div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               </button>
             </Link>
           </div>
