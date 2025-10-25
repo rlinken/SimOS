@@ -1,0 +1,50 @@
+                           ┌──────────────────────────┐
+                           │        Frontend          │
+                           │  React + Tailwind (Vite) │
+                           │  ───────────────────────  │
+                           │  Booking Calendar (UI)   │
+                           │  Membership Dashboard     │
+                           │  Lessons / Fittings UI    │
+                           │  Auth (Supabase JWT)      │
+                           └───────────┬───────────────┘
+                                       │ REST / HTTPS
+                                       ▼
+                           ┌──────────────────────────┐
+                           │        Backend API       │
+                           │ Node.js + Express        │
+                           │ Routes: /bookings        │
+                           │          /memberships    │
+                           │          /lessons        │
+                           │          /fittings       │
+                           │          /integrations   │
+                           └───────────┬───────────────┘
+                                       │
+                                       ▼
+             ┌──────────────────────────────────────────────────┐
+             │                 Supabase (Postgres)               │
+             │──────────────────────────────────────────────────│
+             │ Tables: users, bays, bookings, memberships, etc.  │
+             │ Auth: JWT tokens                                  │
+             │ Realtime listener: bay availability updates       │
+             └──────────────────────────────────────────────────┘
+                                       │
+                                       ├───────────────┐
+                                       │               │
+                                       ▼               ▼
+           ┌─────────────────┐                 ┌────────────────────┐
+           │     Stripe      │                 │    GoHighLevel     │
+           │────────────────│                 │────────────────────│
+           │ Billing         │   Webhooks →    │ CRM & Automation   │
+           │ Subscriptions   │   /webhooks/    │ Email/SMS Funnels  │
+           │ Payments        │                 │ Contact Sync       │
+           └─────────────────┘                 └────────────────────┘
+                                       │
+                                       ▼
+                          ┌──────────────────────────┐
+                          │  Admin Dashboard         │
+                          │  (React + Chart.js)      │
+                          │  - Bay Utilization       │
+                          │  - Revenue Reports       │
+                          │  - Member Analytics      │
+                          └──────────────────────────┘
+

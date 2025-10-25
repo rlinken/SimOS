@@ -1,0 +1,333 @@
+🏌️‍♂️ GolfSimOS — Developer Specification & Build Blueprint
+Version: v1.0 (MVP)
+Author: Internal Dev Team @ GetMoreViews / Adam Linkenauger
+Purpose: Build the operating system for indoor golf simulator businesses — unifying bay bookings, memberships, lessons, fittings, and payments, with native integrations for Stripe and GoHighLevel.
+🧠 1. System Overview
+
+GolfSimOS is a full-stack SaaS web application for simulator-based golf facilities.
+It replaces multiple tools (Bookee, GoHighLevel calendars, separate CRM systems) with a single command center.
+
+Core Modules
+
+Smart Bay Booking System
+
+Real-time availability calendar
+
+Bay rotation & wear-tracking logic
+
+Tiered access (by membership type)
+
+Membership Management
+
+Subscriptions via Stripe
+
+Hourly credits, renewals, access control
+
+Lessons & Lesson Packages
+
+Instructor scheduling, package tracking
+
+Instructor → client linking
+
+Club Fittings
+
+Fitter calendar, intake forms, follow-ups
+
+Integrations
+
+Stripe → payments, subscriptions, invoices
+
+GoHighLevel (GHL) → CRM, email, SMS, automations
+
+Admin Dashboard
+
+Revenue overview, booking utilization, member reports
+
+⚙️ 2. Architecture Overview
+
+Frontend:
+
+React + Vite + TailwindCSS
+
+State management: Zustand or Redux Toolkit
+
+Calendar UI: FullCalendar.js
+
+API consumption: Axios + SWR
+
+Backend (API Layer):
+
+Node.js + Express
+
+Supabase (PostgreSQL) for DB & Auth
+
+Stripe SDK
+
+GHL API + Webhooks
+
+REST endpoints, modular structure (/routes, /controllers, /services)
+
+Hosting:
+
+Replit (MVP)
+
+Supabase for DB/Auth
+
+Stripe for payments
+
+Cloudflare for CDN + SSL
+
+🗂️ 3. Project Folder Structure
+/golf-simos
+ ├── /client
+ │   ├── /src
+ │   │   ├── /components
+ │   │   ├── /pages
+ │   │   ├── /hooks
+ │   │   ├── /context
+ │   │   ├── App.jsx
+ │   │   └── main.jsx
+ │   └── tailwind.config.js
+ │
+ ├── /server
+ │   ├── /routes
+ │   │   ├── bookings.js
+ │   │   ├── memberships.js
+ │   │   ├── lessons.js
+ │   │   ├── fittings.js
+ │   │   ├── payments.js
+ │   │   └── integrations.js
+ │   ├── /controllers
+ │   ├── /services
+ │   │   ├── stripeService.js
+ │   │   ├── ghlService.js
+ │   │   ├── bayRotationService.js
+ │   └── server.js
+ │
+ ├── /docs
+ │   └── GOLFSIMOS_DEV_SPEC.md
+ │
+ └── .env
+
+🧩 4. Database Schema (Supabase / PostgreSQL)
+users
+Field	Type	Description
+id	UUID	PK
+name	TEXT	
+email	TEXT (unique)	
+phone	TEXT	
+role	ENUM('admin','instructor','member')	
+membership_id	UUID FK	
+ghl_contact_id	TEXT	Sync to GHL
+stripe_customer_id	TEXT	Sync to Stripe
+memberships
+Field	Type	Description
+id	UUID	PK
+name	TEXT	e.g., “Bronze”, “Gold”
+tier_level	INT	1–3
+allowed_bay_tiers	JSON	e.g., [“standard”,“premium”]
+hourly_rate	NUMERIC	Discounted hourly price
+monthly_hours	INT	Included hours
+stripe_price_id	TEXT	Stripe reference
+bays
+Field	Type	Description
+id	UUID	PK
+name	TEXT	“Bay 1”, “Bay 2”, etc.
+tier	ENUM('standard','premium','vip')	
+status	ENUM('active','offline','rotation_due')	
+usage_hours	INT	Track wear/tear
+last_rotation	DATE	
+maintenance_notes	TEXT	
+bookings
+Field	Type	Description
+id	UUID	PK
+user_id	UUID FK	
+bay_id	UUID FK	
+start_time	TIMESTAMP	
+end_time	TIMESTAMP	
+type	ENUM('rental','lesson','fitting')	
+payment_status	ENUM('paid','pending','cancelled')	
+stripe_payment_id	TEXT	
+lessons
+Field	Type	Description
+id	UUID	PK
+instructor_id	UUID	
+student_id	UUID	
+date	TIMESTAMP	
+notes	TEXT	
+completed	BOOLEAN	
+fittings
+Field	Type	Description
+id	UUID	PK
+fitter_id	UUID	
+user_id	UUID	
+date	TIMESTAMP	
+notes	TEXT	
+completed	BOOLEAN	
+🔌 5. API Design
+Authentication
+
+Handled by Supabase Auth (JWT)
+
+Authorization: Bearer <token>
+
+POST /api/bookings
+
+Creates a booking
+
+{
+  "user_id": "uuid",
+  "start_time": "2025-02-01T10:00:00Z",
+  "end_time": "2025-02-01T11:00:00Z",
+  "type": "rental"
+}
+
+
+Response:
+
+{ "booking_id": "uuid", "status": "confirmed" }
+
+
+Logic:
+
+Validate user tier → allowed bays
+
+Assign lowest-use bay matching tier
+
+Update bay usage_hours
+
+GET /api/bays/available?start=...&end=...
+
+Returns available bays by time window.
+
+POST /api/memberships
+
+Creates or updates membership.
+Triggers Stripe subscription creation → returns stripe_checkout_url.
+
+POST /api/lessons
+
+Creates lesson booking; optionally links Stripe payment.
+
+POST /api/fittings
+
+Creates club fitting booking.
+
+POST /api/integrations/ghl/contact
+
+Sync user with GHL:
+
+Create contact if none
+
+Tag user by membership tier
+
+Send optional note (“Booked Bay 3 - 10am”)
+
+🧠 6. Business Logic: Bay Rotation
+
+Pseudocode:
+
+function assignBay(userTier) {
+  const eligibleBays = bays.filter(b => 
+    b.status === 'active' && 
+    membershipTiers[userTier].includes(b.tier)
+  );
+  return eligibleBays.sort((a,b)=>a.usage_hours - b.usage_hours)[0];
+}
+
+
+Every completed booking increments usage_hours.
+If usage_hours > 100 → mark as rotation_due → staff alert.
+
+💳 7. Stripe Integration
+
+Memberships → Stripe Subscriptions
+
+Rentals/Lessons/Fittings → Payment Links or Checkout Sessions
+
+Webhooks:
+
+invoice.payment_succeeded → Update booking/payment status
+
+customer.subscription.updated → Update membership data
+
+customer.subscription.deleted → Cancel membership
+
+💬 8. GoHighLevel Integration
+
+Outbound (GolfSimOS → GHL):
+
+On user signup → POST /contacts
+
+On booking → POST /notes
+
+On lesson/fitting complete → add tag (e.g., “Lesson Complete”)
+
+On membership renewal → add tag “Active Member”
+
+Inbound (GHL → GolfSimOS):
+
+Webhook → create user or booking (lead conversion)
+
+Webhook endpoint: /api/webhooks/ghl
+
+📊 9. Dashboard Metrics
+
+Total Bookings (daily/weekly/monthly)
+
+Active Members by Tier
+
+Bay Utilization (%)
+
+Revenue (Stripe data aggregation)
+
+Lesson Completion Rate
+
+Fitting Conversion %
+
+🧩 10. Error Handling
+
+All API errors follow JSON format:
+
+{ "error": "message", "code": 400 }
+
+
+Logged to Supabase errors table.
+
+Webhook retries handled via idempotent keys.
+
+🚀 11. Developer Roadmap (MVP → Launch)
+Phase	Duration	Deliverables
+Phase 1	2 weeks	Auth, Users, Bays, Basic Calendar
+Phase 2	3 weeks	Booking logic + Stripe integration
+Phase 3	2 weeks	Membership tiers + credits
+Phase 4	2 weeks	Lessons + fittings
+Phase 5	2 weeks	GHL integration + webhooks
+Phase 6	3 weeks	Admin dashboard + metrics
+Phase 7	1 week	QA, bug fixes, deploy
+
+Total MVP time: ~15 weeks (one dev, 40 hrs/week)
+
+🧱 12. Future Expansion (v2+)
+
+POS & Inventory (replace Square)
+
+Multi-location support
+
+Instructor commission tracking
+
+Facility analytics & predictive scheduling
+
+AI-driven bay utilization forecasts
+
+IoT integration (auto power on/off bays)
+
+🧾 13. Deployment Plan
+
+MVP Hosting: Replit (API + frontend)
+
+DB/Auth: Supabase
+
+CDN/Domain: Cloudflare
+
+Prod Migration: Vercel (frontend) + Supabase (backend)
