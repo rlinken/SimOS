@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar, Plus, Clock, MapPin, Sparkles, DollarSign, CheckCircle2, X } from "lucide-react";
+import { Calendar, Plus, Clock, MapPin, Sparkles, DollarSign, CheckCircle2, X, Check, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +57,8 @@ type BookingFormData = z.infer<typeof bookingFormSchema>;
 export default function BookingsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [useAutoAssign, setUseAutoAssign] = useState(true);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: bookings, isLoading } = useQuery<(Booking & { bays: Bay[]; user: User })[]>({
@@ -125,6 +127,46 @@ export default function BookingsPage() {
       });
     },
   });
+
+  const markAsPaidMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      return apiRequest("PATCH", `/api/bookings/${bookingId}/payment-status`, {
+        paymentStatus: "paid",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Success",
+        description: "Booking marked as paid",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleMarkAsPaid = (bookingId: string) => {
+    markAsPaidMutation.mutate(bookingId);
+  };
+
+  const handleCollectPayment = (bookingId: string) => {
+    setSelectedBookingForPayment(bookingId);
+    setIsPaymentDialogOpen(true);
+  };
+
+  const processPayment = () => {
+    toast({
+      title: "Payment Processing",
+      description: "Stripe integration coming soon. For now, please use 'Mark as Paid' after collecting payment manually.",
+    });
+    setIsPaymentDialogOpen(false);
+    setSelectedBookingForPayment(null);
+  };
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
@@ -494,12 +536,109 @@ export default function BookingsPage() {
                       Not Checked In
                     </Badge>
                   )}
+                  {booking.paymentStatus === 'pending' && (
+                    <div className="flex items-center gap-2 ml-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkAsPaid(booking.id);
+                        }}
+                        disabled={markAsPaidMutation.isPending}
+                        data-testid={`button-mark-paid-${booking.id}`}
+                      >
+                        <Check className="w-3 h-3 mr-1" />
+                        {markAsPaidMutation.isPending ? "Updating..." : "Mark as Paid"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCollectPayment(booking.id);
+                        }}
+                        disabled={markAsPaidMutation.isPending}
+                        data-testid={`button-collect-payment-${booking.id}`}
+                      >
+                        <CreditCard className="w-3 h-3 mr-1" />
+                        Collect Payment
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </Card>
       )}
+
+      {/* Payment Collection Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent data-testid="dialog-collect-payment">
+          <DialogHeader>
+            <DialogTitle>Collect Payment</DialogTitle>
+            <DialogDescription>
+              Process payment for this booking using your payment terminal or Stripe integration.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {selectedBookingForPayment && bookings?.find(b => b.id === selectedBookingForPayment) && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                  <span className="text-sm font-medium">Booking Details</span>
+                  <div className="text-right">
+                    <div className="text-sm font-mono">
+                      {format(
+                        new Date(bookings.find(b => b.id === selectedBookingForPayment)!.startTime),
+                        "MMM d, h:mm a"
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-4 rounded-lg border border-amber-500/20 bg-amber-50 dark:bg-amber-950/20">
+                  <div className="flex items-start gap-3">
+                    <CreditCard className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-amber-900 dark:text-amber-100 mb-1">
+                        Stripe Integration Required
+                      </h4>
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        Full payment processing through Stripe will be available soon. 
+                        For now, please collect payment manually (cash, card terminal, etc.) 
+                        and use the "Mark as Paid" button to update the booking status.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsPaymentDialogOpen(false);
+                setSelectedBookingForPayment(null);
+              }}
+              data-testid="button-cancel-payment"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={processPayment}
+              data-testid="button-process-payment"
+            >
+              <CreditCard className="w-4 h-4 mr-2" />
+              Process Payment (Coming Soon)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
