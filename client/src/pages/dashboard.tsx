@@ -1,65 +1,68 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Calendar,
   Users,
-  TrendingUp,
   MapPin,
-  DollarSign,
   Clock,
+  Plus,
+  User,
+  ArrowRight,
+  Target,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { Link } from "wouter";
-
-interface DashboardStats {
-  totalBookings: number;
-  totalMembers: number;
-  totalRevenue: number;
-  bayUtilization: number;
-  todayBookings: number;
-  activeMembers: number;
-}
+import { Link, useLocation } from "wouter";
+import { format, startOfDay, addHours, isSameDay, parseISO, isAfter } from "date-fns";
+import { useState } from "react";
+import type { Booking, Bay } from "@shared/schema";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
+  const [selectedDate] = useState(new Date());
 
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/dashboard/stats"],
+  // Fetch today's bookings
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<(Booking & { bays: Bay[]; user: any })[]>({
+    queryKey: ["/api/bookings"],
     enabled: !!user,
   });
 
-  const statCards = [
-    {
-      title: "Total Bookings",
-      value: stats?.totalBookings || 0,
-      change: "+12%",
-      icon: Calendar,
-      color: "text-primary",
-    },
-    {
-      title: "Active Members",
-      value: stats?.activeMembers || 0,
-      change: "+8%",
-      icon: Users,
-      color: "text-chart-2",
-    },
-    {
-      title: "Revenue (MTD)",
-      value: `$${(stats?.totalRevenue || 0).toLocaleString()}`,
-      change: "+15%",
-      icon: DollarSign,
-      color: "text-chart-3",
-    },
-    {
-      title: "Bay Utilization",
-      value: `${stats?.bayUtilization || 0}%`,
-      change: "+5%",
-      icon: MapPin,
-      color: "text-chart-4",
-    },
-  ];
+  // Fetch bays for schedule view
+  const { data: bays = [] } = useQuery<Bay[]>({
+    queryKey: ["/api/bays"],
+    enabled: !!user,
+  });
 
-  if (isLoading) {
+  // Get next 3 upcoming bookings
+  const now = new Date();
+  const upcomingBookings = bookings
+    .filter(b => isAfter(parseISO(b.startTime), now))
+    .sort((a, b) => parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime())
+    .slice(0, 3);
+
+  // Get today's bookings for mini schedule
+  const todayBookings = bookings.filter(b => 
+    isSameDay(parseISO(b.startTime), selectedDate)
+  );
+
+  // Create a simple schedule grid for today (8am - 8pm)
+  const hours = Array.from({ length: 12 }, (_, i) => i + 8); // 8am to 8pm
+
+  const isBooked = (bayId: string, hour: number) => {
+    const hourStart = addHours(startOfDay(selectedDate), hour);
+    const hourEnd = addHours(hourStart, 1);
+    
+    return todayBookings.find(booking => {
+      const bookingStart = parseISO(booking.startTime);
+      const bookingEnd = parseISO(booking.endTime);
+      
+      return booking.bays.some(b => b.id === bayId) &&
+        bookingStart < hourEnd && bookingEnd > hourStart;
+    });
+  };
+
+  if (bookingsLoading) {
     return (
       <div className="space-y-6">
         <div>
@@ -68,137 +71,250 @@ export default function Dashboard() {
             Welcome back, {user?.firstName}
           </p>
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-6">
-              <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-muted rounded w-1/2" />
-                <div className="h-8 bg-muted rounded w-3/4" />
-                <div className="h-3 bg-muted rounded w-1/3" />
-              </div>
-            </Card>
-          ))}
+        <div className="animate-pulse space-y-4">
+          <div className="h-64 bg-muted rounded" />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="h-48 bg-muted rounded" />
+            <div className="h-48 bg-muted rounded" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">
-          Dashboard
-        </h1>
-        <p className="text-muted-foreground">
-          Welcome back, {user?.firstName}
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat, idx) => (
-          <Card key={idx} className="p-6 space-y-3" data-testid={`card-stat-${idx}`}>
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </div>
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
-            </div>
-            <div className="text-3xl font-bold font-mono">{stat.value}</div>
-            <div className="flex items-center gap-1 text-xs text-primary">
-              <TrendingUp className="w-3 h-3" />
-              <span>{stat.change} from last month</span>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Recent Activity */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">
+            Dashboard
+          </h1>
+          <p className="text-muted-foreground">
+            Welcome back, {user?.firstName}
+          </p>
+        </div>
         <Link href="/schedule">
-          <Card className="p-6 space-y-4 cursor-pointer hover-elevate" data-testid="card-todays-bookings">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Today's Bookings</h3>
-              <Clock className="w-4 h-4 text-muted-foreground" />
+          <Button variant="outline" data-testid="button-view-full-schedule">
+            <Calendar className="w-4 h-4 mr-2" />
+            Full Schedule
+          </Button>
+        </Link>
+      </div>
+
+      {/* Compact Today's Schedule */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Today's Schedule</h2>
+          <div className="text-sm text-muted-foreground">
+            {format(selectedDate, "MMMM d, yyyy")}
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <div className="min-w-[800px]">
+            {/* Header Row */}
+            <div className="grid grid-cols-[120px_repeat(12,1fr)] bg-muted/50 rounded-t-md">
+              <div className="p-2 font-medium border-r text-center">
+                Bays
+              </div>
+              {hours.map(hour => (
+                <div 
+                  key={hour} 
+                  className="p-2 text-center border-r last:border-r-0 text-xs font-medium"
+                >
+                  {hour > 12 ? hour - 12 : hour}{hour === 12 ? 'pm' : hour >= 12 ? 'pm' : 'am'}
+                </div>
+              ))}
             </div>
+
+            {/* Bay Rows */}
+            {bays.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                No bays configured yet
+              </div>
+            ) : (
+              bays.slice(0, 4).map(bay => (
+                <div 
+                  key={bay.id} 
+                  className="grid grid-cols-[120px_repeat(12,1fr)] border-b last:border-b-0"
+                >
+                  <div className="p-2 border-r flex items-center justify-center text-sm font-medium bg-card/50">
+                    {bay.name}
+                  </div>
+                  {hours.map(hour => {
+                    const booking = isBooked(bay.id, hour);
+                    const isAvailable = !booking && bay.status === 'active';
+
+                    return (
+                      <div
+                        key={hour}
+                        className={`
+                          p-2 border-r last:border-r-0 min-h-[50px] 
+                          flex items-center justify-center text-xs 
+                          ${booking 
+                            ? 'bg-primary/10' 
+                            : isAvailable 
+                            ? 'bg-background' 
+                            : 'bg-muted/50'
+                          }
+                        `}
+                      >
+                        {booking && (
+                          <div className="text-center">
+                            <User className="w-3 h-3 mx-auto text-primary" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Next Bookings & Quick Actions */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Next Bookings */}
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Next Bookings</h3>
+            <Clock className="w-4 h-4 text-muted-foreground" />
+          </div>
+          {upcomingBookings.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-20" />
+              <p>No upcoming bookings</p>
+            </div>
+          ) : (
             <div className="space-y-3">
-              {[
-                { time: "10:00 AM", bay: "Bay 1", member: "John Doe" },
-                { time: "11:30 AM", bay: "Bay 2", member: "Jane Smith" },
-                { time: "2:00 PM", bay: "Bay 3", member: "Bob Johnson" },
-                { time: "4:00 PM", bay: "Bay 1", member: "Alice Williams" },
-              ].map((booking, idx) => (
+              {upcomingBookings.map((booking) => (
                 <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 rounded-lg border hover-elevate"
-                  data-testid={`booking-item-${idx}`}
+                  key={booking.id}
+                  className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
+                  onClick={() => setLocation('/schedule')}
+                  data-testid={`booking-item-${booking.id}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-primary" />
                     <div>
-                      <div className="font-medium">{booking.bay}</div>
+                      <div className="font-medium">
+                        {booking.bays.map(b => b.name).join(', ')}
+                      </div>
                       <div className="text-sm text-muted-foreground">
-                        {booking.member}
+                        {booking.user?.firstName} {booking.user?.lastName}
                       </div>
                     </div>
                   </div>
-                  <div className="text-sm font-mono text-muted-foreground">
-                    {booking.time}
+                  <div className="text-right">
+                    <div className="text-sm font-mono">
+                      {format(parseISO(booking.startTime), "h:mm a")}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(parseISO(booking.startTime), "MMM d")}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </Card>
-        </Link>
+          )}
+        </Card>
 
+        {/* Quick Actions */}
         <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Quick Actions</h3>
           </div>
           <div className="grid gap-3">
-            <button
-              className="p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-              data-testid="button-new-booking"
-            >
-              <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-primary" />
-                <div>
-                  <div className="font-medium">New Booking</div>
-                  <div className="text-sm text-muted-foreground">
-                    Schedule a bay rental
+            <Link href="/schedule">
+              <button
+                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+                data-testid="button-new-booking"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Plus className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">New Booking</div>
+                      <div className="text-sm text-muted-foreground">
+                        Schedule a bay rental
+                      </div>
+                    </div>
                   </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 </div>
-              </div>
-            </button>
-            <button
-              className="p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-              data-testid="button-add-member"
-            >
-              <div className="flex items-center gap-3">
-                <Users className="w-5 h-5 text-primary" />
-                <div>
-                  <div className="font-medium">Add Member</div>
-                  <div className="text-sm text-muted-foreground">
-                    Register new member
+              </button>
+            </Link>
+            
+            <Link href="/fittings">
+              <button
+                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+                data-testid="button-schedule-fitting"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Target className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Schedule Fitting</div>
+                      <div className="text-sm text-muted-foreground">
+                        Book a club fitting
+                      </div>
+                    </div>
                   </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 </div>
-              </div>
-            </button>
-            <button
-              className="p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-              data-testid="button-view-bays"
-            >
-              <div className="flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-primary" />
-                <div>
-                  <div className="font-medium">View Bays</div>
-                  <div className="text-sm text-muted-foreground">
-                    Manage bay status
+              </button>
+            </Link>
+
+            <Link href="/members">
+              <button
+                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+                data-testid="button-add-member"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">Manage Members</div>
+                      <div className="text-sm text-muted-foreground">
+                        View and add members
+                      </div>
+                    </div>
                   </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 </div>
-              </div>
-            </button>
+              </button>
+            </Link>
+
+            <Link href="/bays">
+              <button
+                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+                data-testid="button-view-bays"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-medium">View Bays</div>
+                      <div className="text-sm text-muted-foreground">
+                        Manage bay status
+                      </div>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                </div>
+              </button>
+            </Link>
           </div>
         </Card>
       </div>
