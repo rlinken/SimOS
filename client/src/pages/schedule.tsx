@@ -414,7 +414,7 @@ export default function Schedule() {
                               <User className="w-4 h-4 text-primary" />
                             </div>
                             <div className="font-semibold text-foreground">
-                              {booking.userName || 'Customer'}
+                              {booking.user?.firstName} {booking.user?.lastName}
                             </div>
                             <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                               <Clock className="w-3 h-3" />
