@@ -30,14 +30,16 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { MapPin, Plus, Activity, AlertCircle } from "lucide-react";
+import { MapPin, Plus, Activity, AlertCircle, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Bay, InsertBay } from "@shared/schema";
-import { insertBaySchema } from "@shared/schema";
+import type { Bay, InsertBay, UpdateBay } from "@shared/schema";
+import { insertBaySchema, updateBaySchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function BaysPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingBay, setEditingBay] = useState<Bay | null>(null);
   const { toast } = useToast();
 
   const { data: bays, isLoading } = useQuery<Bay[]>({
@@ -52,6 +54,17 @@ export default function BaysPage() {
       tier: "standard",
       status: "active",
       usageHours: 0,
+      maintenanceNotes: "",
+    },
+  });
+
+  const editForm = useForm<UpdateBay>({
+    resolver: zodResolver(updateBaySchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      tier: "standard",
+      status: "active",
       maintenanceNotes: "",
     },
   });
@@ -77,6 +90,67 @@ export default function BaysPage() {
       });
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateBay }) => {
+      return apiRequest("PATCH", `/api/bays/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bays"] });
+      toast({
+        title: "Success",
+        description: "Bay updated successfully",
+      });
+      setIsEditDialogOpen(false);
+      setEditingBay(null);
+      editForm.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/bays/${id}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bays"] });
+      toast({
+        title: "Success",
+        description: "Bay deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEdit = (bay: Bay) => {
+    setEditingBay(bay);
+    editForm.reset({
+      name: bay.name,
+      description: bay.description || "",
+      tier: bay.tier,
+      status: bay.status,
+      maintenanceNotes: bay.maintenanceNotes || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = async (bay: Bay) => {
+    if (window.confirm(`Are you sure you want to delete ${bay.name}? This cannot be undone.`)) {
+      deleteMutation.mutate(bay.id);
+    }
+  };
 
   const getTierColor = (tier: string) => {
     switch (tier) {
@@ -252,6 +326,153 @@ export default function BaysPage() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Bay Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Bay</DialogTitle>
+              <DialogDescription>
+                Update bay information and settings
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form
+                onSubmit={editForm.handleSubmit((data) => {
+                  if (editingBay) {
+                    updateMutation.mutate({ id: editingBay.id, data });
+                  }
+                })}
+                className="space-y-4"
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={editForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bay Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Bay 1"
+                            data-testid="input-edit-bay-name"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="tier"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tier</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-edit-tier">
+                              <SelectValue placeholder="Select tier" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="standard">Standard</SelectItem>
+                            <SelectItem value="premium">Premium</SelectItem>
+                            <SelectItem value="vip">VIP</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={editForm.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-status">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                          <SelectItem value="offline">Offline</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value || ""}
+                          placeholder="Simulator details, equipment, etc."
+                          data-testid="input-edit-description"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="maintenanceNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Maintenance Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          value={field.value || ""}
+                          placeholder="Any maintenance notes or special instructions"
+                          data-testid="textarea-edit-maintenance"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsEditDialogOpen(false)}
+                    data-testid="button-edit-cancel"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={updateMutation.isPending}
+                    data-testid="button-edit-submit"
+                  >
+                    {updateMutation.isPending ? "Updating..." : "Update Bay"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Bays Grid */}
@@ -313,6 +534,27 @@ export default function BaysPage() {
                   </div>
                 </div>
               )}
+
+              <div className="flex gap-2 pt-2 border-t">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleEdit(bay)}
+                  data-testid={`button-edit-${bay.id}`}
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDelete(bay)}
+                  data-testid={`button-delete-${bay.id}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
             </Card>
           ))}
         </div>

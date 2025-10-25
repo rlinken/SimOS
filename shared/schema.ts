@@ -257,8 +257,19 @@ export const insertBaySchema = createInsertSchema(bays).omit({
   updatedAt: true,
 });
 
+export const updateBaySchema = createInsertSchema(bays)
+  .omit({
+    id: true,
+    facilityId: true,
+    usageHours: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .partial();
+
 export type Bay = typeof bays.$inferSelect;
 export type InsertBay = z.infer<typeof insertBaySchema>;
+export type UpdateBay = z.infer<typeof updateBaySchema>;
 
 // ============================================================================
 // BOOKINGS TABLE

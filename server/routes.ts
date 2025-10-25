@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import {
   insertFacilitySchema,
   insertBaySchema,
+  updateBaySchema,
   insertBookingSchema,
   insertMembershipTierSchema,
   insertLessonSchema,
@@ -95,6 +96,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(bay);
     } catch (error: any) {
       console.error("Error creating bay:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/bays/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const bay = await storage.getBay(req.params.id);
+      if (!bay || bay.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Bay not found" });
+      }
+
+      const validatedData = updateBaySchema.parse(req.body);
+      const updatedBay = await storage.updateBay(req.params.id, validatedData);
+      res.json(updatedBay);
+    } catch (error: any) {
+      console.error("Error updating bay:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/bays/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (user.role !== "facility_admin" && user.role !== "super_admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const bay = await storage.getBay(req.params.id);
+      if (!bay || bay.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Bay not found" });
+      }
+
+      await storage.deleteBay(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting bay:", error);
       res.status(400).json({ message: error.message });
     }
   });

@@ -40,7 +40,9 @@ export interface IStorage {
   getBays(facilityId?: string): Promise<Bay[]>;
   getBay(id: string): Promise<Bay | undefined>;
   createBay(bay: InsertBay): Promise<Bay>;
+  updateBay(id: string, bay: Partial<InsertBay>): Promise<Bay>;
   updateBayUsage(id: string, hours: number): Promise<void>;
+  deleteBay(id: string): Promise<void>;
   
   // Bookings
   getBookings(facilityId?: string): Promise<Booking[]>;
@@ -143,11 +145,24 @@ export class DatabaseStorage implements IStorage {
     return bay;
   }
 
+  async updateBay(id: string, bayData: Partial<InsertBay>): Promise<Bay> {
+    const [bay] = await db
+      .update(bays)
+      .set({ ...bayData, updatedAt: new Date() })
+      .where(eq(bays.id, id))
+      .returning();
+    return bay;
+  }
+
   async updateBayUsage(id: string, hours: number): Promise<void> {
     await db
       .update(bays)
       .set({ usageHours: hours, updatedAt: new Date() })
       .where(eq(bays.id, id));
+  }
+
+  async deleteBay(id: string): Promise<void> {
+    await db.delete(bays).where(eq(bays.id, id));
   }
 
   // Bookings
