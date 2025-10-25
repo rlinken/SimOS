@@ -119,6 +119,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register customer from public purchase pages
+  app.post("/api/auth/register-customer", async (req, res) => {
+    try {
+      const { firstName, lastName, email, phone, facilityId, membershipTierId, transformationPackageId } = req.body;
+
+      if (!facilityId) {
+        return res.status(400).json({ message: "Facility ID is required" });
+      }
+
+      // Check enrollment capacity for transformation packages
+      if (transformationPackageId) {
+        const pkg = await storage.getTransformationPackage(transformationPackageId);
+        if (!pkg) {
+          return res.status(404).json({ message: "Transformation package not found" });
+        }
+        
+        // Check if package is full
+        if (pkg.maxEnrollments && pkg.currentEnrollments !== null && pkg.currentEnrollments >= pkg.maxEnrollments) {
+          return res.status(400).json({ message: "This transformation package is currently full. Please join the waitlist." });
+        }
+      }
+
+      // Create a lead entry for this customer (Stripe integration deferred)
+      const lead = await storage.createLead({
+        facilityId,
+        firstName,
+        lastName,
+        email,
+        phone: phone || null,
+        source: transformationPackageId ? "transformation_package" : membershipTierId ? "membership" : "website",
+        status: "new",
+        notes: transformationPackageId 
+          ? `Interested in transformation package ID: ${transformationPackageId}` 
+          : membershipTierId 
+          ? `Interested in membership tier ID: ${membershipTierId}` 
+          : null,
+      });
+
+      res.status(201).json({ 
+        message: "Registration successful", 
+        leadId: lead.id 
+      });
+    } catch (error: any) {
+      console.error("Error registering customer:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ============================================================================
   // Facilities Routes (Super Admin only)
   // ============================================================================
