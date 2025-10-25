@@ -8,7 +8,6 @@ import {
   Clock,
   Plus,
   User,
-  ArrowRight,
   Target,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -72,11 +71,9 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="animate-pulse space-y-4">
-          <div className="h-64 bg-muted rounded" />
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="h-48 bg-muted rounded" />
-            <div className="h-48 bg-muted rounded" />
-          </div>
+          <div className="h-24 bg-muted rounded" />
+          <div className="h-96 bg-muted rounded" />
+          <div className="h-48 bg-muted rounded" />
         </div>
       </div>
     );
@@ -102,10 +99,89 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Compact Today's Schedule */}
-      <Card className="p-4">
+      {/* Quick Actions - Horizontal */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Link href="/schedule">
+          <button
+            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+            data-testid="button-new-booking"
+          >
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Plus className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="font-medium">New Booking</div>
+                <div className="text-xs text-muted-foreground">
+                  Schedule bay rental
+                </div>
+              </div>
+            </div>
+          </button>
+        </Link>
+        
+        <Link href="/fittings">
+          <button
+            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+            data-testid="button-schedule-fitting"
+          >
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="font-medium">Schedule Fitting</div>
+                <div className="text-xs text-muted-foreground">
+                  Book club fitting
+                </div>
+              </div>
+            </div>
+          </button>
+        </Link>
+
+        <Link href="/members">
+          <button
+            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+            data-testid="button-add-member"
+          >
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="font-medium">Manage Members</div>
+                <div className="text-xs text-muted-foreground">
+                  View and add
+                </div>
+              </div>
+            </div>
+          </button>
+        </Link>
+
+        <Link href="/bays">
+          <button
+            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+            data-testid="button-view-bays"
+          >
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="font-medium">View Bays</div>
+                <div className="text-xs text-muted-foreground">
+                  Manage bay status
+                </div>
+              </div>
+            </div>
+          </button>
+        </Link>
+      </div>
+
+      {/* Today's Schedule - Centerpiece */}
+      <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Today's Schedule</h2>
+          <h2 className="text-xl font-semibold">Today's Schedule</h2>
           <div className="text-sm text-muted-foreground">
             {format(selectedDate, "MMMM d, yyyy")}
           </div>
@@ -175,149 +251,50 @@ export default function Dashboard() {
         </div>
       </Card>
 
-      {/* Next Bookings & Quick Actions */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Next Bookings */}
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Next Bookings</h3>
-            <Clock className="w-4 h-4 text-muted-foreground" />
+      {/* Next Bookings - Below Schedule */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold">Next Bookings</h3>
+          <Clock className="w-5 h-5 text-muted-foreground" />
+        </div>
+        {upcomingBookings.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Calendar className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p>No upcoming bookings</p>
           </div>
-          {upcomingBookings.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-20" />
-              <p>No upcoming bookings</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {upcomingBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
-                  onClick={() => setLocation('/schedule')}
-                  data-testid={`booking-item-${booking.id}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    <div>
-                      <div className="font-medium">
-                        {booking.bays.map(b => b.name).join(', ')}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {booking.user?.firstName} {booking.user?.lastName}
-                      </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-3">
+            {upcomingBookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
+                onClick={() => setLocation('/schedule')}
+                data-testid={`booking-item-${booking.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">
+                      {booking.bays.map(b => b.name).join(', ')}
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-mono">
-                      {format(parseISO(booking.startTime), "h:mm a")}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {format(parseISO(booking.startTime), "MMM d")}
+                    <div className="text-sm text-muted-foreground truncate">
+                      {booking.user?.firstName} {booking.user?.lastName}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {/* Quick Actions */}
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Quick Actions</h3>
+                <div className="text-right flex-shrink-0 ml-3">
+                  <div className="text-sm font-mono">
+                    {format(parseISO(booking.startTime), "h:mm a")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {format(parseISO(booking.startTime), "MMM d")}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="grid gap-3">
-            <Link href="/schedule">
-              <button
-                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-                data-testid="button-new-booking"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Plus className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="font-medium">New Booking</div>
-                      <div className="text-sm text-muted-foreground">
-                        Schedule a bay rental
-                      </div>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </button>
-            </Link>
-            
-            <Link href="/fittings">
-              <button
-                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-                data-testid="button-schedule-fitting"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Target className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="font-medium">Schedule Fitting</div>
-                      <div className="text-sm text-muted-foreground">
-                        Book a club fitting
-                      </div>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </button>
-            </Link>
-
-            <Link href="/members">
-              <button
-                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-                data-testid="button-add-member"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="font-medium">Manage Members</div>
-                      <div className="text-sm text-muted-foreground">
-                        View and add members
-                      </div>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </button>
-            </Link>
-
-            <Link href="/bays">
-              <button
-                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-                data-testid="button-view-bays"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="font-medium">View Bays</div>
-                      <div className="text-sm text-muted-foreground">
-                        Manage bay status
-                      </div>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </button>
-            </Link>
-          </div>
-        </Card>
-      </div>
+        )}
+      </Card>
     </div>
   );
 }
