@@ -1,6 +1,7 @@
 // Referenced from javascript_log_in_with_replit integration
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 
@@ -35,6 +36,10 @@ import {
   updateTransformationPackageSchema,
   upsertUserSchema,
   insertStaffAvailabilityHoursSchema,
+  insertTimeEntrySchema,
+  insertTaskSchema,
+  insertCommissionSchema,
+  insertTipSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -278,6 +283,557 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Payment settings updated successfully" });
     } catch (error: any) {
       console.error("Error updating payment settings:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Time Tracking Endpoints
+  // ============================================================================
+
+  // Get time entries (filter by facilityId and optionally staffId)
+  app.get("/api/time-entries", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const { staffId } = req.query;
+      const timeEntries = await storage.getTimeEntries(
+        user.facilityId,
+        staffId as string | undefined
+      );
+
+      // Enrich with staff data
+      const enrichedEntries = await Promise.all(
+        timeEntries.map(async (entry) => {
+          const staff = await storage.getUser(entry.staffId);
+          return { ...entry, staff };
+        })
+      );
+
+      res.json(enrichedEntries);
+    } catch (error: any) {
+      console.error("Error fetching time entries:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get active (unclosed) time entry for current user
+  app.get("/api/time-entries/active", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const activeEntry = await storage.getActiveTimeEntry(user.id);
+      res.json(activeEntry || null);
+    } catch (error: any) {
+      console.error("Error fetching active time entry:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Clock in (creates new time entry)
+  app.post("/api/time-entries/clock-in", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      // Check if user already has an active time entry
+      const activeEntry = await storage.getActiveTimeEntry(user.id);
+      if (activeEntry) {
+        return res.status(400).json({ 
+          message: "You already have an active time entry. Please clock out first." 
+        });
+      }
+
+      const validatedData = insertTimeEntrySchema.parse({
+        facilityId: user.facilityId,
+        staffId: user.id,
+        clockInTime: new Date(),
+        clockOutTime: null,
+        totalHours: null,
+        isManualEntry: false,
+        notes: null,
+      });
+
+      const timeEntry = await storage.createTimeEntry(validatedData);
+      res.status(201).json(timeEntry);
+    } catch (error: any) {
+      console.error("Error clocking in:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Clock out (updates active time entry with clock out time and calculates total hours)
+  app.post("/api/time-entries/clock-out", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Find active time entry for this user
+      const activeEntry = await storage.getActiveTimeEntry(user.id);
+      if (!activeEntry) {
+        return res.status(400).json({ 
+          message: "No active time entry found. Please clock in first." 
+        });
+      }
+
+      const clockOutTime = new Date();
+      const clockInTime = new Date(activeEntry.clockInTime);
+      
+      // Calculate total hours: (clockOutTime - clockInTime) / (1000 * 60 * 60)
+      const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+
+      const updatedEntry = await storage.updateTimeEntry(activeEntry.id, {
+        clockOutTime,
+        totalHours: totalHours.toFixed(2),
+      });
+
+      res.json(updatedEntry);
+    } catch (error: any) {
+      console.error("Error clocking out:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Create manual time entry (admin only)
+  app.post("/api/time-entries", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertTimeEntrySchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+        isManualEntry: true,
+      });
+
+      // Calculate total hours if both clock in and clock out are provided
+      if (validatedData.clockInTime && validatedData.clockOutTime) {
+        const clockInTime = new Date(validatedData.clockInTime);
+        const clockOutTime = new Date(validatedData.clockOutTime);
+        const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+        validatedData.totalHours = totalHours.toFixed(2);
+      }
+
+      const timeEntry = await storage.createTimeEntry(validatedData);
+      res.status(201).json(timeEntry);
+    } catch (error: any) {
+      console.error("Error creating manual time entry:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Update time entry (admin only)
+  app.patch("/api/time-entries/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const timeEntry = await storage.getTimeEntry(req.params.id);
+      if (!timeEntry || timeEntry.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+
+      const updateData = { ...req.body };
+      
+      // Recalculate total hours if clock times are updated
+      if (updateData.clockInTime || updateData.clockOutTime) {
+        const clockInTime = new Date(updateData.clockInTime || timeEntry.clockInTime);
+        const clockOutTime = new Date(updateData.clockOutTime || timeEntry.clockOutTime);
+        
+        if (clockOutTime) {
+          const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+          updateData.totalHours = totalHours.toFixed(2);
+        }
+      }
+
+      const updatedEntry = await storage.updateTimeEntry(req.params.id, updateData);
+      res.json(updatedEntry);
+    } catch (error: any) {
+      console.error("Error updating time entry:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Delete time entry (admin only)
+  app.delete("/api/time-entries/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const timeEntry = await storage.getTimeEntry(req.params.id);
+      if (!timeEntry || timeEntry.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+
+      await storage.deleteTimeEntry(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting time entry:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Task Endpoints
+  // ============================================================================
+
+  // Get tasks (filter by facilityId, optionally by assignedToId)
+  app.get("/api/tasks", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const { assignedToId } = req.query;
+      const tasks = await storage.getTasks(
+        user.facilityId,
+        assignedToId as string | undefined
+      );
+
+      // Enrich with user data
+      const enrichedTasks = await Promise.all(
+        tasks.map(async (task) => {
+          const assignedTo = task.assignedToId 
+            ? await storage.getUser(task.assignedToId)
+            : null;
+          const createdBy = await storage.getUser(task.createdById);
+          return { ...task, assignedTo, createdBy };
+        })
+      );
+
+      res.json(enrichedTasks);
+    } catch (error: any) {
+      console.error("Error fetching tasks:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create task (admin only)
+  app.post("/api/tasks", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertTaskSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+        createdById: user.id,
+      });
+
+      const task = await storage.createTask(validatedData);
+      res.status(201).json(task);
+    } catch (error: any) {
+      console.error("Error creating task:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Update task (admin or assigned person can update status)
+  app.patch("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const task = await storage.getTask(req.params.id);
+      if (!task || task.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+
+      // Check permissions: admin can update anything, assigned person can update status
+      const isAssignedUser = task.assignedToId === user.id;
+      const canUpdate = isAdmin(user.role) || isAssignedUser;
+
+      if (!canUpdate) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      // If not admin, only allow status updates
+      let updateData = req.body;
+      if (!isAdmin(user.role) && isAssignedUser) {
+        updateData = { status: req.body.status };
+      }
+
+      // Auto-set completedAt if status is being set to completed
+      if (updateData.status === "completed" && !task.completedAt) {
+        updateData.completedAt = new Date();
+      }
+
+      const updatedTask = await storage.updateTask(req.params.id, updateData);
+      res.json(updatedTask);
+    } catch (error: any) {
+      console.error("Error updating task:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Delete task (admin only)
+  app.delete("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const task = await storage.getTask(req.params.id);
+      if (!task || task.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+
+      await storage.deleteTask(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting task:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Commission Endpoints
+  // ============================================================================
+
+  // Get commissions (filter by facilityId and optionally staffId)
+  app.get("/api/commissions", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const { staffId } = req.query;
+      const commissions = await storage.getCommissions(
+        user.facilityId,
+        staffId as string | undefined
+      );
+
+      // Enrich with staff data
+      const enrichedCommissions = await Promise.all(
+        commissions.map(async (commission) => {
+          const staff = await storage.getUser(commission.staffId);
+          return { ...commission, staff };
+        })
+      );
+
+      res.json(enrichedCommissions);
+    } catch (error: any) {
+      console.error("Error fetching commissions:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create commission (admin only)
+  app.post("/api/commissions", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertCommissionSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+
+      const commission = await storage.createCommission(validatedData);
+      res.status(201).json(commission);
+    } catch (error: any) {
+      console.error("Error creating commission:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Mark commission as paid out (admin only)
+  app.patch("/api/commissions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const commission = await storage.getCommission(req.params.id);
+      if (!commission || commission.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Commission not found" });
+      }
+
+      const updatedCommission = await storage.updateCommission(req.params.id, {
+        paidOut: req.body.paidOut !== undefined ? req.body.paidOut : true,
+        paidOutAt: req.body.paidOut !== false ? new Date() : null,
+      });
+
+      res.json(updatedCommission);
+    } catch (error: any) {
+      console.error("Error updating commission:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Tip Endpoints
+  // ============================================================================
+
+  // Get tips (filter by facilityId and optionally staffId)
+  app.get("/api/tips", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const { staffId } = req.query;
+      const tips = await storage.getTips(
+        user.facilityId,
+        staffId as string | undefined
+      );
+
+      // Enrich with staff data
+      const enrichedTips = await Promise.all(
+        tips.map(async (tip) => {
+          const staff = await storage.getUser(tip.staffId);
+          return { ...tip, staff };
+        })
+      );
+
+      res.json(enrichedTips);
+    } catch (error: any) {
+      console.error("Error fetching tips:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create tip entry
+  app.post("/api/tips", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const validatedData = insertTipSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+
+      const tip = await storage.createTip(validatedData);
+      res.status(201).json(tip);
+    } catch (error: any) {
+      console.error("Error creating tip:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Delete tip (admin only)
+  app.delete("/api/tips/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const tip = await storage.getTip(req.params.id);
+      if (!tip || tip.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Tip not found" });
+      }
+
+      await storage.deleteTip(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting tip:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Staff Endpoints
+  // ============================================================================
+
+  // Get all staff members for facility
+  app.get("/api/staff", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const staffMembers = await storage.getStaffMembers(user.facilityId);
+      res.json(staffMembers);
+    } catch (error: any) {
+      console.error("Error fetching staff members:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update staff member details (admin only)
+  app.patch("/api/staff/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const staffMember = await storage.getUser(req.params.id);
+      if (!staffMember || staffMember.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Staff member not found" });
+      }
+
+      // Extract only allowed fields for staff updates
+      const allowedUpdates: any = {};
+      if (req.body.hourlyRate !== undefined) allowedUpdates.hourlyRate = req.body.hourlyRate;
+      if (req.body.commissionRate !== undefined) allowedUpdates.commissionRate = req.body.commissionRate;
+      if (req.body.taxId !== undefined) allowedUpdates.taxId = req.body.taxId;
+      if (req.body.bio !== undefined) allowedUpdates.bio = req.body.bio;
+      if (req.body.specialties !== undefined) allowedUpdates.specialties = req.body.specialties;
+
+      const updatedStaff = await storage.updateUser(req.params.id, allowedUpdates);
+      res.json(updatedStaff);
+    } catch (error: any) {
+      console.error("Error updating staff member:", error);
       res.status(400).json({ message: error.message });
     }
   });
