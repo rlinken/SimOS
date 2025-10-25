@@ -14,6 +14,7 @@ import {
   DollarSign,
   Package,
   UserCog,
+  Sparkles,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -123,6 +124,11 @@ function getMenuItems(user: User | undefined) {
         title: "Memberships",
         url: "/memberships",
         icon: CreditCard,
+      },
+      {
+        title: "Transformation Packages",
+        url: "/transformation-packages",
+        icon: Sparkles,
       }
     );
   }

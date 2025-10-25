@@ -75,13 +75,10 @@ export default function BuyTransformationPackage() {
   const purchaseMutation = useMutation({
     mutationFn: async (customerData: CustomerFormData) => {
       // For now, just create a user account (Stripe integration deferred)
-      const response = await apiRequest("/api/auth/register-customer", {
-        method: "POST",
-        body: JSON.stringify({
-          ...customerData,
-          facilityId: data?.facility.id,
-          transformationPackageId: id,
-        }),
+      const response = await apiRequest("POST", "/api/auth/register-customer", {
+        ...customerData,
+        facilityId: data?.facility.id,
+        transformationPackageId: id,
       });
       return response;
     },
@@ -146,7 +143,7 @@ export default function BuyTransformationPackage() {
   const { package: pkg, facility } = data;
 
   // Check if package is full
-  const isFull = pkg.maxEnrollments && pkg.currentEnrollments && pkg.currentEnrollments >= pkg.maxEnrollments;
+  const isFull = !!(pkg.maxEnrollments && pkg.currentEnrollments && pkg.currentEnrollments >= pkg.maxEnrollments);
 
   if (isPurchased) {
     return (

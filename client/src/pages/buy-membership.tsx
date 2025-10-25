@@ -62,13 +62,10 @@ export default function BuyMembership() {
   const purchaseMutation = useMutation({
     mutationFn: async (customerData: CustomerFormData) => {
       // For now, just create a user account (Stripe integration deferred)
-      const response = await apiRequest("/api/auth/register-customer", {
-        method: "POST",
-        body: JSON.stringify({
-          ...customerData,
-          facilityId: data?.facility.id,
-          membershipTierId: id,
-        }),
+      const response = await apiRequest("POST", "/api/auth/register-customer", {
+        ...customerData,
+        facilityId: data?.facility.id,
+        membershipTierId: id,
       });
       return response;
     },
