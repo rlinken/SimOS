@@ -704,29 +704,71 @@ export default function BookingsPage() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {selectedBookingForPayment && bookings?.find(b => b.id === selectedBookingForPayment) && (
-              <>
-                {/* Booking Summary */}
-                <Card className="p-4 bg-muted/30">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Booking</span>
-                      <span className="text-sm font-mono">
-                        {format(
-                          new Date(bookings.find(b => b.id === selectedBookingForPayment)!.startTime),
-                          "MMM d, h:mm a"
-                        )}
-                      </span>
+            {selectedBookingForPayment && (() => {
+              const selectedBooking = bookings?.find(b => b.id === selectedBookingForPayment);
+              if (!selectedBooking) return null;
+
+              // Calculate duration
+              const duration = (new Date(selectedBooking.endTime).getTime() - new Date(selectedBooking.startTime).getTime()) / 60000;
+              const hours = Math.floor(duration / 60);
+              const minutes = duration % 60;
+              const durationStr = hours > 0 
+                ? `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`.trim()
+                : `${minutes}m`;
+
+              // Format amount with proper currency formatting
+              const amount = selectedBooking.amount ? parseFloat(selectedBooking.amount) : 0;
+              const formattedAmount = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+              }).format(amount);
+
+              return (
+                <>
+                  {/* Payment Review Summary */}
+                  <Card className="p-4 bg-muted/30">
+                    <h3 className="font-semibold mb-3">Payment Details</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Customer</span>
+                        <span className="text-sm font-medium">
+                          {selectedBooking.user?.firstName} {selectedBooking.user?.lastName}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Booking Type</span>
+                        <span className="text-sm font-medium">
+                          {BOOKING_TYPE_LABELS[selectedBooking.type]}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Date & Time</span>
+                        <span className="text-sm font-mono">
+                          {format(new Date(selectedBooking.startTime), "MMM d, h:mm a")}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Duration</span>
+                        <span className="text-sm font-medium">{durationStr}</span>
+                      </div>
+                      {selectedBooking.bays && selectedBooking.bays.length > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Bay(s)</span>
+                          <span className="text-sm font-medium">
+                            {selectedBooking.bays.map(bay => bay?.name).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      <div className="pt-3 mt-3 border-t">
+                        <div className="flex items-center justify-between">
+                          <span className="text-base font-semibold">Total Amount</span>
+                          <span className="text-lg font-bold text-primary" data-testid="text-payment-amount">
+                            {formattedAmount}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Customer</span>
-                      <span className="text-sm font-medium">
-                        {bookings.find(b => b.id === selectedBookingForPayment)!.user?.firstName}{" "}
-                        {bookings.find(b => b.id === selectedBookingForPayment)!.user?.lastName}
-                      </span>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
 
                 {/* Payment Method Selection */}
                 <div className="space-y-3">
@@ -784,7 +826,8 @@ export default function BookingsPage() {
                   </div>
                 </Card>
               </>
-            )}
+              );
+            })()}
           </div>
 
           <DialogFooter>
