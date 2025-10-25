@@ -160,15 +160,21 @@ export default function Schedule() {
                 <Calendar className="w-4 h-4 text-primary" />
                 <span>Bays</span>
               </div>
-              {hours.map(hour => (
-                <div 
-                  key={hour} 
-                  className="p-3 text-center text-sm font-medium border-r last:border-r-0 border-b"
-                  data-testid={`header-hour-${hour}`}
-                >
-                  {format(setHours(new Date(), hour), "h a")}
-                </div>
-              ))}
+              {hours.map(hour => {
+                const showAmPm = hour === 6 || hour === 12 || hour === 18;
+                return (
+                  <div 
+                    key={hour} 
+                    className="p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center"
+                    data-testid={`header-hour-${hour}`}
+                  >
+                    <div className="text-base font-semibold">{hour > 12 ? hour - 12 : hour}</div>
+                    {showAmPm && (
+                      <div className="text-[10px] text-muted-foreground uppercase">{hour < 12 ? 'am' : 'pm'}</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Bay Rows */}
