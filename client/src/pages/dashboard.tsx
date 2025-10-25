@@ -19,6 +19,7 @@ import {
   ChevronsUpDown,
   Mail,
   Phone,
+  GraduationCap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
@@ -146,30 +147,11 @@ export default function Dashboard() {
             </div>
           </button>
         </Link>
-        
-        <Link href="/fittings">
-          <button
-            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-            data-testid="button-schedule-fitting"
-          >
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Target className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <div className="font-medium">Schedule Fitting</div>
-                <div className="text-xs text-muted-foreground">
-                  Book club fitting
-                </div>
-              </div>
-            </div>
-          </button>
-        </Link>
 
         <Link href="/members">
           <button
             className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-            data-testid="button-add-member"
+            data-testid="button-manage-members"
           >
             <div className="flex flex-col gap-2">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -184,20 +166,39 @@ export default function Dashboard() {
             </div>
           </button>
         </Link>
-
-        <Link href="/bays">
+        
+        <Link href="/lessons">
           <button
             className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-            data-testid="button-view-bays"
+            data-testid="button-schedule-lessons"
           >
             <div className="flex flex-col gap-2">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-primary" />
+                <GraduationCap className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <div className="font-medium">View Bays</div>
+                <div className="font-medium">Schedule Lessons</div>
                 <div className="text-xs text-muted-foreground">
-                  Manage bay status
+                  Book lessons
+                </div>
+              </div>
+            </div>
+          </button>
+        </Link>
+
+        <Link href="/fittings">
+          <button
+            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
+            data-testid="button-schedule-fitting"
+          >
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <div className="font-medium">Schedule Fitting</div>
+                <div className="text-xs text-muted-foreground">
+                  Book club fitting
                 </div>
               </div>
             </div>
