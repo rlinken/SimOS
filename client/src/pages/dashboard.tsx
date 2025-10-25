@@ -128,17 +128,19 @@ export default function Dashboard() {
 
   // Auto-scroll to current time on mount
   useEffect(() => {
-    if (isSameDay(selectedDate, now) && currentTimeRef.current && scheduleRef.current) {
+    if (isSameDay(selectedDate, now) && scheduleRef.current) {
       const timer = setTimeout(() => {
-        currentTimeRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'nearest',
-          inline: 'center' 
+        const currentHour = now.getHours();
+        const hourIndex = currentHour - 6; // 6 AM is index 0
+        const scrollPosition = hourIndex * 150 - 300; // Scroll to show current hour with some context before it
+        scheduleRef.current?.scrollTo({
+          left: Math.max(0, scrollPosition),
+          behavior: 'smooth'
         });
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [selectedDate]);
+  }, [selectedDate, now]);
 
   if (bookingsLoading) {
     return (
