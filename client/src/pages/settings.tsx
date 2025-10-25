@@ -6,10 +6,98 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar } from "lucide-react";
+
+type TimeUnit = "minutes" | "hours" | "days";
+
+// Helper functions to convert between units
+const convertToMinutes = (value: number, unit: TimeUnit): number => {
+  switch (unit) {
+    case "hours": return value * 60;
+    case "days": return value * 60 * 24;
+    default: return value;
+  }
+};
+
+const convertFromMinutes = (minutes: number, unit: TimeUnit): number => {
+  switch (unit) {
+    case "hours": return Math.round(minutes / 60);
+    case "days": return Math.round(minutes / (60 * 24));
+    default: return minutes;
+  }
+};
+
+// Smart unit detection based on value
+const detectBestUnit = (minutes: number): TimeUnit => {
+  if (minutes >= 1440 && minutes % 1440 === 0) return "days";
+  if (minutes >= 60 && minutes % 60 === 0) return "hours";
+  return "minutes";
+};
+
+// Reusable TimeInput component
+function TimeInput({
+  label,
+  description,
+  value,
+  onChange,
+  disabled,
+  testId,
+}: {
+  label: string;
+  description: string;
+  value: number;
+  onChange: (minutes: number) => void;
+  disabled: boolean;
+  testId: string;
+}) {
+  const [unit, setUnit] = useState<TimeUnit>(() => detectBestUnit(value));
+  const displayValue = convertFromMinutes(value, unit);
+
+  const handleValueChange = (newValue: string) => {
+    const num = parseInt(newValue) || 0;
+    onChange(convertToMinutes(num, unit));
+  };
+
+  const handleUnitChange = (newUnit: TimeUnit) => {
+    setUnit(newUnit);
+    // Convert current value to new unit, then back to minutes to preserve the time
+    const currentDisplayValue = convertFromMinutes(value, unit);
+    onChange(convertToMinutes(currentDisplayValue, newUnit));
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={testId}>{label}</Label>
+      <div className="flex gap-2">
+        <Input
+          id={testId}
+          type="number"
+          min="0"
+          value={displayValue}
+          onChange={(e) => handleValueChange(e.target.value)}
+          disabled={disabled}
+          data-testid={testId}
+          className="flex-1"
+        />
+        <Select value={unit} onValueChange={handleUnitChange} disabled={disabled}>
+          <SelectTrigger className="w-32" data-testid={`${testId}-unit`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="minutes">Minutes</SelectItem>
+            <SelectItem value="hours">Hours</SelectItem>
+            <SelectItem value="days">Days</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <p className="text-xs text-muted-foreground">{description}</p>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -185,117 +273,63 @@ export default function SettingsPage() {
 
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bay-booking-buffer">Bay Booking Advance (minutes)</Label>
-                  <Input
-                    id="bay-booking-buffer"
-                    type="number"
-                    min="0"
-                    value={facility?.bayBookingBufferMinutes || 30}
-                    onChange={(e) => 
-                      updateSettingsMutation.mutate({ bayBookingBufferMinutes: parseInt(e.target.value) })
-                    }
-                    disabled={isLoading || updateSettingsMutation.isPending}
-                    data-testid="input-bay-booking-buffer"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Minimum time before a bay can be booked (e.g., 30 minutes)
-                  </p>
-                </div>
+                <TimeInput
+                  label="Bay Booking Advance"
+                  description="Minimum time before a bay can be booked"
+                  value={facility?.bayBookingBufferMinutes || 30}
+                  onChange={(minutes) => updateSettingsMutation.mutate({ bayBookingBufferMinutes: minutes })}
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  testId="input-bay-booking-buffer"
+                />
 
-                <div className="space-y-2">
-                  <Label htmlFor="bay-buffer-between">Bay Buffer Between (minutes)</Label>
-                  <Input
-                    id="bay-buffer-between"
-                    type="number"
-                    min="0"
-                    value={facility?.bayBufferBetweenMinutes || 5}
-                    onChange={(e) => 
-                      updateSettingsMutation.mutate({ bayBufferBetweenMinutes: parseInt(e.target.value) })
-                    }
-                    disabled={isLoading || updateSettingsMutation.isPending}
-                    data-testid="input-bay-buffer-between"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Gap time between consecutive bay bookings (e.g., 5 minutes)
-                  </p>
-                </div>
+                <TimeInput
+                  label="Bay Buffer Between"
+                  description="Gap time between consecutive bay bookings"
+                  value={facility?.bayBufferBetweenMinutes || 5}
+                  onChange={(minutes) => updateSettingsMutation.mutate({ bayBufferBetweenMinutes: minutes })}
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  testId="input-bay-buffer-between"
+                />
               </div>
 
               <div className="border-t pt-6 grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="lesson-booking-buffer">Lesson Booking Advance (minutes)</Label>
-                  <Input
-                    id="lesson-booking-buffer"
-                    type="number"
-                    min="0"
-                    value={facility?.lessonBookingBufferMinutes || 1440}
-                    onChange={(e) => 
-                      updateSettingsMutation.mutate({ lessonBookingBufferMinutes: parseInt(e.target.value) })
-                    }
-                    disabled={isLoading || updateSettingsMutation.isPending}
-                    data-testid="input-lesson-booking-buffer"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Minimum advance time for lessons (e.g., 1440 = 24 hours)
-                  </p>
-                </div>
+                <TimeInput
+                  label="Lesson Booking Advance"
+                  description="Minimum advance time for lessons"
+                  value={facility?.lessonBookingBufferMinutes || 1440}
+                  onChange={(minutes) => updateSettingsMutation.mutate({ lessonBookingBufferMinutes: minutes })}
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  testId="input-lesson-booking-buffer"
+                />
 
-                <div className="space-y-2">
-                  <Label htmlFor="lesson-buffer-between">Lesson Buffer Between (minutes)</Label>
-                  <Input
-                    id="lesson-buffer-between"
-                    type="number"
-                    min="0"
-                    value={facility?.lessonBufferBetweenMinutes || 15}
-                    onChange={(e) => 
-                      updateSettingsMutation.mutate({ lessonBufferBetweenMinutes: parseInt(e.target.value) })
-                    }
-                    disabled={isLoading || updateSettingsMutation.isPending}
-                    data-testid="input-lesson-buffer-between"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Gap time between consecutive lessons (e.g., 15 minutes)
-                  </p>
-                </div>
+                <TimeInput
+                  label="Lesson Buffer Between"
+                  description="Gap time between consecutive lessons"
+                  value={facility?.lessonBufferBetweenMinutes || 15}
+                  onChange={(minutes) => updateSettingsMutation.mutate({ lessonBufferBetweenMinutes: minutes })}
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  testId="input-lesson-buffer-between"
+                />
               </div>
 
               <div className="border-t pt-6 grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fitting-booking-buffer">Fitting Booking Advance (minutes)</Label>
-                  <Input
-                    id="fitting-booking-buffer"
-                    type="number"
-                    min="0"
-                    value={facility?.fittingBookingBufferMinutes || 1440}
-                    onChange={(e) => 
-                      updateSettingsMutation.mutate({ fittingBookingBufferMinutes: parseInt(e.target.value) })
-                    }
-                    disabled={isLoading || updateSettingsMutation.isPending}
-                    data-testid="input-fitting-booking-buffer"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Minimum advance time for fittings (e.g., 1440 = 24 hours)
-                  </p>
-                </div>
+                <TimeInput
+                  label="Fitting Booking Advance"
+                  description="Minimum advance time for fittings"
+                  value={facility?.fittingBookingBufferMinutes || 1440}
+                  onChange={(minutes) => updateSettingsMutation.mutate({ fittingBookingBufferMinutes: minutes })}
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  testId="input-fitting-booking-buffer"
+                />
 
-                <div className="space-y-2">
-                  <Label htmlFor="fitting-buffer-between">Fitting Buffer Between (minutes)</Label>
-                  <Input
-                    id="fitting-buffer-between"
-                    type="number"
-                    min="0"
-                    value={facility?.fittingBufferBetweenMinutes || 15}
-                    onChange={(e) => 
-                      updateSettingsMutation.mutate({ fittingBufferBetweenMinutes: parseInt(e.target.value) })
-                    }
-                    disabled={isLoading || updateSettingsMutation.isPending}
-                    data-testid="input-fitting-buffer-between"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Gap time between consecutive fittings (e.g., 15 minutes)
-                  </p>
-                </div>
+                <TimeInput
+                  label="Fitting Buffer Between"
+                  description="Gap time between consecutive fittings"
+                  value={facility?.fittingBufferBetweenMinutes || 15}
+                  onChange={(minutes) => updateSettingsMutation.mutate({ fittingBufferBetweenMinutes: minutes })}
+                  disabled={isLoading || updateSettingsMutation.isPending}
+                  testId="input-fitting-buffer-between"
+                />
               </div>
             </div>
           </Card>
