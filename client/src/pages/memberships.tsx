@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,6 +31,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function MembershipsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTier, setEditingTier] = useState<MembershipTier | null>(null);
   const { toast } = useToast();
 
   const { data: tiers, isLoading } = useQuery<MembershipTier[]>({
@@ -61,6 +62,7 @@ export default function MembershipsPage() {
         description: "Membership tier created successfully",
       });
       setIsDialogOpen(false);
+      setEditingTier(null);
       form.reset();
     },
     onError: (error: Error) => {
@@ -71,6 +73,54 @@ export default function MembershipsPage() {
       });
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertMembershipTier> }) => {
+      return apiRequest("PATCH", `/api/memberships/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/memberships"] });
+      toast({
+        title: "Success",
+        description: "Membership tier updated successfully",
+      });
+      setIsDialogOpen(false);
+      setEditingTier(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reset form when dialog opens/closes or when editing tier changes
+  useEffect(() => {
+    if (editingTier) {
+      form.reset({
+        name: editingTier.name,
+        description: editingTier.description || "",
+        tierLevel: editingTier.tierLevel,
+        monthlyPrice: editingTier.monthlyPrice,
+        hourlyRate: editingTier.hourlyRate || "0",
+        monthlyHours: editingTier.monthlyHours,
+        allowedBayTiers: editingTier.allowedBayTiers || ["standard"],
+      });
+    } else if (!isDialogOpen) {
+      form.reset({
+        name: "",
+        description: "",
+        tierLevel: 1,
+        monthlyPrice: "0",
+        hourlyRate: "0",
+        monthlyHours: 0,
+        allowedBayTiers: ["standard"],
+      });
+    }
+  }, [editingTier, isDialogOpen, form]);
 
   if (isLoading) {
     return (
@@ -104,23 +154,34 @@ export default function MembershipsPage() {
             Create and manage membership plans
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingTier(null);
+          }
+        }}>
           <DialogTrigger asChild>
-            <Button data-testid="button-add-membership">
+            <Button data-testid="button-add-membership" onClick={() => setEditingTier(null)}>
               <Plus className="w-4 h-4 mr-2" />
               Add Tier
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Membership Tier</DialogTitle>
+              <DialogTitle>{editingTier ? "Edit Membership Tier" : "Create Membership Tier"}</DialogTitle>
               <DialogDescription>
-                Define a new membership level with pricing and benefits
+                {editingTier ? "Update membership level details" : "Define a new membership level with pricing and benefits"}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit((data) => createMutation.mutate(data))}
+                onSubmit={form.handleSubmit((data) => {
+                  if (editingTier) {
+                    updateMutation.mutate({ id: editingTier.id, data });
+                  } else {
+                    createMutation.mutate(data);
+                  }
+                })}
                 className="space-y-4"
               >
                 <div className="grid gap-4 md:grid-cols-2">
@@ -258,10 +319,13 @@ export default function MembershipsPage() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={createMutation.isPending}
+                    disabled={createMutation.isPending || updateMutation.isPending}
                     data-testid="button-submit"
                   >
-                    {createMutation.isPending ? "Creating..." : "Create Tier"}
+                    {editingTier 
+                      ? (updateMutation.isPending ? "Updating..." : "Update Tier")
+                      : (createMutation.isPending ? "Creating..." : "Create Tier")
+                    }
                   </Button>
                 </DialogFooter>
               </form>
@@ -288,8 +352,12 @@ export default function MembershipsPage() {
           {tiers.map((tier) => (
             <Card
               key={tier.id}
-              className="p-6 space-y-6 hover-elevate"
+              className="p-6 space-y-6 hover-elevate cursor-pointer"
               data-testid={`card-tier-${tier.id}`}
+              onClick={() => {
+                setEditingTier(tier);
+                setIsDialogOpen(true);
+              }}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -341,7 +409,8 @@ export default function MembershipsPage() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   const url = `${window.location.origin}/buy/membership/${tier.id}`;
                   navigator.clipboard.writeText(url);
                   toast({
