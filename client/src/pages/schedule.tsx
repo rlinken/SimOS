@@ -49,6 +49,10 @@ type Booking = {
 
 type ViewMode = 'day' | 'week' | 'month';
 
+// Layout constants for schedule grid
+const BAY_COLUMN_WIDTH = 80; // Width of the bay name column in pixels
+const HOUR_COLUMN_WIDTH = 150; // Width of each hour column in pixels
+
 export default function Schedule() {
   const [location, setLocation] = useLocation();
   const searchParams = new URLSearchParams(location.split('?')[1] || '');
@@ -241,12 +245,11 @@ export default function Schedule() {
     const firstHour = hours[0];
     const hourIndex = currentHour - firstHour;
     const minuteFraction = currentMinute / 60;
-    const totalColumns = hours.length;
     
-    // Position as percentage of the time columns only
-    const position = ((hourIndex + minuteFraction) / totalColumns) * 100;
+    // Calculate pixel position based on grid layout constants
+    const pixelPosition = BAY_COLUMN_WIDTH + ((hourIndex + minuteFraction) * HOUR_COLUMN_WIDTH);
     
-    return { position, hour: currentHour, minute: currentMinute, now };
+    return { pixelPosition, hour: currentHour, minute: currentMinute, now };
   };
 
   const timePosition = getCurrentTimePosition();
@@ -258,7 +261,7 @@ export default function Schedule() {
         const now = new Date();
         const currentHour = now.getHours();
         const hourIndex = currentHour - 6; // 6 AM is index 0
-        const scrollPosition = hourIndex * 150 - 300; // Scroll to show current hour with some context before it
+        const scrollPosition = hourIndex * HOUR_COLUMN_WIDTH - 300; // Scroll to show current hour with some context before it
         scheduleRef.current?.scrollTo({
           left: Math.max(0, scrollPosition),
           behavior: 'smooth'
@@ -347,7 +350,7 @@ export default function Schedule() {
               {/* Header Row */}
               <div 
                 className="grid bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm"
-                style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
+                style={{ gridTemplateColumns: `${BAY_COLUMN_WIDTH}px repeat(${hours.length}, ${HOUR_COLUMN_WIDTH}px)` }}
               >
                 <div className="p-3 font-semibold border-r border-b flex items-center justify-center sticky left-0 z-20 bg-gradient-to-br from-muted/80 to-muted/40">
                   <span className="text-xs">Bays</span>
@@ -383,7 +386,7 @@ export default function Schedule() {
                 <div 
                   key={bay.id} 
                   className={`grid border-b last:border-b-0 transition-all ${getTierColor(bay.tier)}`}
-                  style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
+                  style={{ gridTemplateColumns: `${BAY_COLUMN_WIDTH}px repeat(${hours.length}, ${HOUR_COLUMN_WIDTH}px)` }}
                   data-testid={`bay-row-${bay.id}`}
                 >
                   {/* Bay Name Column */}
@@ -481,7 +484,7 @@ export default function Schedule() {
                 ref={currentTimeRef}
                 className="absolute top-0 bottom-0 pointer-events-none z-20"
                 style={{ 
-                  left: `calc(80px + ${timePosition.position}%)`,
+                  left: `${timePosition.pixelPosition}px`,
                 }}
               >
                 <div className="relative h-full">
