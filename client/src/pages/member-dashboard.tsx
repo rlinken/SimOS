@@ -63,6 +63,7 @@ export default function MemberDashboard() {
   const [viewMode, setViewMode] = useState<"all" | "bays" | "lessons" | "fittings">("all");
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [bookingType, setBookingType] = useState<"rental" | "lesson" | "fitting">("rental");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ date: Date; hour: number } | null>(null);
 
   const { data: bookings = [] } = useQuery<EnrichedBooking[]>({
     queryKey: ["/api/bookings"],
@@ -137,9 +138,34 @@ export default function MemberDashboard() {
     },
   });
 
-  const handleOpenBooking = (type: "rental" | "lesson" | "fitting") => {
+  const handleOpenBooking = (type: "rental" | "lesson" | "fitting", timeSlot?: { date: Date; hour: number }) => {
     setBookingType(type);
+    
+    // If a time slot was provided, pre-fill the form
+    if (timeSlot) {
+      const timeString = `${timeSlot.hour.toString().padStart(2, '0')}:00`;
+      form.reset({
+        date: format(timeSlot.date, "yyyy-MM-dd"),
+        time: timeString,
+        duration: "60",
+        notes: "",
+        includeBay: false,
+      });
+    }
+    
     setBookingDialogOpen(true);
+  };
+
+  const handleTimeSlotClick = (date: Date, hour: number) => {
+    setSelectedTimeSlot({ date, hour });
+    // Don't open dialog yet - let user choose booking type
+  };
+
+  const handleBookingTypeSelect = (type: "rental" | "lesson" | "fitting") => {
+    if (selectedTimeSlot) {
+      handleOpenBooking(type, selectedTimeSlot);
+      setSelectedTimeSlot(null);
+    }
   };
 
   const onSubmitBooking = (data: BookingFormData) => {
@@ -166,17 +192,54 @@ export default function MemberDashboard() {
     ? membershipTiers.find((t) => t.id === user.membershipTierId)
     : null;
 
-  // Get week dates for calendar view - always start with today on the left
-  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(selectedDate, i));
-
-  // Filter bookings by view mode
-  const filteredBookings = myBookings.filter((booking) => {
+  // Filter ALL facility bookings by view mode (not just user's bookings)
+  // This ensures we show true availability across all members
+  const filteredBookings = bookings.filter((booking) => {
     if (viewMode === "all") return true;
     if (viewMode === "bays") return booking.type === "rental";
     if (viewMode === "lessons") return booking.type === "lesson";
     if (viewMode === "fittings") return booking.type === "fitting";
     return true;
   });
+
+  // Get week dates for calendar view - always start with today on the left
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(selectedDate, i));
+
+  // Generate hourly time slots (7 AM to 10 PM)
+  const timeSlots = Array.from({ length: 15 }, (_, i) => i + 7); // 7-21 (7am-9pm)
+
+  // Check if a time slot is booked (including multi-hour bookings and partial hours)
+  const isSlotBooked = (date: Date, hour: number) => {
+    return filteredBookings.some((booking) => {
+      const bookingStart = parseISO(booking.startTime as any);
+      const bookingEnd = parseISO(booking.endTime as any);
+      
+      // Create the time slot boundaries (hour:00 to hour:59:59)
+      const slotStart = new Date(date);
+      slotStart.setHours(hour, 0, 0, 0);
+      const slotEnd = new Date(date);
+      slotEnd.setHours(hour, 59, 59, 999);
+      
+      // Slot is booked if there's any overlap between booking and slot
+      // Booking overlaps if: bookingStart < slotEnd AND bookingEnd > slotStart
+      return bookingStart < slotEnd && bookingEnd > slotStart;
+    });
+  };
+
+  // Get booking for a specific slot (returns the first booking that covers this time)
+  const getSlotBooking = (date: Date, hour: number) => {
+    return filteredBookings.find((booking) => {
+      const bookingStart = parseISO(booking.startTime as any);
+      const bookingEnd = parseISO(booking.endTime as any);
+      
+      const slotStart = new Date(date);
+      slotStart.setHours(hour, 0, 0, 0);
+      const slotEnd = new Date(date);
+      slotEnd.setHours(hour, 59, 59, 999);
+      
+      return bookingStart < slotEnd && bookingEnd > slotStart;
+    });
+  };
 
   const getBookingColor = (type: string) => {
     switch (type) {
@@ -279,6 +342,61 @@ export default function MemberDashboard() {
           <p className="text-sm text-muted-foreground">Get professionally fitted</p>
         </Card>
       </div>
+
+      {/* Booking Type Selection Dialog */}
+      <Dialog open={!!selectedTimeSlot} onOpenChange={(open) => !open && setSelectedTimeSlot(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Booking Type</DialogTitle>
+            <DialogDescription>
+              {selectedTimeSlot && (
+                <>
+                  {format(selectedTimeSlot.date, "EEEE, MMMM d, yyyy")} at{" "}
+                  {format(new Date().setHours(selectedTimeSlot.hour, 0, 0, 0), "h:mm a")}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <Button
+              variant="outline"
+              className="h-auto p-4 justify-start"
+              onClick={() => handleBookingTypeSelect("rental")}
+              data-testid="button-select-bay-rental"
+            >
+              <MapPin className="w-5 h-5 mr-3 text-primary" />
+              <div className="text-left">
+                <div className="font-semibold">Bay Rental</div>
+                <div className="text-sm text-muted-foreground">Reserve simulator time</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto p-4 justify-start"
+              onClick={() => handleBookingTypeSelect("lesson")}
+              data-testid="button-select-lesson"
+            >
+              <User className="w-5 h-5 mr-3 text-purple-600 dark:text-purple-400" />
+              <div className="text-left">
+                <div className="font-semibold">Lesson</div>
+                <div className="text-sm text-muted-foreground">Book with an instructor</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto p-4 justify-start"
+              onClick={() => handleBookingTypeSelect("fitting")}
+              data-testid="button-select-fitting"
+            >
+              <Clock className="w-5 h-5 mr-3 text-blue-600 dark:text-blue-400" />
+              <div className="text-left">
+                <div className="font-semibold">Club Fitting</div>
+                <div className="text-sm text-muted-foreground">Get professionally fitted</div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Booking Dialog */}
       <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
@@ -566,7 +684,7 @@ export default function MemberDashboard() {
             </div>
           </Card>
 
-          {/* Week View Calendar */}
+          {/* Hourly Schedule View */}
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold">
@@ -600,48 +718,80 @@ export default function MemberDashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-2">
-              {weekDates.map((date) => {
-                const dayBookings = filteredBookings.filter((b) =>
-                  isSameDay(parseISO(b.startTime as any), date)
-                );
-                const isToday = isSameDay(date, new Date());
-
-                return (
-                  <div
-                    key={date.toISOString()}
-                    className={`border rounded-lg p-3 min-h-[120px] ${
-                      isToday ? "border-primary bg-primary/5" : ""
-                    }`}
-                    data-testid={`calendar-day-${format(date, "yyyy-MM-dd")}`}
-                  >
-                    <div className="text-center mb-2">
-                      <div className="text-xs text-muted-foreground">
-                        {format(date, "EEE")}
-                      </div>
-                      <div className={`text-lg font-semibold ${isToday ? "text-primary" : ""}`}>
-                        {format(date, "d")}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      {dayBookings.map((booking) => (
-                        <div
-                          key={booking.id}
-                          className={`text-xs p-1 rounded border ${getBookingColor(
-                            booking.type
-                          )}`}
-                          data-testid={`booking-${booking.id}`}
-                        >
-                          <div className="font-medium truncate">
-                            {format(parseISO(booking.startTime as any), "h:mm a")}
-                          </div>
-                          <div className="truncate">{getTypeLabel(booking.type)}</div>
+            <div className="overflow-x-auto">
+              <div className="min-w-[800px]">
+                {/* Header with days */}
+                <div className="grid grid-cols-8 gap-1 mb-2">
+                  <div className="text-xs font-semibold text-muted-foreground p-2">Time</div>
+                  {weekDates.map((date) => {
+                    const isToday = isSameDay(date, new Date());
+                    return (
+                      <div
+                        key={date.toISOString()}
+                        className={`text-center p-2 rounded ${
+                          isToday ? "bg-primary/10 border border-primary/20" : ""
+                        }`}
+                      >
+                        <div className="text-xs text-muted-foreground">
+                          {format(date, "EEE")}
                         </div>
-                      ))}
+                        <div className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}>
+                          {format(date, "MMM d")}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Time slots grid */}
+                <div className="space-y-1">
+                  {timeSlots.map((hour) => (
+                    <div key={hour} className="grid grid-cols-8 gap-1">
+                      <div className="text-xs text-muted-foreground p-2 flex items-center">
+                        {format(new Date().setHours(hour, 0, 0, 0), "h:mm a")}
+                      </div>
+                      {weekDates.map((date) => {
+                        const booking = getSlotBooking(date, hour);
+                        const isBooked = !!booking;
+                        const isPast = date < new Date() || (isSameDay(date, new Date()) && hour < new Date().getHours());
+
+                        const isMyBooking = booking?.userId === user?.id;
+
+                        return (
+                          <div
+                            key={`${date.toISOString()}-${hour}`}
+                            className={`relative min-h-[60px] rounded border p-2 transition-colors ${
+                              isPast
+                                ? "bg-muted/50 cursor-not-allowed"
+                                : isBooked
+                                ? `${getBookingColor(booking.type)} ${isMyBooking ? 'border-2 border-primary' : ''}`
+                                : "border-dashed hover:bg-accent/50 cursor-pointer hover-elevate"
+                            }`}
+                            onClick={() => !isPast && !isBooked && handleTimeSlotClick(date, hour)}
+                            data-testid={`timeslot-${format(date, "yyyy-MM-dd")}-${hour}`}
+                          >
+                            {isBooked ? (
+                              <div className="text-xs">
+                                <div className="font-medium truncate">
+                                  {getTypeLabel(booking.type)}
+                                  {isMyBooking && " (You)"}
+                                </div>
+                                <div className="text-xs opacity-75 truncate">
+                                  {format(parseISO(booking.startTime as any), "h:mm a")} - {format(parseISO(booking.endTime as any), "h:mm a")}
+                                </div>
+                              </div>
+                            ) : !isPast ? (
+                              <div className="text-xs text-muted-foreground text-center">
+                                Click to book
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              </div>
             </div>
           </Card>
         </TabsContent>
