@@ -113,6 +113,39 @@ export const paymentTypeEnum = pgEnum("payment_type", [
   "tips", // Primarily tips-based (e.g., service staff)
 ]);
 
+export const commissionTypeEnum = pgEnum("commission_type", [
+  "flat", // Fixed amount per sale (e.g., $50)
+  "percentage", // Percentage of sale amount (e.g., 15%)
+]);
+
+export const recurringCommissionTypeEnum = pgEnum("recurring_commission_type", [
+  "one_time", // Commission on initial payment only
+  "X_months", // Commission for specific number of months
+  "forever", // Commission on all recurring payments
+]);
+
+export const productTypeEnum = pgEnum("product_type", [
+  "booking",
+  "lesson",
+  "fitting",
+  "membership",
+  "transformation_package",
+  "offering",
+]);
+
+export const payrollFrequencyEnum = pgEnum("payroll_frequency", [
+  "weekly",
+  "biweekly",
+  "monthly",
+]);
+
+export const payrollStatusEnum = pgEnum("payroll_status", [
+  "pending",
+  "processing",
+  "paid",
+  "cancelled",
+]);
+
 // ============================================================================
 // PERMISSIONS (for custom roles)
 // ============================================================================
@@ -246,6 +279,15 @@ export const facilities = pgTable("facilities", {
   paymentProvider: varchar("payment_provider").default("stripe"), // "stripe", "square", etc.
   paymentsEnabled: boolean("payments_enabled").default(false),
   
+  // Referral tracking settings
+  enableReferralTracking: boolean("enable_referral_tracking").default(false),
+  showReferralOnPublicForms: boolean("show_referral_on_public_forms").default(false),
+  
+  // Payroll settings
+  payrollFrequency: payrollFrequencyEnum("payroll_frequency").default("biweekly"),
+  payrollDayOfWeek: integer("payroll_day_of_week"), // 0-6 for Sunday-Saturday (for weekly/biweekly)
+  payrollDayOfMonth: integer("payroll_day_of_month"), // 1-31 (for monthly)
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -295,6 +337,9 @@ export const users = pgTable("users", {
     () => membershipTiers.id
   ),
   monthlyCreditsRemaining: integer("monthly_credits_remaining").default(0),
+  
+  // Referral tracking (who referred this user/member)
+  referredBy: varchar("referred_by").references(() => users.id),
   
   // Staff-specific fields (for instructors, fitters, admins)
   bio: text("bio"),
@@ -457,8 +502,6 @@ export const updateLeadSchema = createInsertSchema(leads)
   })
   .partial();
 
-export type Lead = typeof leads.$inferSelect;
-export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type UpdateLead = z.infer<typeof updateLeadSchema>;
 
 // ============================================================================
@@ -721,6 +764,9 @@ export const bookings = pgTable("bookings", {
   usedMembershipHours: boolean("used_membership_hours").default(false), // Was this covered by membership?
   membershipHoursUsed: numeric("membership_hours_used", { precision: 10, scale: 2 }).default("0"), // How many hours from package
   
+  // Referral tracking
+  referredBy: varchar("referred_by").references(() => users.id),
+  
   notes: text("notes"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -773,6 +819,9 @@ export const lessons = pgTable("lessons", {
   title: text("title").notNull(),
   date: timestamp("date").notNull(),
   durationMinutes: integer("duration_minutes").default(60),
+  
+  // Referral tracking
+  referredBy: varchar("referred_by").references(() => users.id),
   
   notes: text("notes"),
   completed: boolean("completed").default(false).notNull(),
@@ -908,6 +957,9 @@ export const fittings = pgTable("fittings", {
   title: text("title").notNull(),
   date: timestamp("date").notNull(),
   durationMinutes: integer("duration_minutes").default(90),
+  
+  // Referral tracking
+  referredBy: varchar("referred_by").references(() => users.id),
   
   // Intake form data
   intakeData: json("intake_data"),
@@ -1148,6 +1200,9 @@ export const transformationPackageEnrollments = pgTable("transformation_package_
   // Payment tracking
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
   totalPaid: numeric("total_paid", { precision: 10, scale: 2 }).default("0").notNull(),
+  
+  // Referral tracking
+  referredBy: varchar("referred_by").references(() => users.id),
   
   // Status
   isActive: boolean("is_active").default(true).notNull(),
@@ -1543,3 +1598,183 @@ export const insertTipSchema = createInsertSchema(tips).omit({
 
 export type Tip = typeof tips.$inferSelect;
 export type InsertTip = z.infer<typeof insertTipSchema>;
+
+// ============================================================================
+// COMMISSION STRUCTURES TABLE (Define commission rules per product/staff)
+// ============================================================================
+
+export const commissionStructures = pgTable("commission_structures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // What product/service this commission applies to
+  productType: productTypeEnum("product_type").notNull(),
+  productId: varchar("product_id"), // Optional: specific product, or null for all of that type
+  
+  // Commission calculation
+  commissionType: commissionTypeEnum("commission_type").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(), // Dollar amount or percentage
+  
+  // Recurring payment handling
+  recurringType: recurringCommissionTypeEnum("recurring_type").default("one_time"),
+  recurringDuration: integer("recurring_duration"), // Number of months if X_months type
+  
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const commissionStructuresRelations = relations(commissionStructures, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [commissionStructures.facilityId],
+    references: [facilities.id],
+  }),
+  staff: one(users, {
+    fields: [commissionStructures.staffId],
+    references: [users.id],
+  }),
+}));
+
+export const insertCommissionStructureSchema = createInsertSchema(commissionStructures).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CommissionStructure = typeof commissionStructures.$inferSelect;
+export type InsertCommissionStructure = z.infer<typeof insertCommissionStructureSchema>;
+
+// ============================================================================
+// COMMISSION PAYMENTS TABLE (Track actual commission earnings from sales)
+// ============================================================================
+
+export const commissionPayments = pgTable("commission_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  commissionStructureId: varchar("commission_structure_id")
+    .references(() => commissionStructures.id),
+  
+  // Sale information
+  saleType: productTypeEnum("sale_type").notNull(),
+  saleId: varchar("sale_id").notNull(),
+  
+  // Payment details
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentDate: timestamp("payment_date").notNull(), // When the customer payment was processed
+  status: varchar("status").default("pending"), // pending, paid, cancelled
+  
+  // Stripe integration
+  stripePaymentId: varchar("stripe_payment_id"),
+  
+  // Refund tracking
+  isRefund: boolean("is_refund").default(false), // True for negative commission adjustments
+  refundedCommissionId: varchar("refunded_commission_id").references(() => commissionPayments.id),
+  
+  // Payroll tracking
+  includedInPayrollId: varchar("included_in_payroll_id"),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const commissionPaymentsRelations = relations(commissionPayments, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [commissionPayments.facilityId],
+    references: [facilities.id],
+  }),
+  staff: one(users, {
+    fields: [commissionPayments.staffId],
+    references: [users.id],
+  }),
+  commissionStructure: one(commissionStructures, {
+    fields: [commissionPayments.commissionStructureId],
+    references: [commissionStructures.id],
+  }),
+}));
+
+export const insertCommissionPaymentSchema = createInsertSchema(commissionPayments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CommissionPayment = typeof commissionPayments.$inferSelect;
+export type InsertCommissionPayment = z.infer<typeof insertCommissionPaymentSchema>;
+
+// ============================================================================
+// PAYROLL PAYMENTS TABLE (Track payroll periods and total payments)
+// ============================================================================
+
+export const payrollPayments = pgTable("payroll_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Pay period
+  payPeriodStart: timestamp("pay_period_start").notNull(),
+  payPeriodEnd: timestamp("pay_period_end").notNull(),
+  
+  // Breakdown of payment components
+  salaryAmount: numeric("salary_amount", { precision: 10, scale: 2 }).default("0"),
+  hourlyAmount: numeric("hourly_amount", { precision: 10, scale: 2 }).default("0"),
+  commissionAmount: numeric("commission_amount", { precision: 10, scale: 2 }).default("0"),
+  tipsAmount: numeric("tips_amount", { precision: 10, scale: 2 }).default("0"),
+  bonusAmount: numeric("bonus_amount", { precision: 10, scale: 2 }).default("0"),
+  deductionsAmount: numeric("deductions_amount", { precision: 10, scale: 2 }).default("0"),
+  
+  // Totals
+  totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Hours worked (for hourly staff)
+  hoursWorked: numeric("hours_worked", { precision: 10, scale: 2 }),
+  
+  // Status
+  status: payrollStatusEnum("status").default("pending"),
+  paidDate: timestamp("paid_date"),
+  
+  // Payment method
+  paymentMethod: varchar("payment_method"), // check, direct_deposit, cash
+  paymentReference: varchar("payment_reference"), // Check number, transaction ID, etc.
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const payrollPaymentsRelations = relations(payrollPayments, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [payrollPayments.facilityId],
+    references: [facilities.id],
+  }),
+  staff: one(users, {
+    fields: [payrollPayments.staffId],
+    references: [users.id],
+  }),
+}));
+
+export const insertPayrollPaymentSchema = createInsertSchema(payrollPayments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type PayrollPayment = typeof payrollPayments.$inferSelect;
+export type InsertPayrollPayment = z.infer<typeof insertPayrollPaymentSchema>;
