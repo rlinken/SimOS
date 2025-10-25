@@ -454,8 +454,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(bookings.facilityId, facilityId),
-          gte(bookings.startTime, start),
-          lte(bookings.endTime, end)
+          lt(bookings.startTime, end),
+          gt(bookings.endTime, start)
         )
       )
       .orderBy(asc(bookings.startTime));
