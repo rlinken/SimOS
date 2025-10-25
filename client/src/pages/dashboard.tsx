@@ -309,7 +309,7 @@ export default function Dashboard() {
           <div className="min-w-[1200px] relative">
             {/* Header Row */}
             <div className="grid grid-cols-[80px_repeat(17,1fr)] bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm">
-              <div className="p-3 font-semibold border-r border-b flex items-center justify-center">
+              <div className="p-3 font-semibold border-r border-b flex items-center justify-center sticky left-0 z-20 bg-gradient-to-br from-muted/80 to-muted/40">
                 <span className="text-xs">Bays</span>
               </div>
               {hours.map(hour => {
@@ -345,7 +345,7 @@ export default function Dashboard() {
                   className="grid grid-cols-[80px_repeat(17,1fr)] border-b last:border-b-0 transition-all"
                 >
                   {/* Bay Name Column */}
-                  <div className="p-2 border-r flex items-center justify-center bg-muted/30">
+                  <div className="p-2 border-r flex items-center justify-center bg-muted/30 sticky left-0 z-10">
                     <div className="font-semibold text-xs text-center leading-tight">{bay.name}</div>
                   </div>
 
@@ -394,11 +394,11 @@ export default function Dashboard() {
                             </div>
                             <div className="text-xs font-medium text-muted-foreground">Book</div>
                           </div>
-                        ) : (
+                        ) : !isPast ? (
                           <div className="text-center">
                             <div className="text-xs text-muted-foreground capitalize">{bay.status}</div>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     );
                   })}
