@@ -16,6 +16,10 @@ import {
   staffAvailabilityHours,
   googleCalendarTokens,
   googleCalendarEvents,
+  timeEntries,
+  tasks,
+  commissions,
+  tips,
   type User,
   type UpsertUser,
   type Facility,
@@ -52,6 +56,14 @@ import {
   type InsertGoogleCalendarToken,
   type GoogleCalendarEvent,
   type InsertGoogleCalendarEvent,
+  type TimeEntry,
+  type InsertTimeEntry,
+  type Task,
+  type InsertTask,
+  type Commission,
+  type InsertCommission,
+  type Tip,
+  type InsertTip,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, gt, lt, asc, desc } from "drizzle-orm";
@@ -155,6 +167,38 @@ export interface IStorage {
   getTransformationPackageEnrollments(facilityId?: string): Promise<TransformationPackageEnrollment[]>;
   getTransformationPackageEnrollment(id: string): Promise<TransformationPackageEnrollment | undefined>;
   createTransformationPackageEnrollment(enrollment: InsertTransformationPackageEnrollment): Promise<TransformationPackageEnrollment>;
+  
+  // Time Entries (Hours Tracking)
+  getTimeEntries(facilityId?: string, staffId?: string): Promise<TimeEntry[]>;
+  getTimeEntry(id: string): Promise<TimeEntry | undefined>;
+  createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry>;
+  updateTimeEntry(id: string, entry: Partial<InsertTimeEntry>): Promise<TimeEntry>;
+  deleteTimeEntry(id: string): Promise<void>;
+  getActiveTimeEntry(staffId: string): Promise<TimeEntry | undefined>;
+  
+  // Tasks
+  getTasks(facilityId?: string, assignedToId?: string): Promise<Task[]>;
+  getTask(id: string): Promise<Task | undefined>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: string, task: Partial<InsertTask>): Promise<Task>;
+  deleteTask(id: string): Promise<void>;
+  
+  // Commissions
+  getCommissions(facilityId?: string, staffId?: string): Promise<Commission[]>;
+  getCommission(id: string): Promise<Commission | undefined>;
+  createCommission(commission: InsertCommission): Promise<Commission>;
+  updateCommission(id: string, commission: Partial<InsertCommission>): Promise<Commission>;
+  
+  // Tips
+  getTips(facilityId?: string, staffId?: string): Promise<Tip[]>;
+  getTip(id: string): Promise<Tip | undefined>;
+  createTip(tip: InsertTip): Promise<Tip>;
+  deleteTip(id: string): Promise<void>;
+  
+  // Staff (extends existing getUser methods)
+  getStaffMembers(facilityId: string): Promise<User[]>;
+  updateUser(id: string, user: Partial<UpsertUser>): Promise<User>;
+  updateFacility(id: string, facility: Partial<InsertFacility>): Promise<Facility>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -765,6 +809,239 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .insert(transformationPackageEnrollments)
       .values(enrollment)
+      .returning();
+    return result;
+  }
+  
+  // Time Entries (Hours Tracking)
+  async getTimeEntries(facilityId?: string, staffId?: string): Promise<TimeEntry[]> {
+    let query = db.select().from(timeEntries).orderBy(desc(timeEntries.clockInTime));
+    
+    if (facilityId && staffId) {
+      const result = await query.where(
+        and(
+          eq(timeEntries.facilityId, facilityId),
+          eq(timeEntries.staffId, staffId)
+        )
+      );
+      return result;
+    } else if (facilityId) {
+      const result = await query.where(eq(timeEntries.facilityId, facilityId));
+      return result;
+    } else if (staffId) {
+      const result = await query.where(eq(timeEntries.staffId, staffId));
+      return result;
+    }
+    
+    return await query;
+  }
+  
+  async getTimeEntry(id: string): Promise<TimeEntry | undefined> {
+    const [entry] = await db.select().from(timeEntries).where(eq(timeEntries.id, id));
+    return entry;
+  }
+  
+  async createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry> {
+    const [result] = await db.insert(timeEntries).values(entry).returning();
+    return result;
+  }
+  
+  async updateTimeEntry(id: string, entry: Partial<InsertTimeEntry>): Promise<TimeEntry> {
+    const [result] = await db
+      .update(timeEntries)
+      .set({
+        ...entry,
+        updatedAt: new Date(),
+      })
+      .where(eq(timeEntries.id, id))
+      .returning();
+    return result;
+  }
+  
+  async deleteTimeEntry(id: string): Promise<void> {
+    await db.delete(timeEntries).where(eq(timeEntries.id, id));
+  }
+  
+  async getActiveTimeEntry(staffId: string): Promise<TimeEntry | undefined> {
+    const [entry] = await db
+      .select()
+      .from(timeEntries)
+      .where(
+        and(
+          eq(timeEntries.staffId, staffId),
+          eq(timeEntries.clockOutTime, null as any)
+        )
+      )
+      .orderBy(desc(timeEntries.clockInTime))
+      .limit(1);
+    return entry;
+  }
+  
+  // Tasks
+  async getTasks(facilityId?: string, assignedToId?: string): Promise<Task[]> {
+    let query = db.select().from(tasks).orderBy(desc(tasks.createdAt));
+    
+    if (facilityId && assignedToId) {
+      const result = await query.where(
+        and(
+          eq(tasks.facilityId, facilityId),
+          eq(tasks.assignedToId, assignedToId)
+        )
+      );
+      return result;
+    } else if (facilityId) {
+      const result = await query.where(eq(tasks.facilityId, facilityId));
+      return result;
+    } else if (assignedToId) {
+      const result = await query.where(eq(tasks.assignedToId, assignedToId));
+      return result;
+    }
+    
+    return await query;
+  }
+  
+  async getTask(id: string): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task;
+  }
+  
+  async createTask(task: InsertTask): Promise<Task> {
+    const [result] = await db.insert(tasks).values(task).returning();
+    return result;
+  }
+  
+  async updateTask(id: string, task: Partial<InsertTask>): Promise<Task> {
+    const [result] = await db
+      .update(tasks)
+      .set({
+        ...task,
+        updatedAt: new Date(),
+      })
+      .where(eq(tasks.id, id))
+      .returning();
+    return result;
+  }
+  
+  async deleteTask(id: string): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
+  }
+  
+  // Commissions
+  async getCommissions(facilityId?: string, staffId?: string): Promise<Commission[]> {
+    let query = db.select().from(commissions).orderBy(desc(commissions.createdAt));
+    
+    if (facilityId && staffId) {
+      const result = await query.where(
+        and(
+          eq(commissions.facilityId, facilityId),
+          eq(commissions.staffId, staffId)
+        )
+      );
+      return result;
+    } else if (facilityId) {
+      const result = await query.where(eq(commissions.facilityId, facilityId));
+      return result;
+    } else if (staffId) {
+      const result = await query.where(eq(commissions.staffId, staffId));
+      return result;
+    }
+    
+    return await query;
+  }
+  
+  async getCommission(id: string): Promise<Commission | undefined> {
+    const [commission] = await db.select().from(commissions).where(eq(commissions.id, id));
+    return commission;
+  }
+  
+  async createCommission(commission: InsertCommission): Promise<Commission> {
+    const [result] = await db.insert(commissions).values(commission).returning();
+    return result;
+  }
+  
+  async updateCommission(id: string, commission: Partial<InsertCommission>): Promise<Commission> {
+    const [result] = await db
+      .update(commissions)
+      .set({
+        ...commission,
+        updatedAt: new Date(),
+      })
+      .where(eq(commissions.id, id))
+      .returning();
+    return result;
+  }
+  
+  // Tips
+  async getTips(facilityId?: string, staffId?: string): Promise<Tip[]> {
+    let query = db.select().from(tips).orderBy(desc(tips.date));
+    
+    if (facilityId && staffId) {
+      const result = await query.where(
+        and(
+          eq(tips.facilityId, facilityId),
+          eq(tips.staffId, staffId)
+        )
+      );
+      return result;
+    } else if (facilityId) {
+      const result = await query.where(eq(tips.facilityId, facilityId));
+      return result;
+    } else if (staffId) {
+      const result = await query.where(eq(tips.staffId, staffId));
+      return result;
+    }
+    
+    return await query;
+  }
+  
+  async getTip(id: string): Promise<Tip | undefined> {
+    const [tip] = await db.select().from(tips).where(eq(tips.id, id));
+    return tip;
+  }
+  
+  async createTip(tip: InsertTip): Promise<Tip> {
+    const [result] = await db.insert(tips).values(tip).returning();
+    return result;
+  }
+  
+  async deleteTip(id: string): Promise<void> {
+    await db.delete(tips).where(eq(tips.id, id));
+  }
+  
+  // Staff
+  async getStaffMembers(facilityId: string): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.facilityId, facilityId),
+          gt(users.hourlyRate, "0") as any // Staff members have hourly rate set
+        )
+      )
+      .orderBy(asc(users.firstName));
+  }
+  
+  async updateUser(id: string, user: Partial<UpsertUser>): Promise<User> {
+    const [result] = await db
+      .update(users)
+      .set({
+        ...user,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return result;
+  }
+  
+  async updateFacility(id: string, facility: Partial<InsertFacility>): Promise<Facility> {
+    const [result] = await db
+      .update(facilities)
+      .set({
+        ...facility,
+        updatedAt: new Date(),
+      })
+      .where(eq(facilities.id, id))
       .returning();
     return result;
   }

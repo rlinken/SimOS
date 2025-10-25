@@ -31,6 +31,26 @@ export const userRoleEnum = pgEnum("user_role", [
   "member", // Deprecated: use "customer" instead
 ]);
 
+export const taskStatusEnum = pgEnum("task_status", [
+  "pending",
+  "in_progress",
+  "completed",
+  "cancelled",
+]);
+
+export const taskPriorityEnum = pgEnum("task_priority", [
+  "low",
+  "medium",
+  "high",
+  "urgent",
+]);
+
+export const recurrenceTypeEnum = pgEnum("recurrence_type", [
+  "daily",
+  "weekly",
+  "monthly",
+]);
+
 export const bayTierEnum = pgEnum("bay_tier", ["standard", "premium", "vip"]);
 
 export const bayStatusEnum = pgEnum("bay_status", [
@@ -206,6 +226,8 @@ export const users = pgTable("users", {
   bio: text("bio"),
   specialties: varchar("specialties").array(),
   hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }),
+  commissionRate: numeric("commission_rate", { precision: 5, scale: 2 }), // Percentage (e.g., 15.00 = 15%)
+  taxId: varchar("tax_id"), // For payroll reporting (SSN/EIN)
   googleCalendarId: varchar("google_calendar_id"),
   
   // External integrations (for later)
@@ -1193,3 +1215,205 @@ export type GoogleCalendarEvent = typeof googleCalendarEvents.$inferSelect;
 export type InsertGoogleCalendarEvent = z.infer<
   typeof insertGoogleCalendarEventSchema
 >;
+
+// ============================================================================
+// TIME ENTRIES TABLE (Hours tracking for staff)
+// ============================================================================
+
+export const timeEntries = pgTable("time_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  clockInTime: timestamp("clock_in_time").notNull(),
+  clockOutTime: timestamp("clock_out_time"),
+  totalHours: numeric("total_hours", { precision: 10, scale: 2 }),
+  
+  // Manual entry support
+  isManualEntry: boolean("is_manual_entry").default(false),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [timeEntries.facilityId],
+    references: [facilities.id],
+  }),
+  staff: one(users, {
+    fields: [timeEntries.staffId],
+    references: [users.id],
+  }),
+}));
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+
+// ============================================================================
+// TASKS TABLE (Task assignments for staff)
+// ============================================================================
+
+export const tasks = pgTable("tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  assignedToId: varchar("assigned_to_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdById: varchar("created_by_id")
+    .references(() => users.id, { onDelete: "set null" })
+    .notNull(),
+  
+  status: taskStatusEnum("status").default("pending").notNull(),
+  priority: taskPriorityEnum("priority").default("medium").notNull(),
+  
+  dueDate: timestamp("due_date"),
+  completedAt: timestamp("completed_at"),
+  
+  // Recurring task settings
+  isRecurring: boolean("is_recurring").default(false),
+  recurrenceType: recurrenceTypeEnum("recurrence_type"),
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [tasks.facilityId],
+    references: [facilities.id],
+  }),
+  assignedTo: one(users, {
+    fields: [tasks.assignedToId],
+    references: [users.id],
+    relationName: "assignedTasks",
+  }),
+  createdBy: one(users, {
+    fields: [tasks.createdById],
+    references: [users.id],
+    relationName: "createdTasks",
+  }),
+}));
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+
+// ============================================================================
+// COMMISSIONS TABLE (Track earnings from services)
+// ============================================================================
+
+export const commissions = pgTable("commissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Source of commission
+  sourceType: varchar("source_type").notNull(), // "lesson", "fitting", "sale"
+  sourceId: varchar("source_id").notNull(), // ID of the lesson/fitting/booking
+  
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  rate: numeric("rate", { precision: 5, scale: 2 }).notNull(), // Commission rate used
+  baseAmount: numeric("base_amount", { precision: 10, scale: 2 }).notNull(), // Original transaction amount
+  
+  paidOut: boolean("paid_out").default(false),
+  paidOutAt: timestamp("paid_out_at"),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const commissionsRelations = relations(commissions, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [commissions.facilityId],
+    references: [facilities.id],
+  }),
+  staff: one(users, {
+    fields: [commissions.staffId],
+    references: [users.id],
+  }),
+}));
+
+export const insertCommissionSchema = createInsertSchema(commissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Commission = typeof commissions.$inferSelect;
+export type InsertCommission = z.infer<typeof insertCommissionSchema>;
+
+// ============================================================================
+// TIPS TABLE (Track tips for staff)
+// ============================================================================
+
+export const tips = pgTable("tips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  staffId: varchar("staff_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  date: timestamp("date").notNull(),
+  
+  // Optional source information
+  sourceType: varchar("source_type"), // "lesson", "fitting", "other"
+  sourceId: varchar("source_id"),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const tipsRelations = relations(tips, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [tips.facilityId],
+    references: [facilities.id],
+  }),
+  staff: one(users, {
+    fields: [tips.staffId],
+    references: [users.id],
+  }),
+}));
+
+export const insertTipSchema = createInsertSchema(tips).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Tip = typeof tips.$inferSelect;
+export type InsertTip = z.infer<typeof insertTipSchema>;
