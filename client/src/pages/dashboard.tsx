@@ -64,28 +64,8 @@ export default function Dashboard() {
     isSameDay(parseISO(b.startTime), selectedDate)
   );
 
-  // Display 8 hours at a time, centered around current time when viewing today
-  const hours = (() => {
-    const isToday = isSameDay(selectedDate, now);
-    const displayHourCount = 8;
-    
-    if (isToday) {
-      const currentHour = now.getHours();
-      // Center the view around current time, with bounds checking
-      let startHour = Math.max(6, currentHour - 2); // Show 2 hours before current
-      const endHour = Math.min(23, startHour + displayHourCount);
-      
-      // Adjust start if we hit the end boundary
-      if (endHour - startHour < displayHourCount) {
-        startHour = Math.max(6, endHour - displayHourCount);
-      }
-      
-      return Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
-    }
-    
-    // For other dates, show first 8 hours of operating time
-    return Array.from({ length: displayHourCount }, (_, i) => i + 6);
-  })();
+  // Operating hours (6 AM to 10 PM) - render all hours for scrolling
+  const hours = Array.from({ length: 17 }, (_, i) => i + 6);
 
   // Check if a time slot is in the past
   const isPastHour = (hour: number) => {
@@ -325,8 +305,8 @@ export default function Dashboard() {
           </div>
         </div>
         
-        <div className="overflow-x-auto" ref={scheduleRef}>
-          <div className="min-w-[1200px] relative">
+        <div className="overflow-x-auto max-w-full" ref={scheduleRef}>
+          <div className="inline-block relative">
             {/* Header Row */}
             <div 
               className="grid bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm"
