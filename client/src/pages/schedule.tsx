@@ -230,36 +230,25 @@ export default function Schedule() {
     setView('day');
   };
 
-  // Calculate current time position for indicator
+  // Calculate current time position for indicator  
   const getCurrentTimePosition = () => {
     const now = new Date();
     if (!isSameDay(selectedDate, now)) return null;
     
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
+    const currentSeconds = now.getSeconds();
     
     // Only show indicator during operating hours
     if (currentHour < 6 || currentHour >= 23) return null;
     
-    // Find the index of the current hour in the hours array
-    const firstHour = hours[0];
-    const hourIndex = currentHour - firstHour;
-    const minuteFraction = currentMinute / 60;
+    // Calculate total minutes since start of operating hours (6 AM)
+    const firstHour = 6;
+    const minutesSinceStart = ((currentHour - firstHour) * 60) + currentMinute + (currentSeconds / 60);
+    const minutesPerColumn = 60; // Each column represents 60 minutes
     
-    // Calculate pixel position based on grid layout constants
-    const pixelPosition = BAY_COLUMN_WIDTH + ((hourIndex + minuteFraction) * HOUR_COLUMN_WIDTH);
-    
-    console.log('Time Indicator Calculation:', {
-      currentTime: `${currentHour}:${currentMinute.toString().padStart(2, '0')}`,
-      firstHour,
-      hourIndex,
-      minuteFraction,
-      calculation: `${BAY_COLUMN_WIDTH} + ((${hourIndex} + ${minuteFraction.toFixed(3)}) * ${HOUR_COLUMN_WIDTH})`,
-      pixelPosition: `${pixelPosition}px`,
-      expectedColumn: `Hour ${currentHour} (index ${hourIndex})`,
-      columnStart: `${BAY_COLUMN_WIDTH + (hourIndex * HOUR_COLUMN_WIDTH)}px`,
-      columnEnd: `${BAY_COLUMN_WIDTH + ((hourIndex + 1) * HOUR_COLUMN_WIDTH)}px`
-    });
+    // Calculate pixel position: start after bay column, then add pixels for elapsed time
+    const pixelPosition = BAY_COLUMN_WIDTH + ((minutesSinceStart / minutesPerColumn) * HOUR_COLUMN_WIDTH);
     
     return { pixelPosition, hour: currentHour, minute: currentMinute, now };
   };
