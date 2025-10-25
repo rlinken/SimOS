@@ -66,6 +66,10 @@ export default function StaffPage() {
   const [commissionDialogOpen, setCommissionDialogOpen] = useState(false);
   const [editingCommission, setEditingCommission] = useState<CommissionStructure | null>(null);
 
+  // Payroll state
+  const [payrollStartDate, setPayrollStartDate] = useState<string>("");
+  const [payrollEndDate, setPayrollEndDate] = useState<string>("");
+
   const isAdmin = user?.role === "owner" || user?.role === "administrator" || user?.role === "super_admin";
 
   // Fetch staff members
@@ -157,6 +161,12 @@ export default function StaffPage() {
   const { data: commissionStructures = [], isLoading: loadingCommissions } = useQuery<CommissionStructure[]>({
     queryKey: ["/api/commission-structures"],
     enabled: !!user,
+  });
+
+  // Fetch payroll calculations
+  const { data: payrollData, isLoading: loadingPayroll } = useQuery<any>({
+    queryKey: [`/api/payroll/calculate?startDate=${payrollStartDate}&endDate=${payrollEndDate}`],
+    enabled: !!user && !!payrollStartDate && !!payrollEndDate,
   });
 
   // Commission form
@@ -623,11 +633,110 @@ export default function StaffPage() {
         <TabsContent value="payroll" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Payroll - Coming Soon</CardTitle>
-              <CardDescription>Track commissions, tips, and earnings</CardDescription>
+              <CardTitle>Payroll Calculations</CardTitle>
+              <CardDescription>Calculate staff earnings by pay period</CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-center text-muted-foreground py-8">Payroll features coming soon</p>
+            <CardContent className="space-y-6">
+              {/* Pay Period Selection */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Start Date</label>
+                  <Input
+                    type="date"
+                    value={payrollStartDate}
+                    onChange={(e) => setPayrollStartDate(e.target.value)}
+                    data-testid="input-payroll-start-date"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">End Date</label>
+                  <Input
+                    type="date"
+                    value={payrollEndDate}
+                    onChange={(e) => setPayrollEndDate(e.target.value)}
+                    data-testid="input-payroll-end-date"
+                  />
+                </div>
+              </div>
+
+              {/* Payroll Results */}
+              {!payrollStartDate || !payrollEndDate ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Select a pay period to view payroll calculations</p>
+                </div>
+              ) : loadingPayroll ? (
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-muted-foreground">Calculating payroll...</p>
+                </div>
+              ) : !payrollData || payrollData.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No payroll data for this period</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {payrollData.map((staff: any) => (
+                    <Card key={staff.staffId} className="hover-elevate" data-testid={`card-payroll-${staff.staffId}`}>
+                      <CardHeader>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <CardTitle className="text-base">
+                              {staff.staffName}
+                            </CardTitle>
+                            <CardDescription className="mt-1">
+                              {staff.role}
+                            </CardDescription>
+                          </div>
+                          <Badge variant="default" data-testid={`badge-total-${staff.staffId}`}>
+                            Total: ${staff.totalEarnings.toFixed(2)}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          {staff.hourlyWages > 0 && (
+                            <div>
+                              <p className="text-muted-foreground">Hourly Wages</p>
+                              <p className="font-medium" data-testid={`text-hourly-${staff.staffId}`}>
+                                ${staff.hourlyWages.toFixed(2)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {staff.hoursWorked} hrs @ ${staff.hourlyRate}/hr
+                              </p>
+                            </div>
+                          )}
+                          {staff.salary > 0 && (
+                            <div>
+                              <p className="text-muted-foreground">Salary</p>
+                              <p className="font-medium" data-testid={`text-salary-${staff.staffId}`}>
+                                ${staff.salary.toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+                          {staff.commissions > 0 && (
+                            <div>
+                              <p className="text-muted-foreground">Commissions</p>
+                              <p className="font-medium" data-testid={`text-commissions-${staff.staffId}`}>
+                                ${staff.commissions.toFixed(2)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {staff.commissionCount} payment(s)
+                              </p>
+                            </div>
+                          )}
+                          {staff.tips > 0 && (
+                            <div>
+                              <p className="text-muted-foreground">Tips</p>
+                              <p className="font-medium" data-testid={`text-tips-${staff.staffId}`}>
+                                ${staff.tips.toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

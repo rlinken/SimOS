@@ -53,6 +53,10 @@ export default function FittingsPage() {
     queryKey: ["/api/users"],
   });
 
+  const { data: staffMembers = [] } = useQuery<UserType[]>({
+    queryKey: ["/api/staff"],
+  });
+
   const scheduleFittingMutation = useMutation({
     mutationFn: async (data: InsertFitting) => {
       return apiRequest("POST", "/api/fittings", data);
@@ -349,6 +353,35 @@ export default function FittingsPage() {
                           {...field}
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="referredBy"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Referred By (Optional)</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-referred-by">
+                            <SelectValue placeholder="Select staff member" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {staffMembers.map((staff) => (
+                            <SelectItem key={staff.id} value={staff.id}>
+                              {staff.firstName} {staff.lastName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

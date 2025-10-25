@@ -66,6 +66,10 @@ export default function BookingsPage() {
     queryKey: ["/api/bays"],
   });
 
+  const { data: staffMembers = [] } = useQuery<User[]>({
+    queryKey: ["/api/staff"],
+  });
+
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -95,6 +99,10 @@ export default function BookingsPage() {
         bookingData.bayIds = data.bayIds;
       } else if (data.numberOfBays) {
         bookingData.numberOfBays = data.numberOfBays;
+      }
+      
+      if (data.referredBy) {
+        bookingData.referredBy = data.referredBy;
       }
       
       return apiRequest("POST", "/api/bookings", bookingData);
@@ -342,6 +350,34 @@ export default function BookingsPage() {
                           <SelectItem value="rental">Rental</SelectItem>
                           <SelectItem value="lesson">Lesson</SelectItem>
                           <SelectItem value="fitting">Fitting</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="referredBy"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Referred By (Optional)</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-referred-by">
+                            <SelectValue placeholder="Select staff member" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {staffMembers.map((staff) => (
+                            <SelectItem key={staff.id} value={staff.id}>
+                              {staff.firstName} {staff.lastName}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
