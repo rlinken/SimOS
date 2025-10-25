@@ -14,6 +14,8 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 *   **Authentication:** Replit Auth (OIDC) integrated with role-based access control (super_admin, owner, administrator, instructor, club_fitter, support, customer, member).
 *   **Custom Roles System:** Facility-specific custom roles with 50 granular permissions covering all platform features. System roles (owner, administrator, etc.) are protected from editing/deletion. Users can be assigned either a system role OR a custom role.
 *   **Staff Payment Structures:** Flexible payment types including hourly (default), commission, salary, and tips. Each staff member has paymentType field, hourlyRate, salary, and commissionRate fields in the database.
+*   **Commission & Referral System:** Comprehensive commission tracking with `commissionStructures` table defining flexible rules per product type (flat fee or percentage, one-time/x-months/forever recurring), `commissionPayments` table tracking individual earnings, and `referredBy` field on all sales tables (bookings, lessons, fittings, memberships, transformation packages) for referral attribution.
+*   **Payroll System:** `payrollPayments` table for record keeping, backend API for calculating staff earnings by date range with breakdowns by hourly wages, salary, commissions, and tips. Facility-configurable payroll frequency settings.
 *   **Backend:** Express.js with a comprehensive API supporting CRUD operations, including PATCH for updates.
 *   **Frontend:** Vite with React, utilizing TanStack Query v5 for data fetching and Shadcn components for UI.
 *   **Smart Bay Assignment:** An algorithm auto-assigns the bay with the lowest usage hours when a booking is made without a specified bayId.
@@ -21,12 +23,12 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 
 **Feature Specifications:**
 *   **Facility Management:** Super-admin can create and manage facilities, each with customizable branding, subdomain, feature flags, and individual payment settings.
-*   **Booking Management:** Supports bay reservations with automatic optimal bay assignment.
-*   **Membership Management:** Customizable membership tiers with shareable purchase URLs.
-*   **Lesson & Fitting Management:** Scheduling for lessons (including packages and recurring subscriptions) and club fittings.
-*   **Transformation Packages:** Comprehensive training bundles combining lessons, fittings, bay access, and on-course practice, also with shareable purchase URLs.
+*   **Booking Management:** Supports bay reservations with automatic optimal bay assignment. Bookings include referral tracking.
+*   **Membership Management:** Customizable membership tiers with shareable purchase URLs. Membership sales include referral tracking.
+*   **Lesson & Fitting Management:** Scheduling for lessons (including packages and recurring subscriptions) and club fittings. Fittings include referral tracking.
+*   **Transformation Packages:** Comprehensive training bundles combining lessons, fittings, bay access, and on-course practice, also with shareable purchase URLs. Enrollments include referral tracking.
 *   **CRM:** Lead tracking with a status pipeline (new, contacted, qualified, converted, lost).
-*   **Staff Management:** Includes time tracking (clock in/out), task management with assignment and priority, and payroll features for commissions and tips.
+*   **Staff Management:** Comprehensive system including time tracking (clock in/out), task management with assignment and priority, commission structure management (flexible rules by product type with recurring options), referral attribution on all sales, and payroll calculations with detailed earnings breakdowns by date range (hourly wages, salary, commissions, tips).
 *   **Real-time Dashboard:** Displays statistics based on live data.
 
 **System Design Choices:**
