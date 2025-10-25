@@ -26,7 +26,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { format, startOfDay, addHours, isSameDay, parseISO, isAfter, setHours, setMinutes, isWithinInterval } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Booking, Bay } from "@shared/schema";
@@ -37,6 +37,8 @@ export default function Dashboard() {
   const [selectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<{ bay: Bay; hour: number } | null>(null);
   const { toast } = useToast();
+  const scheduleRef = useRef<HTMLDivElement>(null);
+  const currentTimeRef = useRef<HTMLDivElement>(null);
 
   // Fetch today's bookings
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<(Booking & { bays: Bay[]; user: any })[]>({
@@ -99,6 +101,44 @@ export default function Dashboard() {
       setSelectedSlot({ bay, hour });
     }
   };
+
+  // Calculate current time position for indicator
+  const getCurrentTimePosition = () => {
+    if (!isSameDay(selectedDate, now)) return null;
+    
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Only show indicator during operating hours (6 AM - 10 PM)
+    if (currentHour < 6 || currentHour >= 22) return null;
+    
+    // Calculate position: each hour column is equal width
+    const hourIndex = currentHour - 6; // 6 AM is index 0
+    const minuteFraction = currentMinute / 60;
+    const totalColumns = 17; // 17 hour columns
+    const bayColumnWidth = 80; // Bay name column width in px
+    
+    // Position as percentage of the time columns only
+    const position = ((hourIndex + minuteFraction) / totalColumns) * 100;
+    
+    return { position, hour: currentHour, minute: currentMinute };
+  };
+
+  const timePosition = getCurrentTimePosition();
+
+  // Auto-scroll to current time on mount
+  useEffect(() => {
+    if (isSameDay(selectedDate, now) && currentTimeRef.current && scheduleRef.current) {
+      const timer = setTimeout(() => {
+        currentTimeRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest',
+          inline: 'center' 
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedDate, now]);
 
   if (bookingsLoading) {
     return (
@@ -265,8 +305,8 @@ export default function Dashboard() {
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <div className="min-w-[1200px]">
+        <div className="overflow-x-auto" ref={scheduleRef}>
+          <div className="min-w-[1200px] relative">
             {/* Header Row */}
             <div className="grid grid-cols-[80px_repeat(17,1fr)] bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm">
               <div className="p-3 font-semibold border-r border-b flex items-center justify-center">
@@ -364,6 +404,24 @@ export default function Dashboard() {
                   })}
                 </div>
               ))
+            )}
+
+            {/* Current Time Indicator */}
+            {timePosition && (
+              <div 
+                ref={currentTimeRef}
+                className="absolute top-0 bottom-0 pointer-events-none z-20"
+                style={{ 
+                  left: `calc(80px + ${timePosition.position}%)`,
+                }}
+              >
+                <div className="relative h-full">
+                  <div className="absolute top-0 left-0 w-0.5 h-full bg-red-500" />
+                  <div className="absolute -top-1 -left-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm shadow-lg whitespace-nowrap">
+                    {format(now, "h:mm a")}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>

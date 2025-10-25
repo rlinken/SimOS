@@ -9,7 +9,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, ChevronLeft, ChevronRight, Clock, User, Mail, Phone, Plus, X, Check, ChevronsUpDown, CalendarDays, CalendarRange, CalendarClock } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format, addDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, setHours, setMinutes, isSameDay, isWithinInterval, eachDayOfInterval, addWeeks, addMonths } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +51,8 @@ export default function Schedule() {
   const [selectedSlot, setSelectedSlot] = useState<{ bay: Bay; hour: number } | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const { toast } = useToast();
+  const scheduleRef = useRef<HTMLDivElement>(null);
+  const currentTimeRef = useRef<HTMLDivElement>(null);
 
   // Update URL when view or date changes
   useEffect(() => {
@@ -213,6 +215,44 @@ export default function Schedule() {
     setView('day');
   };
 
+  // Calculate current time position for indicator
+  const getCurrentTimePosition = () => {
+    const now = new Date();
+    if (!isSameDay(selectedDate, now)) return null;
+    
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Only show indicator during operating hours (6 AM - 10 PM)
+    if (currentHour < 6 || currentHour >= 22) return null;
+    
+    // Calculate position: each hour column is equal width
+    const hourIndex = currentHour - 6; // 6 AM is index 0
+    const minuteFraction = currentMinute / 60;
+    const totalColumns = 17; // 17 hour columns
+    
+    // Position as percentage of the time columns only
+    const position = ((hourIndex + minuteFraction) / totalColumns) * 100;
+    
+    return { position, hour: currentHour, minute: currentMinute, now };
+  };
+
+  const timePosition = getCurrentTimePosition();
+
+  // Auto-scroll to current time on mount for day view
+  useEffect(() => {
+    if (view === 'day' && isSameDay(selectedDate, new Date()) && currentTimeRef.current && scheduleRef.current) {
+      const timer = setTimeout(() => {
+        currentTimeRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest',
+          inline: 'center' 
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [view, selectedDate]);
+
   return (
     <div className="flex-1 space-y-6 p-6 overflow-auto bg-muted/30">
       {/* Header */}
@@ -297,8 +337,8 @@ export default function Schedule() {
       {/* Conditional View Rendering */}
       {view === 'day' && (
         <Card className="overflow-hidden border-0 shadow-sm">
-          <div className="overflow-x-auto">
-            <div className="min-w-[1200px]">
+          <div className="overflow-x-auto" ref={scheduleRef}>
+            <div className="min-w-[1200px] relative">
               {/* Header Row */}
               <div className="grid grid-cols-[80px_repeat(17,1fr)] bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm">
                 <div className="p-3 font-semibold border-r border-b flex items-center justify-center">
@@ -397,6 +437,24 @@ export default function Schedule() {
                   })}
                 </div>
               ))
+            )}
+
+            {/* Current Time Indicator */}
+            {timePosition && (
+              <div 
+                ref={currentTimeRef}
+                className="absolute top-0 bottom-0 pointer-events-none z-20"
+                style={{ 
+                  left: `calc(80px + ${timePosition.position}%)`,
+                }}
+              >
+                <div className="relative h-full">
+                  <div className="absolute top-0 left-0 w-0.5 h-full bg-red-500" />
+                  <div className="absolute -top-1 -left-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm shadow-lg whitespace-nowrap">
+                    {timePosition.now && format(timePosition.now, "h:mm a")}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
