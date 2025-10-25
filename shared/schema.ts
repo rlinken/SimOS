@@ -336,9 +336,7 @@ export const bookings = pgTable("bookings", {
   userId: varchar("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
-  bayId: varchar("bay_id")
-    .references(() => bays.id, { onDelete: "cascade" })
-    .notNull(),
+  bayIds: varchar("bay_ids").array().notNull(),
   
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
@@ -366,10 +364,6 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
     fields: [bookings.userId],
     references: [users.id],
   }),
-  bay: one(bays, {
-    fields: [bookings.bayId],
-    references: [bays.id],
-  }),
 }));
 
 export const insertBookingSchema = createInsertSchema(bookings)
@@ -379,7 +373,7 @@ export const insertBookingSchema = createInsertSchema(bookings)
     updatedAt: true,
   })
   .extend({
-    bayId: z.string().optional(), // Optional - will be auto-assigned if not provided
+    bayIds: z.array(z.string()).min(1).optional(), // Optional - will be auto-assigned if not provided
   });
 
 export type Booking = typeof bookings.$inferSelect;

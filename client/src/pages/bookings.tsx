@@ -30,6 +30,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Calendar, Plus, Clock, MapPin, Sparkles } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { Booking, Bay, User } from "@shared/schema";
 import { insertBookingSchema } from "@shared/schema";
@@ -43,7 +44,8 @@ const bookingFormSchema = insertBookingSchema
     userId: true,
   })
   .extend({
-    bayId: z.string().optional(),
+    bayIds: z.array(z.string()).optional(),
+    numberOfBays: z.number().min(1).optional(),
     date: z.string(),
     startTime: z.string(),
     endTime: z.string(),
@@ -53,9 +55,10 @@ type BookingFormData = z.infer<typeof bookingFormSchema>;
 
 export default function BookingsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [useAutoAssign, setUseAutoAssign] = useState(true);
   const { toast } = useToast();
 
-  const { data: bookings, isLoading } = useQuery<(Booking & { bay: Bay; user: User })[]>({
+  const { data: bookings, isLoading } = useQuery<(Booking & { bays: Bay[]; user: User })[]>({
     queryKey: ["/api/bookings"],
   });
 
@@ -66,7 +69,8 @@ export default function BookingsPage() {
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      bayId: "",
+      bayIds: [],
+      numberOfBays: 1,
       date: format(new Date(), "yyyy-MM-dd"),
       startTime: "09:00",
       endTime: "10:00",
@@ -87,8 +91,10 @@ export default function BookingsPage() {
         paymentStatus: data.paymentStatus,
       };
       
-      if (data.bayId && data.bayId !== "auto") {
-        bookingData.bayId = data.bayId;
+      if (data.bayIds && data.bayIds.length > 0) {
+        bookingData.bayIds = data.bayIds;
+      } else if (data.numberOfBays) {
+        bookingData.numberOfBays = data.numberOfBays;
       }
       
       return apiRequest("POST", "/api/bookings", bookingData);
@@ -172,49 +178,98 @@ export default function BookingsPage() {
                 onSubmit={form.handleSubmit((data) => createMutation.mutate(data))}
                 className="space-y-4"
               >
-                <FormField
-                  control={form.control}
-                  name="bayId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bay Assignment</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value || "auto"}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-bay">
-                            <SelectValue placeholder="Auto-assign (recommended)" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="auto">
-                            <div className="flex items-center gap-2">
-                              <Sparkles className="w-4 h-4" />
-                              <span>Auto-assign (recommended)</span>
-                            </div>
-                          </SelectItem>
-                          {bays?.filter(b => b.status === "active").map((bay) => (
-                            <SelectItem key={bay.id} value={bay.id}>
-                              <div className="flex items-center justify-between gap-2 w-full">
-                                <span>{bay.name}</span>
-                                <span className="text-xs text-muted-foreground capitalize">
-                                  {bay.tier}
-                                </span>
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="auto-assign"
+                      checked={useAutoAssign}
+                      onCheckedChange={(checked) => {
+                        setUseAutoAssign(!!checked);
+                        if (checked) {
+                          form.setValue("bayIds", []);
+                        } else {
+                          form.setValue("numberOfBays", 1);
+                        }
+                      }}
+                      data-testid="checkbox-auto-assign"
+                    />
+                    <label
+                      htmlFor="auto-assign"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Auto-assign bays (recommended)
+                    </label>
+                  </div>
+
+                  {useAutoAssign ? (
+                    <FormField
+                      control={form.control}
+                      name="numberOfBays"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Number of Bays</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              min="1"
+                              max={bays?.filter(b => b.status === "active").length || 10}
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                              data-testid="input-number-of-bays"
+                            />
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground">
+                            System will auto-assign {field.value} bay{field.value !== 1 ? 's' : ''} with lowest usage
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <FormField
+                      control={form.control}
+                      name="bayIds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Select Bays (Manual)</FormLabel>
+                          <div className="space-y-2 border rounded-md p-3 max-h-48 overflow-y-auto">
+                            {bays?.filter(b => b.status === "active").map((bay) => (
+                              <div key={bay.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`bay-${bay.id}`}
+                                  checked={field.value?.includes(bay.id) || false}
+                                  onCheckedChange={(checked) => {
+                                    const current = field.value || [];
+                                    if (checked) {
+                                      field.onChange([...current, bay.id]);
+                                    } else {
+                                      field.onChange(current.filter(id => id !== bay.id));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-bay-${bay.id}`}
+                                />
+                                <label
+                                  htmlFor={`bay-${bay.id}`}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center justify-between flex-1 cursor-pointer"
+                                >
+                                  <span>{bay.name}</span>
+                                  <span className="text-xs text-muted-foreground capitalize">{bay.tier}</span>
+                                </label>
                               </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        {field.value === "auto" || !field.value
-                          ? "System will assign the best available bay"
-                          : "Manual bay selection - ensure no conflicts"}
-                      </p>
-                      <FormMessage />
-                    </FormItem>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {field.value && field.value.length > 0
+                              ? `${field.value.length} bay${field.value.length !== 1 ? 's' : ''} selected`
+                              : "Select at least one bay"}
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
-                />
+                </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <FormField
                     control={form.control}
@@ -341,7 +396,17 @@ export default function BookingsPage() {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-primary" />
-                    <span className="font-medium">{booking.bay?.name}</span>
+                    <div className="flex flex-wrap gap-1">
+                      {booking.bays && booking.bays.length > 0 ? (
+                        booking.bays.map((bay, idx) => (
+                          <span key={bay?.id || idx} className="font-medium">
+                            {bay?.name}{idx < booking.bays.length - 1 ? ',' : ''}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="font-medium text-muted-foreground">No bays</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Clock className="w-4 h-4" />

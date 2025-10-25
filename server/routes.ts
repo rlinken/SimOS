@@ -261,9 +261,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch related data for each booking
       const enrichedBookings = await Promise.all(
         bookings.map(async (booking) => {
-          const bay = await storage.getBay(booking.bayId);
+          const bays = await Promise.all(
+            (booking.bayIds || []).map(bayId => storage.getBay(bayId))
+          );
           const bookingUser = await storage.getUser(booking.userId);
-          return { ...booking, bay, user: bookingUser };
+          return { ...booking, bays: bays.filter(Boolean), user: bookingUser };
         })
       );
       
@@ -287,17 +289,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: user.id,
       });
 
-      // Smart bay assignment - find bay with lowest usage
-      if (!validatedData.bayId) {
+      // Smart bay assignment - find bays with lowest usage
+      if (!validatedData.bayIds || validatedData.bayIds.length === 0) {
+        const numberOfBays = req.body.numberOfBays || 1;
         const bays = await storage.getBays(user.facilityId);
         const activeBays = bays.filter((b) => b.status === "active");
-        if (activeBays.length === 0) {
-          return res.status(400).json({ message: "No active bays available" });
+        
+        if (activeBays.length < numberOfBays) {
+          return res.status(400).json({ 
+            message: `Only ${activeBays.length} active bays available, ${numberOfBays} requested` 
+          });
         }
         
-        // Sort by usage hours (ascending)
+        // Sort by usage hours (ascending) and take the requested number
         activeBays.sort((a, b) => (a.usageHours || 0) - (b.usageHours || 0));
-        validatedData.bayId = activeBays[0].id;
+        validatedData.bayIds = activeBays.slice(0, numberOfBays).map(b => b.id);
+      } else {
+        // Manual bay selection - validate all bays belong to user's facility
+        const bays = await storage.getBays(user.facilityId);
+        const facilityBayIds = new Set(bays.map(b => b.id));
+        
+        for (const bayId of validatedData.bayIds) {
+          if (!facilityBayIds.has(bayId)) {
+            return res.status(403).json({ 
+              message: "One or more selected bays do not belong to your facility" 
+            });
+          }
+        }
+        
+        // Validate all selected bays are active
+        const selectedBays = bays.filter(b => validatedData.bayIds!.includes(b.id));
+        const inactiveBays = selectedBays.filter(b => b.status !== "active");
+        if (inactiveBays.length > 0) {
+          return res.status(400).json({ 
+            message: `Cannot book inactive bays: ${inactiveBays.map(b => b.name).join(", ")}` 
+          });
+        }
       }
 
       const booking = await storage.createBooking(validatedData);
