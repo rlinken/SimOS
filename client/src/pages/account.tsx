@@ -52,12 +52,19 @@ const profileSchema = z.object({
   phone: z.string().optional(),
 });
 
+const emailSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
 type ProfileFormData = z.infer<typeof profileSchema>;
+type EmailFormData = z.infer<typeof emailSchema>;
 
 export default function Account() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [editEmailOpen, setEditEmailOpen] = useState(false);
+  const [selectedBookingNotes, setSelectedBookingNotes] = useState<EnrichedBooking | null>(null);
 
   const { data: bookings = [] } = useQuery<EnrichedBooking[]>({
     queryKey: ["/api/bookings"],
@@ -74,6 +81,13 @@ export default function Account() {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
       phone: user?.phone || "",
+    },
+  });
+
+  const emailForm = useForm<EmailFormData>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: {
+      email: user?.email || "",
     },
   });
 
@@ -101,8 +115,36 @@ export default function Account() {
     },
   });
 
+  const updateEmailMutation = useMutation({
+    mutationFn: async (data: EmailFormData) => {
+      return apiRequest(`/api/users/${user?.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Email Updated",
+        description: "Your email has been successfully updated. Please verify your new email.",
+      });
+      setEditEmailOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update email. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmitProfile = (data: ProfileFormData) => {
     updateProfileMutation.mutate(data);
+  };
+
+  const onSubmitEmail = (data: EmailFormData) => {
+    updateEmailMutation.mutate(data);
   };
 
   // Sort bookings by date (newest first)
@@ -209,9 +251,20 @@ export default function Account() {
 
               <Separator />
 
-              <div>
-                <Label className="text-muted-foreground">Email</Label>
-                <p className="text-lg" data-testid="text-email">{user?.email}</p>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <Label className="text-muted-foreground">Email</Label>
+                  <p className="text-lg" data-testid="text-email">{user?.email}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditEmailOpen(true)}
+                  data-testid="button-change-email"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Change
+                </Button>
               </div>
 
               <div>
@@ -272,14 +325,27 @@ export default function Account() {
                         {booking.bay && (
                           <p className="text-sm text-muted-foreground">Bay: {booking.bay.name}</p>
                         )}
+                        {booking.notes && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            <strong>Notes:</strong> {booking.notes}
+                          </p>
+                        )}
                       </div>
-                      {booking.amount && (
-                        <div className="text-right">
+                      <div className="text-right space-y-2">
+                        {booking.amount && (
                           <p className="text-lg font-semibold" data-testid={`amount-${booking.id}`}>
                             ${parseFloat(booking.amount).toFixed(2)}
                           </p>
-                        </div>
-                      )}
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedBookingNotes(booking)}
+                          data-testid={`button-view-notes-${booking.id}`}
+                        >
+                          View Details
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 ))}
@@ -319,14 +385,27 @@ export default function Account() {
                         {booking.bay && (
                           <p className="text-sm text-muted-foreground">Bay: {booking.bay.name}</p>
                         )}
+                        {booking.notes && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            <strong>Notes:</strong> {booking.notes}
+                          </p>
+                        )}
                       </div>
-                      {booking.amount && (
-                        <div className="text-right">
+                      <div className="text-right space-y-2">
+                        {booking.amount && (
                           <p className="text-lg font-semibold text-muted-foreground" data-testid={`amount-${booking.id}`}>
                             ${parseFloat(booking.amount).toFixed(2)}
                           </p>
-                        </div>
-                      )}
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedBookingNotes(booking)}
+                          data-testid={`button-view-notes-${booking.id}`}
+                        >
+                          View Details
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 ))}
@@ -360,6 +439,32 @@ export default function Account() {
               <p className="text-xs text-muted-foreground">
                 For now, payments will be processed at the facility
               </p>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Security & Authentication</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Password</p>
+                  <p className="text-sm text-muted-foreground">
+                    Managed through Replit Authentication
+                  </p>
+                </div>
+                <Button variant="outline" disabled>
+                  Change Password
+                </Button>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-muted/50">
+                <p className="text-sm text-muted-foreground">
+                  Your account uses Replit Authentication for secure sign-in. To change your password
+                  or manage authentication settings, please visit your Replit account settings.
+                </p>
+              </div>
             </div>
           </Card>
         </TabsContent>
@@ -444,6 +549,162 @@ export default function Account() {
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Email Dialog */}
+      <Dialog open={editEmailOpen} onOpenChange={setEditEmailOpen}>
+        <DialogContent data-testid="dialog-edit-email">
+          <DialogHeader>
+            <DialogTitle>Change Email Address</DialogTitle>
+            <DialogDescription>
+              Update your email address. You'll need to verify your new email.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...emailForm}>
+            <form onSubmit={emailForm.handleSubmit(onSubmitEmail)} className="space-y-4">
+              <FormField
+                control={emailForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New Email Address</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        type="email"
+                        placeholder="you@example.com"
+                        data-testid="input-new-email"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditEmailOpen(false)}
+                  data-testid="button-cancel-email"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateEmailMutation.isPending}
+                  data-testid="button-save-email"
+                >
+                  {updateEmailMutation.isPending ? "Updating..." : "Update Email"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Booking Details Dialog */}
+      <Dialog open={!!selectedBookingNotes} onOpenChange={() => setSelectedBookingNotes(null)}>
+        <DialogContent data-testid="dialog-booking-details">
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+            <DialogDescription>
+              {selectedBookingNotes && getTypeLabel(selectedBookingNotes.type)} on{" "}
+              {selectedBookingNotes && format(parseISO(selectedBookingNotes.startTime as any), "MMM d, yyyy")}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBookingNotes && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Type</Label>
+                  <p className="text-lg">{getTypeLabel(selectedBookingNotes.type)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div className="mt-1">
+                    {getPaymentStatusBadge(selectedBookingNotes.paymentStatus)}
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <Label className="text-muted-foreground">Date & Time</Label>
+                <p className="text-lg">
+                  {format(parseISO(selectedBookingNotes.startTime as any), "EEEE, MMMM d, yyyy")}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {format(parseISO(selectedBookingNotes.startTime as any), "h:mm a")} -{" "}
+                  {format(parseISO(selectedBookingNotes.endTime as any), "h:mm a")}
+                </p>
+              </div>
+
+              {selectedBookingNotes.bay && (
+                <>
+                  <Separator />
+                  <div>
+                    <Label className="text-muted-foreground">Bay</Label>
+                    <p className="text-lg">{selectedBookingNotes.bay.name}</p>
+                    <p className="text-sm text-muted-foreground">{selectedBookingNotes.bay.tier}</p>
+                  </div>
+                </>
+              )}
+
+              {selectedBookingNotes.offering && (
+                <>
+                  <Separator />
+                  <div>
+                    <Label className="text-muted-foreground">
+                      {selectedBookingNotes.type === "lesson" ? "Lesson" : "Fitting"}
+                    </Label>
+                    <p className="text-lg">{selectedBookingNotes.offering.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      ${selectedBookingNotes.offering.price}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {selectedBookingNotes.notes && (
+                <>
+                  <Separator />
+                  <div>
+                    <Label className="text-muted-foreground">Your Notes</Label>
+                    <p className="text-sm mt-1" data-testid="text-booking-notes">
+                      {selectedBookingNotes.notes}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {selectedBookingNotes.amount && (
+                <>
+                  <Separator />
+                  <div>
+                    <Label className="text-muted-foreground">Amount</Label>
+                    <p className="text-2xl font-bold">
+                      ${parseFloat(selectedBookingNotes.amount).toFixed(2)}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-3 justify-end mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedBookingNotes(null)}
+                  data-testid="button-close-details"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
