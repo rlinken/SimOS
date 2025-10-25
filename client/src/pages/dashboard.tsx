@@ -312,18 +312,18 @@ export default function Dashboard() {
                   {/* Time Slots */}
                   {hours.map(hour => {
                     const booking = isBooked(bay.id, hour);
-                    const isAvailable = !booking && bay.status === 'active';
                     const isPast = isPastHour(hour);
+                    const isAvailable = !booking && bay.status === 'active' && !isPast;
 
                     return (
                       <div
                         key={hour}
-                        onClick={() => handleSlotClick(bay, hour)}
+                        onClick={() => !isPast && handleSlotClick(bay, hour)}
                         className={`
                           p-2 border-r last:border-r-0 min-h-[60px] 
                           flex flex-col items-center justify-center text-xs 
-                          transition-all cursor-pointer relative group
-                          ${isPast ? 'opacity-40' : ''}
+                          transition-all relative group
+                          ${isPast ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
                           ${booking 
                             ? 'bg-primary/10 hover:bg-primary/20' 
                             : isAvailable 

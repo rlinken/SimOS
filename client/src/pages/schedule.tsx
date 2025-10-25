@@ -142,7 +142,19 @@ export default function Schedule() {
     return tier === 'standard' ? 'secondary' : 'default';
   };
 
+  // Check if a time slot is in the past
+  const isPastHour = (hour: number) => {
+    if (!isSameDay(selectedDate, new Date())) {
+      return false; // Don't disable if viewing different date
+    }
+    const currentHour = new Date().getHours();
+    return hour < currentHour;
+  };
+
   const handleSlotClick = (bay: Bay, hour: number) => {
+    if (isPastHour(hour)) {
+      return; // Prevent booking past slots
+    }
     const booking = isBooked(bay.id, hour);
     if (booking) {
       setSelectedBooking(booking);
@@ -333,7 +345,8 @@ export default function Schedule() {
                   {/* Time Slots */}
                   {hours.map(hour => {
                     const booking = isBooked(bay.id, hour);
-                    const isAvailable = !booking && bay.status === 'active';
+                    const isPast = isPastHour(hour);
+                    const isAvailable = !booking && bay.status === 'active' && !isPast;
 
                     return (
                       <div
@@ -342,7 +355,8 @@ export default function Schedule() {
                         className={`
                           p-2 border-r last:border-r-0 min-h-[60px] 
                           flex flex-col items-center justify-center text-xs 
-                          transition-all cursor-pointer relative group
+                          transition-all relative group
+                          ${isPast ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
                           ${booking 
                             ? 'bg-primary/10 hover:bg-primary/20' 
                             : isAvailable 
