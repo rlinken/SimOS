@@ -20,6 +20,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 - ✅ Shareable membership purchase URLs with public access (no login required)
 - ✅ Transformation Packages - comprehensive training bundles with lessons, club fittings, bay access, and on-course practice
 - ✅ **Edit functionality for all product/service pages** - Click any card to edit (Memberships, Transformation Packages, Fittings, Offers, Lessons)
+- ✅ **Payment Settings** - Each facility can configure their own Stripe credentials for payment processing
 
 ### In Progress
 - 🔨 Facility onboarding wizard
@@ -33,7 +34,7 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 ## Technical Architecture
 
 ### Database Schema
-- **facilities**: Multi-tenant core with subdomain, branding, feature flags
+- **facilities**: Multi-tenant core with subdomain, branding, feature flags, payment settings (Stripe credentials per facility)
 - **users**: Extended Replit Auth with facility scoping and roles
 - **bays**: Simulator bays with tiers (standard/premium/vip), status tracking
 - **bookings**: Reservations with auto bay assignment, payment tracking
@@ -102,6 +103,10 @@ GolfSimOS is a multi-tenant SaaS platform for indoor golf simulator facilities t
 
 #### Dashboard
 - `GET /api/dashboard/stats` - Real-time facility statistics
+
+#### Payment Settings (Admin only)
+- `GET /api/payment-settings` - Get payment settings for facility (secret key masked for security)
+- `PATCH /api/payment-settings` - Update payment settings (Stripe credentials, payment provider, payments enabled)
 
 #### Public Purchase Pages (No Authentication)
 - `GET /api/public/membership/:id` - Get membership tier details with facility branding
@@ -232,6 +237,22 @@ Admins can copy shareable links for memberships that allow customers to view det
 - Shareable purchase URLs use pattern: `/buy/{type}/{id}` (public access, no authentication)
 - Architectural separation: Operations manages services delivered, Business manages sales/marketing
 - Offers page focuses on promotional campaigns and sales pages for any service type (lessons, memberships, fittings, transformation packages)
+
+## Payment Settings
+
+Each facility can configure their own Stripe payment credentials for independent payment processing:
+- **Location**: Settings page > Payments tab (admin only)
+- **Configuration**: Stripe publishable key, secret key, payment provider selection, payments enabled toggle
+- **Security**: Secret keys are masked in the UI (displayed as "sk_****"), only full key is stored in database
+- **Multi-tenant**: Each facility maintains separate Stripe credentials for isolated payment processing
+- **Setup Instructions**: Link to Stripe dashboard (https://dashboard.stripe.com/apikeys) provided in UI
+- **Future Support**: Architecture prepared for additional payment providers (Square, etc.)
+
+### How to Get Stripe Keys
+1. Visit https://dashboard.stripe.com/apikeys
+2. Copy "Publishable key" (starts with `pk_`) - safe for public use
+3. Copy "Secret key" (starts with `sk_`) - must be kept secure
+4. Configure in Settings > Payments tab
 
 ## Edit Functionality Pattern
 All product/service pages (Memberships, Transformation Packages, Fittings, Offers, Lessons) implement unified edit functionality:
