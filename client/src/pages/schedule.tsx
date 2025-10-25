@@ -112,8 +112,20 @@ export default function Schedule() {
     return isSameDay(bookingStart, selectedDate);
   });
 
-  // Operating hours (6 AM to 10 PM)
-  const hours = Array.from({ length: 17 }, (_, i) => i + 6);
+  // Dynamic operating hours based on current time
+  const hours = (() => {
+    const now = new Date();
+    const isToday = isSameDay(selectedDate, now);
+    if (isToday) {
+      const currentHour = now.getHours();
+      const startHour = Math.max(6, Math.min(currentHour, 22)); // Start from current hour, but not before 6 AM or after 10 PM
+      const endHour = 23; // Go until 11 PM (last slot is 10 PM)
+      const hourCount = endHour - startHour;
+      return Array.from({ length: hourCount }, (_, i) => startHour + i);
+    }
+    // For other dates, show full operating hours (6 AM to 10 PM)
+    return Array.from({ length: 17 }, (_, i) => i + 6);
+  })();
 
   // Helper to check if a bay is booked at a specific hour
   const isBooked = (bayId: string, hour: number) => {
@@ -223,13 +235,14 @@ export default function Schedule() {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     
-    // Only show indicator during operating hours (6 AM - 10 PM)
-    if (currentHour < 6 || currentHour >= 22) return null;
+    // Only show indicator during operating hours
+    if (currentHour < 6 || currentHour >= 23) return null;
     
-    // Calculate position: each hour column is equal width
-    const hourIndex = currentHour - 6; // 6 AM is index 0
+    // Find the index of the current hour in the hours array
+    const firstHour = hours[0];
+    const hourIndex = currentHour - firstHour;
     const minuteFraction = currentMinute / 60;
-    const totalColumns = 17; // 17 hour columns
+    const totalColumns = hours.length;
     
     // Position as percentage of the time columns only
     const position = ((hourIndex + minuteFraction) / totalColumns) * 100;
@@ -238,20 +251,6 @@ export default function Schedule() {
   };
 
   const timePosition = getCurrentTimePosition();
-
-  // Auto-scroll to current time on mount for day view
-  useEffect(() => {
-    if (view === 'day' && isSameDay(selectedDate, new Date()) && currentTimeRef.current && scheduleRef.current) {
-      const timer = setTimeout(() => {
-        currentTimeRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'nearest',
-          inline: 'center' 
-        });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [view, selectedDate]);
 
   return (
     <div className="flex-1 space-y-6 p-6 overflow-auto bg-muted/30">
