@@ -233,8 +233,8 @@ export default function Schedule() {
 
       {/* Date Navigation */}
       <Card className="overflow-hidden border-0 shadow-sm">
-        <div className="p-6 bg-gradient-to-br from-primary/5 to-transparent">
-          <div className="flex items-center justify-between">
+        <div className="p-3 bg-gradient-to-br from-primary/5 to-transparent">
+          <div className="flex items-center justify-between gap-4">
             <Button
               variant="ghost"
               size="icon"
@@ -242,19 +242,31 @@ export default function Schedule() {
               className="rounded-full"
               data-testid="button-prev"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4" />
             </Button>
             
-            <div className="flex flex-col items-center gap-1 min-w-[300px]">
-              <div className="text-2xl font-semibold">
-                {displayText.main}
+            <div className="flex items-center gap-3 flex-1 justify-center">
+              <div className="flex items-baseline gap-2">
+                <div className="text-lg font-semibold">
+                  {displayText.main}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {displayText.sub}
+                </div>
+                {view === 'day' && isSameDay(selectedDate, new Date()) && (
+                  <Badge variant="default" className="text-[10px]">Today</Badge>
+                )}
               </div>
-              <div className="text-lg text-muted-foreground">
-                {displayText.sub}
-              </div>
-              {view === 'day' && isSameDay(selectedDate, new Date()) && (
-                <Badge variant="default" className="mt-1">Today</Badge>
-              )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedDate(new Date())}
+                data-testid="button-today"
+                className="ml-2"
+              >
+                Today
+              </Button>
             </div>
 
             <Button
@@ -264,18 +276,7 @@ export default function Schedule() {
               className="rounded-full"
               data-testid="button-next"
             >
-              <ChevronRight className="w-5 h-5" />
-            </Button>
-          </div>
-          
-          <div className="flex justify-center mt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedDate(new Date())}
-              data-testid="button-today"
-            >
-              Today
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
