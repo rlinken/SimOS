@@ -155,10 +155,9 @@ export default function Schedule() {
         <div className="overflow-x-auto">
           <div className="min-w-[1200px]">
             {/* Header Row */}
-            <div className="grid grid-cols-[220px_repeat(17,1fr)] bg-muted/50 sticky top-0 z-10">
-              <div className="p-4 font-semibold border-r border-b flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span>Bays</span>
+            <div className="grid grid-cols-[80px_repeat(17,1fr)] bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm">
+              <div className="p-3 font-semibold border-r border-b flex items-center justify-center">
+                <span className="text-xs">Bays</span>
               </div>
               {hours.map(hour => {
                 const showAmPm = hour === 6 || hour === 12 || hour === 18;
@@ -168,9 +167,9 @@ export default function Schedule() {
                     className="p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center"
                     data-testid={`header-hour-${hour}`}
                   >
-                    <div className="text-base font-semibold">{hour > 12 ? hour - 12 : hour}</div>
+                    <div className="text-sm font-semibold">{hour > 12 ? hour - 12 : hour}</div>
                     {showAmPm && (
-                      <div className="text-[10px] text-muted-foreground uppercase">{hour < 12 ? 'am' : 'pm'}</div>
+                      <div className="text-[9px] text-muted-foreground uppercase font-medium">{hour < 12 ? 'am' : 'pm'}</div>
                     )}
                   </div>
                 );
@@ -190,12 +189,12 @@ export default function Schedule() {
               bays.map(bay => (
                 <div 
                   key={bay.id} 
-                  className={`grid grid-cols-[220px_repeat(17,1fr)] border-b last:border-b-0 hover:bg-muted/20 transition-colors ${getTierColor(bay.tier)}`}
+                  className={`grid grid-cols-[80px_repeat(17,1fr)] border-b last:border-b-0 transition-all ${getTierColor(bay.tier)}`}
                   data-testid={`bay-row-${bay.id}`}
                 >
                   {/* Bay Name Column */}
-                  <div className="p-2 border-r flex items-center justify-center bg-card/50">
-                    <div className="font-medium text-sm text-center">{bay.name}</div>
+                  <div className="p-2 border-r flex items-center justify-center bg-muted/30">
+                    <div className="font-semibold text-xs text-center leading-tight">{bay.name}</div>
                   </div>
 
                   {/* Time Slots */}

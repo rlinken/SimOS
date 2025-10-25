@@ -190,16 +190,16 @@ export default function Dashboard() {
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
             {/* Header Row */}
-            <div className="grid grid-cols-[120px_repeat(12,1fr)] bg-muted/50 rounded-t-md">
-              <div className="p-2 font-medium border-r text-center">
+            <div className="grid grid-cols-[70px_repeat(12,1fr)] bg-gradient-to-br from-muted/80 to-muted/40 rounded-t-md">
+              <div className="p-2 font-semibold border-r text-center text-xs">
                 Bays
               </div>
               {hours.map(hour => (
                 <div 
                   key={hour} 
-                  className="p-2 text-center border-r last:border-r-0 text-xs font-medium"
+                  className="p-2 text-center border-r last:border-r-0 text-xs font-semibold"
                 >
-                  {hour > 12 ? hour - 12 : hour}{hour === 12 ? 'pm' : hour >= 12 ? 'pm' : 'am'}
+                  {hour > 12 ? hour - 12 : hour}{hour === 12 ? 'p' : hour >= 12 ? 'p' : 'a'}
                 </div>
               ))}
             </div>
@@ -213,9 +213,9 @@ export default function Dashboard() {
               bays.slice(0, 4).map(bay => (
                 <div 
                   key={bay.id} 
-                  className="grid grid-cols-[120px_repeat(12,1fr)] border-b last:border-b-0"
+                  className="grid grid-cols-[70px_repeat(12,1fr)] border-b last:border-b-0 hover:bg-muted/20 transition-colors"
                 >
-                  <div className="p-2 border-r flex items-center justify-center text-sm font-medium bg-card/50">
+                  <div className="p-2 border-r flex items-center justify-center text-xs font-semibold bg-muted/30">
                     {bay.name}
                   </div>
                   {hours.map(hour => {
@@ -226,19 +226,22 @@ export default function Dashboard() {
                       <div
                         key={hour}
                         className={`
-                          p-2 border-r last:border-r-0 min-h-[50px] 
+                          p-2 border-r last:border-r-0 min-h-[45px] 
                           flex items-center justify-center text-xs 
+                          transition-all
                           ${booking 
-                            ? 'bg-primary/10' 
+                            ? 'bg-primary/15 hover:bg-primary/25' 
                             : isAvailable 
-                            ? 'bg-background' 
+                            ? 'bg-background hover:bg-muted/30' 
                             : 'bg-muted/50'
                           }
                         `}
                       >
                         {booking && (
                           <div className="text-center">
-                            <User className="w-3 h-3 mx-auto text-primary" />
+                            <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center">
+                              <User className="w-3 h-3 text-primary" />
+                            </div>
                           </div>
                         )}
                       </div>
