@@ -37,7 +37,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Booking, MembershipTier, Bay, Offering } from "@shared/schema";
-import { format, addDays, isSameDay, parseISO, addMinutes } from "date-fns";
+import { format, addDays, isSameDay, parseISO, addMinutes, startOfWeek } from "date-fns";
 
 type EnrichedBooking = Booking & {
   user?: any;
@@ -206,8 +206,9 @@ export default function MemberDashboard() {
     return true;
   });
 
-  // Get week dates for calendar view - always start with today on the left
-  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(selectedDate, i));
+  // Get week dates for calendar view - always show full week starting from Sunday
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 0 }); // 0 = Sunday
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   // Generate hourly time slots (7 AM to 10 PM)
   const timeSlots = Array.from({ length: 15 }, (_, i) => i + 7); // 7-21 (7am-9pm)
@@ -230,9 +231,9 @@ export default function MemberDashboard() {
     });
   };
 
-  // Get booking for a specific slot (returns the first booking that covers this time)
-  const getSlotBooking = (date: Date, hour: number) => {
-    return filteredBookings.find((booking) => {
+  // Get all bookings for a specific slot (can have multiple bay bookings at same time)
+  const getSlotBookings = (date: Date, hour: number) => {
+    return filteredBookings.filter((booking) => {
       const bookingStart = parseISO(booking.startTime as any);
       const bookingEnd = parseISO(booking.endTime as any);
       
@@ -243,6 +244,35 @@ export default function MemberDashboard() {
       
       return bookingStart < slotEnd && bookingEnd > slotStart;
     });
+  };
+
+  // Get booking for a specific slot (returns the first booking that covers this time)
+  const getSlotBooking = (date: Date, hour: number) => {
+    const bookings = getSlotBookings(date, hour);
+    return bookings[0];
+  };
+
+  // Calculate occupancy percentage for a time slot (for color gradient)
+  const getSlotOccupancy = (date: Date, hour: number) => {
+    const slotBookings = getSlotBookings(date, hour);
+    const totalBays = bays.length || 1; // Avoid division by zero
+    const occupiedBays = slotBookings.length;
+    return (occupiedBays / totalBays) * 100;
+  };
+
+  // Get background color based on occupancy percentage
+  const getOccupancyColor = (occupancyPercent: number) => {
+    if (occupancyPercent === 0) {
+      return "bg-background"; // No bookings
+    } else if (occupancyPercent <= 33) {
+      return "bg-green-500/10 hover:bg-green-500/20 border-green-500/30"; // Low occupancy
+    } else if (occupancyPercent <= 66) {
+      return "bg-yellow-500/10 hover:bg-yellow-500/20 border-yellow-500/30"; // Medium occupancy
+    } else if (occupancyPercent < 100) {
+      return "bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/30"; // High occupancy
+    } else {
+      return "bg-red-500/10 hover:bg-red-500/20 border-red-500/30"; // Fully booked
+    }
   };
 
   const getBookingColor = (type: string) => {
@@ -756,37 +786,57 @@ export default function MemberDashboard() {
                         {format(new Date().setHours(hour, 0, 0, 0), "h:mm a")}
                       </div>
                       {weekDates.map((date) => {
-                        const booking = getSlotBooking(date, hour);
-                        const isBooked = !!booking;
+                        const slotBookings = getSlotBookings(date, hour);
+                        const booking = slotBookings[0]; // Primary booking to display
+                        const isBooked = slotBookings.length > 0;
                         const isPast = date < new Date() || (isSameDay(date, new Date()) && hour < new Date().getHours());
-
-                        const isMyBooking = booking?.userId === user?.id;
+                        const isMyBooking = slotBookings.some(b => b.userId === user?.id);
+                        const myBooking = slotBookings.find(b => b.userId === user?.id);
+                        const occupancy = getSlotOccupancy(date, hour);
+                        const isFullyBooked = occupancy >= 100;
 
                         return (
                           <div
                             key={`${date.toISOString()}-${hour}`}
-                            className={`relative min-h-[60px] rounded border p-2 transition-colors ${
+                            className={`group relative min-h-[60px] rounded border p-2 transition-all ${
                               isPast
-                                ? "bg-muted/50 cursor-not-allowed"
-                                : isBooked
-                                ? `${getBookingColor(booking.type)} ${isMyBooking ? 'border-2 border-primary' : ''}`
-                                : "border-dashed hover:bg-accent/50 cursor-pointer hover-elevate"
+                                ? "bg-muted/50 cursor-not-allowed border-muted"
+                                : isFullyBooked
+                                ? "bg-red-500/10 border-red-500/30 cursor-not-allowed"
+                                : isMyBooking
+                                ? `${getBookingColor(myBooking!.type)} border-2 border-primary cursor-default`
+                                : !isBooked
+                                ? "border-dashed cursor-pointer hover-elevate"
+                                : `${getOccupancyColor(occupancy)} cursor-pointer hover-elevate`
                             }`}
-                            onClick={() => !isPast && !isBooked && handleTimeSlotClick(date, hour)}
+                            onClick={() => !isPast && !isFullyBooked && !isMyBooking && handleTimeSlotClick(date, hour)}
                             data-testid={`timeslot-${format(date, "yyyy-MM-dd")}-${hour}`}
                           >
-                            {isBooked ? (
+                            {isMyBooking ? (
                               <div className="text-xs">
                                 <div className="font-medium truncate">
-                                  {getTypeLabel(booking.type)}
-                                  {isMyBooking && " (You)"}
+                                  {getTypeLabel(myBooking!.type)} (You)
                                 </div>
                                 <div className="text-xs opacity-75 truncate">
-                                  {format(parseISO(booking.startTime as any), "h:mm a")} - {format(parseISO(booking.endTime as any), "h:mm a")}
+                                  {format(parseISO(myBooking!.startTime as any), "h:mm a")} - {format(parseISO(myBooking!.endTime as any), "h:mm a")}
+                                </div>
+                              </div>
+                            ) : isFullyBooked && !isPast ? (
+                              <div className="text-xs text-center">
+                                <div className="font-medium text-red-600 dark:text-red-400">Fully Booked</div>
+                                <div className="text-xs opacity-75">{slotBookings.length} of {bays.length}</div>
+                              </div>
+                            ) : isBooked && !isPast ? (
+                              <div className="text-xs text-center">
+                                <div className="font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Click to book
+                                </div>
+                                <div className="text-xs opacity-60 group-hover:opacity-100 transition-opacity">
+                                  {slotBookings.length} of {bays.length} bays
                                 </div>
                               </div>
                             ) : !isPast ? (
-                              <div className="text-xs text-muted-foreground text-center">
+                              <div className="text-xs text-muted-foreground text-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 Click to book
                               </div>
                             ) : null}
