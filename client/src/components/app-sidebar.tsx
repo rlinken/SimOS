@@ -34,17 +34,19 @@ import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
 
 function getMenuItems(user: User | undefined) {
-  if (!user) return [];
+  if (!user) return { main: [], business: [], operations: [] };
 
   const isSuperAdmin = user.role === "super_admin";
-  const isFacilityAdmin = user.role === "facility_admin";
+  const isAdmin = user.role === "owner" || user.role === "administrator";
   const isInstructor = user.role === "instructor";
   const isCustomer = user.role === "customer" || user.role === "member";
 
-  const items = [];
+  const main = [];
+  const business = [];
+  const operations = [];
 
-  // Dashboard
-  items.push({
+  // Main Navigation
+  main.push({
     title: "Dashboard",
     url: "/",
     icon: LayoutDashboard,
@@ -52,7 +54,7 @@ function getMenuItems(user: User | undefined) {
 
   // Customer-only items
   if (isCustomer) {
-    items.push({
+    main.push({
       title: "Account",
       url: "/account",
       icon: UserIcon,
@@ -61,21 +63,16 @@ function getMenuItems(user: User | undefined) {
 
   // Super Admin only
   if (isSuperAdmin) {
-    items.push({
+    main.push({
       title: "Facilities",
       url: "/facilities",
       icon: Building2,
     });
   }
 
-  // Facility Admin & Super Admin
-  if (isSuperAdmin || isFacilityAdmin) {
-    items.push(
-      {
-        title: "Schedule",
-        url: "/schedule",
-        icon: CalendarDays,
-      },
+  // Business Management (Admins only)
+  if (isSuperAdmin || isAdmin) {
+    business.push(
       {
         title: "Contacts",
         url: "/contacts",
@@ -85,6 +82,27 @@ function getMenuItems(user: User | undefined) {
         title: "Sales",
         url: "/sales",
         icon: DollarSign,
+      },
+      {
+        title: "Offers",
+        url: "/offerings",
+        icon: Package,
+      },
+      {
+        title: "Staff",
+        url: "/staff",
+        icon: UserCog,
+      }
+    );
+  }
+
+  // Operations (Admins only)
+  if (isSuperAdmin || isAdmin) {
+    operations.push(
+      {
+        title: "Schedule",
+        url: "/schedule",
+        icon: CalendarDays,
       },
       {
         title: "Bays",
@@ -105,23 +123,13 @@ function getMenuItems(user: User | undefined) {
         title: "Memberships",
         url: "/memberships",
         icon: CreditCard,
-      },
-      {
-        title: "Offers",
-        url: "/offerings",
-        icon: Package,
-      },
-      {
-        title: "Staff",
-        url: "/staff",
-        icon: UserCog,
       }
     );
   }
 
   // Lessons (Instructors, Admins)
-  if (isInstructor || isSuperAdmin || isFacilityAdmin) {
-    items.push({
+  if (isInstructor || isSuperAdmin || isAdmin) {
+    operations.push({
       title: "Lessons",
       url: "/lessons",
       icon: GraduationCap,
@@ -129,8 +137,8 @@ function getMenuItems(user: User | undefined) {
   }
 
   // Fittings (Admins)
-  if (isSuperAdmin || isFacilityAdmin) {
-    items.push({
+  if (isSuperAdmin || isAdmin) {
+    operations.push({
       title: "Fittings",
       url: "/fittings",
       icon: Target,
@@ -138,20 +146,20 @@ function getMenuItems(user: User | undefined) {
   }
 
   // Settings
-  items.push({
+  main.push({
     title: "Settings",
     url: "/settings",
     icon: Settings,
   });
 
-  return items;
+  return { main, business, operations };
 }
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  const menuItems = getMenuItems(user);
+  const { main, business, operations } = getMenuItems(user);
 
   return (
     <Sidebar>
@@ -163,11 +171,12 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {main.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -184,6 +193,56 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Business Management */}
+        {business.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Business</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {business.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === item.url}
+                      data-testid={`nav-${item.title.toLowerCase()}`}
+                    >
+                      <Link href={item.url}>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Operations */}
+        {operations.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Operations</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {operations.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === item.url}
+                      data-testid={`nav-${item.title.toLowerCase()}`}
+                    >
+                      <Link href={item.url}>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t p-4">
