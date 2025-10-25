@@ -250,6 +250,21 @@ export default function Schedule() {
     // Calculate pixel position: start after bay column, then add pixels for elapsed time
     const pixelPosition = BAY_COLUMN_WIDTH + ((minutesSinceStart / minutesPerColumn) * HOUR_COLUMN_WIDTH);
     
+    console.log('🔴 TIME INDICATOR DEBUG:', {
+      rawTime: now.toLocaleString(),
+      currentHour,
+      currentMinute,
+      currentSeconds,
+      firstHour,
+      minutesSinceStart: minutesSinceStart.toFixed(2),
+      minutesPerColumn,
+      BAY_COLUMN_WIDTH,
+      HOUR_COLUMN_WIDTH,
+      calculation: `${BAY_COLUMN_WIDTH} + ((${minutesSinceStart.toFixed(2)} / ${minutesPerColumn}) * ${HOUR_COLUMN_WIDTH})`,
+      pixelPosition: pixelPosition.toFixed(2),
+      expectedHourColumn: Math.floor(minutesSinceStart / 60) + firstHour
+    });
+    
     return { pixelPosition, hour: currentHour, minute: currentMinute, now };
   };
 
