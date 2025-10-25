@@ -26,6 +26,7 @@ import AccountPage from "@/pages/account";
 import SchedulePage from "@/pages/schedule";
 import ContactsPage from "@/pages/contacts";
 import SalesPage from "@/pages/sales";
+import BuyMembership from "@/pages/buy-membership";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -82,6 +83,7 @@ function AppContent() {
     return (
       <Switch>
         <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
+        <Route path="/buy/membership/:id" component={BuyMembership} />
         <UnauthenticatedRoutes />
       </Switch>
     );
@@ -90,6 +92,7 @@ function AppContent() {
   return (
     <Switch>
       <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
+      <Route path="/buy/membership/:id" component={BuyMembership} />
       <Route>
         <SidebarProvider style={style as React.CSSProperties}>
           <div className="flex h-screen w-full">
