@@ -249,7 +249,7 @@ export default function Schedule() {
                             <div className="w-10 h-10 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
                               <Plus className="w-5 h-5 text-primary" />
                             </div>
-                            <div className="text-xs font-medium text-muted-foreground">Click to Book</div>
+                            <div className="text-xs font-medium text-muted-foreground">Book</div>
                           </div>
                         ) : (
                           <div className="text-center">
