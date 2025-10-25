@@ -21,6 +21,9 @@ import {
   commissions,
   tips,
   customRoles,
+  commissionStructures,
+  commissionPayments,
+  payrollPayments,
   type User,
   type UpsertUser,
   type Facility,
@@ -67,6 +70,12 @@ import {
   type InsertTip,
   type CustomRole,
   type InsertCustomRole,
+  type CommissionStructure,
+  type InsertCommissionStructure,
+  type CommissionPayment,
+  type InsertCommissionPayment,
+  type PayrollPayment,
+  type InsertPayrollPayment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, gt, lt, asc, desc } from "drizzle-orm";
@@ -209,6 +218,25 @@ export interface IStorage {
   createCustomRole(role: InsertCustomRole): Promise<CustomRole>;
   updateCustomRole(id: string, role: Partial<InsertCustomRole>): Promise<CustomRole>;
   deleteCustomRole(id: string): Promise<void>;
+  
+  // Commission Structures
+  getCommissionStructures(facilityId: string): Promise<CommissionStructure[]>;
+  getCommissionStructure(id: string): Promise<CommissionStructure | undefined>;
+  createCommissionStructure(structure: InsertCommissionStructure): Promise<CommissionStructure>;
+  updateCommissionStructure(id: string, structure: Partial<InsertCommissionStructure>): Promise<CommissionStructure>;
+  deleteCommissionStructure(id: string): Promise<void>;
+  
+  // Commission Payments
+  getCommissionPayments(facilityId: string, filters?: { staffId?: string; startDate?: Date; endDate?: Date }): Promise<CommissionPayment[]>;
+  getCommissionPayment(id: string): Promise<CommissionPayment | undefined>;
+  createCommissionPayment(payment: InsertCommissionPayment): Promise<CommissionPayment>;
+  getCommissionPaymentsByStaff(staffId: string): Promise<CommissionPayment[]>;
+  
+  // Payroll Payments
+  getPayrollPayments(facilityId: string, filters?: { startDate?: Date; endDate?: Date }): Promise<PayrollPayment[]>;
+  getPayrollPayment(id: string): Promise<PayrollPayment | undefined>;
+  createPayrollPayment(payment: InsertPayrollPayment): Promise<PayrollPayment>;
+  getPayrollPaymentsByStaff(staffId: string, startDate?: Date, endDate?: Date): Promise<PayrollPayment[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1095,6 +1123,153 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomRole(id: string): Promise<void> {
     await db.delete(customRoles).where(eq(customRoles.id, id));
+  }
+  
+  // Commission Structures
+  async getCommissionStructures(facilityId: string): Promise<CommissionStructure[]> {
+    return await db
+      .select()
+      .from(commissionStructures)
+      .where(eq(commissionStructures.facilityId, facilityId))
+      .orderBy(asc(commissionStructures.productType));
+  }
+
+  async getCommissionStructure(id: string): Promise<CommissionStructure | undefined> {
+    const [structure] = await db
+      .select()
+      .from(commissionStructures)
+      .where(eq(commissionStructures.id, id));
+    return structure;
+  }
+
+  async createCommissionStructure(structure: InsertCommissionStructure): Promise<CommissionStructure> {
+    const [newStructure] = await db
+      .insert(commissionStructures)
+      .values(structure)
+      .returning();
+    return newStructure;
+  }
+
+  async updateCommissionStructure(id: string, structure: Partial<InsertCommissionStructure>): Promise<CommissionStructure> {
+    const [updatedStructure] = await db
+      .update(commissionStructures)
+      .set({
+        ...structure,
+        updatedAt: new Date(),
+      })
+      .where(eq(commissionStructures.id, id))
+      .returning();
+    return updatedStructure;
+  }
+
+  async deleteCommissionStructure(id: string): Promise<void> {
+    await db.delete(commissionStructures).where(eq(commissionStructures.id, id));
+  }
+  
+  // Commission Payments
+  async getCommissionPayments(
+    facilityId: string,
+    filters?: { staffId?: string; startDate?: Date; endDate?: Date }
+  ): Promise<CommissionPayment[]> {
+    const conditions = [eq(commissionPayments.facilityId, facilityId)];
+    
+    if (filters?.staffId) {
+      conditions.push(eq(commissionPayments.staffId, filters.staffId));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(commissionPayments.earnedDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(commissionPayments.earnedDate, filters.endDate));
+    }
+    
+    return await db
+      .select()
+      .from(commissionPayments)
+      .where(and(...conditions))
+      .orderBy(desc(commissionPayments.earnedDate));
+  }
+
+  async getCommissionPayment(id: string): Promise<CommissionPayment | undefined> {
+    const [payment] = await db
+      .select()
+      .from(commissionPayments)
+      .where(eq(commissionPayments.id, id));
+    return payment;
+  }
+
+  async createCommissionPayment(payment: InsertCommissionPayment): Promise<CommissionPayment> {
+    const [newPayment] = await db
+      .insert(commissionPayments)
+      .values(payment)
+      .returning();
+    return newPayment;
+  }
+
+  async getCommissionPaymentsByStaff(staffId: string): Promise<CommissionPayment[]> {
+    return await db
+      .select()
+      .from(commissionPayments)
+      .where(eq(commissionPayments.staffId, staffId))
+      .orderBy(desc(commissionPayments.earnedDate));
+  }
+  
+  // Payroll Payments
+  async getPayrollPayments(
+    facilityId: string,
+    filters?: { startDate?: Date; endDate?: Date }
+  ): Promise<PayrollPayment[]> {
+    const conditions = [eq(payrollPayments.facilityId, facilityId)];
+    
+    if (filters?.startDate) {
+      conditions.push(gte(payrollPayments.payPeriodStart, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(payrollPayments.payPeriodEnd, filters.endDate));
+    }
+    
+    return await db
+      .select()
+      .from(payrollPayments)
+      .where(and(...conditions))
+      .orderBy(desc(payrollPayments.paidDate));
+  }
+
+  async getPayrollPayment(id: string): Promise<PayrollPayment | undefined> {
+    const [payment] = await db
+      .select()
+      .from(payrollPayments)
+      .where(eq(payrollPayments.id, id));
+    return payment;
+  }
+
+  async createPayrollPayment(payment: InsertPayrollPayment): Promise<PayrollPayment> {
+    const [newPayment] = await db
+      .insert(payrollPayments)
+      .values(payment)
+      .returning();
+    return newPayment;
+  }
+
+  async getPayrollPaymentsByStaff(
+    staffId: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<PayrollPayment[]> {
+    const conditions = [eq(payrollPayments.staffId, staffId)];
+    
+    if (startDate) {
+      conditions.push(gte(payrollPayments.payPeriodStart, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(payrollPayments.payPeriodEnd, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(payrollPayments)
+      .where(and(...conditions))
+      .orderBy(desc(payrollPayments.paidDate));
   }
 }
 

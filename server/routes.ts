@@ -2222,6 +2222,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Commission Structures Routes
+  // ============================================================================
+
+  app.get("/api/commission-structures", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const structures = await storage.getCommissionStructures(user.facilityId);
+      res.json(structures);
+    } catch (error: any) {
+      console.error("Error fetching commission structures:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/commission-structures", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const structure = await storage.createCommissionStructure({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+      res.status(201).json(structure);
+    } catch (error: any) {
+      console.error("Error creating commission structure:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/commission-structures/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const structure = await storage.getCommissionStructure(req.params.id);
+      if (!structure || structure.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Commission structure not found" });
+      }
+
+      const updated = await storage.updateCommissionStructure(req.params.id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating commission structure:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/commission-structures/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const structure = await storage.getCommissionStructure(req.params.id);
+      if (!structure || structure.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Commission structure not found" });
+      }
+
+      await storage.deleteCommissionStructure(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting commission structure:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Commission Payments Routes
+  // ============================================================================
+
+  app.get("/api/commission-payments", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const filters: any = {};
+      if (req.query.staffId) filters.staffId = req.query.staffId;
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+
+      const payments = await storage.getCommissionPayments(user.facilityId, filters);
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Error fetching commission payments:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/commission-payments/staff/:staffId", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const payments = await storage.getCommissionPaymentsByStaff(req.params.staffId);
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Error fetching staff commission payments:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Payroll Routes
+  // ============================================================================
+
+  app.get("/api/payroll/payments", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const filters: any = {};
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+
+      const payments = await storage.getPayrollPayments(user.facilityId, filters);
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Error fetching payroll payments:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/payroll/payments/staff/:staffId", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      const payments = await storage.getPayrollPaymentsByStaff(req.params.staffId, startDate, endDate);
+      res.json(payments);
+    } catch (error: any) {
+      console.error("Error fetching staff payroll payments:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/payroll/payments", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const payment = await storage.createPayrollPayment({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+      res.status(201).json(payment);
+    } catch (error: any) {
+      console.error("Error creating payroll payment:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Dashboard Stats Route
   // ============================================================================
 
