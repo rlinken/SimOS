@@ -801,6 +801,8 @@ export const insertBookingSchema = createInsertSchema(bookings)
     userId: true, // DEPRECATED - use customerId instead
   })
   .extend({
+    startTime: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+    endTime: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
     bayIds: z.array(z.string()).min(1).optional(), // Optional - will be auto-assigned if not provided
     customerId: z.string(), // Required - the customer the booking is for
     createdBy: z.string().optional(), // Optional - staff member who created it
