@@ -122,7 +122,7 @@ export default function Schedule() {
   // Helper to check if a bay is booked at a specific hour
   const isBooked = (bayId: string, hour: number) => {
     const slotStart = setMinutes(setHours(dayStart, hour), 0);
-    const slotEnd = setMinutes(setHours(dayStart, hour), 59);
+    const slotEnd = setMinutes(setHours(dayStart, hour + 1), 0);
 
     return dayBookings.find(booking => {
       if (!booking.bayIds?.includes(bayId)) return false;
@@ -130,9 +130,9 @@ export default function Schedule() {
       const bookingStart = new Date(booking.startTime);
       const bookingEnd = new Date(booking.endTime);
 
-      return isWithinInterval(slotStart, { start: bookingStart, end: bookingEnd }) ||
-             isWithinInterval(slotEnd, { start: bookingStart, end: bookingEnd }) ||
-             (bookingStart <= slotStart && bookingEnd >= slotEnd);
+      // Booking overlaps with this hour if it starts before the hour ends AND ends after the hour starts
+      // Use < for bookingEnd comparison to exclude bookings that end exactly at the hour start
+      return bookingStart < slotEnd && bookingEnd > slotStart;
     });
   };
 
