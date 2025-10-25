@@ -194,18 +194,8 @@ export default function Schedule() {
                   data-testid={`bay-row-${bay.id}`}
                 >
                   {/* Bay Name Column */}
-                  <div className="p-4 border-r flex flex-col gap-2 bg-card/50">
-                    <div className="font-semibold text-base">{bay.name}</div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getTierBadgeVariant(bay.tier)} className="text-xs capitalize">
-                        {bay.tier}
-                      </Badge>
-                      {bay.status !== 'active' && (
-                        <Badge variant="destructive" className="text-xs capitalize">
-                          {bay.status}
-                        </Badge>
-                      )}
-                    </div>
+                  <div className="p-2 border-r flex items-center justify-center bg-card/50">
+                    <div className="font-medium text-sm text-center">{bay.name}</div>
                   </div>
 
                   {/* Time Slots */}
@@ -218,7 +208,7 @@ export default function Schedule() {
                         key={hour}
                         onClick={() => handleSlotClick(bay, hour)}
                         className={`
-                          p-3 border-r last:border-r-0 min-h-[100px] 
+                          p-2 border-r last:border-r-0 min-h-[60px] 
                           flex flex-col items-center justify-center text-xs 
                           transition-all cursor-pointer relative group
                           ${booking 
