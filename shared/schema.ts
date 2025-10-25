@@ -107,6 +107,71 @@ export const leadSourceEnum = pgEnum("lead_source", [
 ]);
 
 // ============================================================================
+// PERMISSIONS (for custom roles)
+// ============================================================================
+
+export const PERMISSIONS = [
+  // Dashboard & Analytics
+  "view_dashboard",
+  "view_reports",
+  "view_sales",
+  
+  // Bay Management
+  "view_bays",
+  "manage_bays",
+  "view_schedule",
+  
+  // Bookings
+  "view_bookings",
+  "create_bookings",
+  "manage_bookings",
+  
+  // Members & Memberships
+  "view_members",
+  "manage_members",
+  "view_memberships",
+  "manage_memberships",
+  
+  // Lessons
+  "view_lessons",
+  "create_lessons",
+  "manage_lessons",
+  "view_lesson_packages",
+  "manage_lesson_packages",
+  
+  // Fittings
+  "view_fittings",
+  "create_fittings",
+  "manage_fittings",
+  
+  // Products & Offers
+  "view_offers",
+  "manage_offers",
+  "view_transformation_packages",
+  "manage_transformation_packages",
+  
+  // Staff & Payroll
+  "view_staff",
+  "manage_staff",
+  "view_tasks",
+  "manage_tasks",
+  "view_payroll",
+  "manage_payroll",
+  
+  // CRM
+  "view_crm",
+  "manage_crm",
+  
+  // Settings
+  "manage_settings",
+  "manage_payment_settings",
+  "manage_facility_settings",
+  "manage_roles",
+] as const;
+
+export type Permission = typeof PERMISSIONS[number];
+
+// ============================================================================
 // SESSION TABLE (Required for Replit Auth)
 // ============================================================================
 
@@ -185,6 +250,7 @@ export const facilitiesRelations = relations(facilities, ({ many }) => ({
   membershipTiers: many(membershipTiers),
   lessons: many(lessons),
   fittings: many(fittings),
+  customRoles: many(customRoles),
 }));
 
 export const insertFacilitySchema = createInsertSchema(facilities).omit({
@@ -213,8 +279,9 @@ export const users = pgTable("users", {
     onDelete: "cascade",
   }),
   
-  // Role-based access
-  role: userRoleEnum("role").notNull().default("member"),
+  // Role-based access (use either system role OR custom role, not both)
+  role: userRoleEnum("role"),
+  customRoleId: varchar("custom_role_id").references(() => customRoles.id),
   
   // Membership
   membershipTierId: varchar("membership_tier_id").references(
@@ -246,6 +313,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   membershipTier: one(membershipTiers, {
     fields: [users.membershipTierId],
     references: [membershipTiers.id],
+  }),
+  customRole: one(customRoles, {
+    fields: [users.customRoleId],
+    references: [customRoles.id],
   }),
   bookings: many(bookings),
   instructedLessons: many(lessons, { relationName: "instructor" }),
@@ -321,6 +392,50 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   createdAt: true,
   updatedAt: true,
 });
+
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+
+// ============================================================================
+// CUSTOM ROLES TABLE (Per-facility custom roles with permissions)
+// ============================================================================
+
+export const customRoles = pgTable("custom_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  name: varchar("name").notNull(),
+  description: text("description"),
+  permissions: varchar("permissions").array().notNull().default(sql`ARRAY[]::varchar[]`),
+  
+  // System roles cannot be edited/deleted
+  isSystemRole: boolean("is_system_role").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const customRolesRelations = relations(customRoles, ({ one, many }) => ({
+  facility: one(facilities, {
+    fields: [customRoles.facilityId],
+    references: [facilities.id],
+  }),
+  users: many(users),
+}));
+
+export const insertCustomRoleSchema = createInsertSchema(customRoles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  isSystemRole: true,
+}).extend({
+  permissions: z.array(z.string()).default([]),
+});
+
+export type CustomRole = typeof customRoles.$inferSelect;
+export type InsertCustomRole = z.infer<typeof insertCustomRoleSchema>;
 
 export const updateLeadSchema = createInsertSchema(leads)
   .omit({
