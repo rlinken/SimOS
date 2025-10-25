@@ -35,7 +35,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [selectedDate] = useState(new Date());
-  const [selectedSlot, setSelectedSlot] = useState<{ bay: Bay; hour: number; minutes: number } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ bay: Bay; hour: number } | null>(null);
   const { toast } = useToast();
   const scheduleRef = useRef<HTMLDivElement>(null);
   const currentTimeRef = useRef<HTMLDivElement>(null);
@@ -64,32 +64,22 @@ export default function Dashboard() {
     isSameDay(parseISO(b.startTime), selectedDate)
   );
 
-  // Operating hours (6 AM to 10 PM) in 15-minute increments
-  // Generate time slots as decimal hours (e.g., 6.00, 6.25, 6.50, 6.75, 7.00...)
-  const timeSlots = Array.from({ length: 17 * 4 }, (_, i) => {
-    const totalQuarters = i;
-    const hour = Math.floor(totalQuarters / 4) + 6;
-    const minutes = (totalQuarters % 4) * 15;
-    return { hour, minutes, decimal: hour + minutes / 60 };
-  });
+  // Operating hours (6 AM to 10 PM) - render all hours for scrolling
+  const hours = Array.from({ length: 17 }, (_, i) => i + 6);
 
   // Check if a time slot is in the past
-  const isPastSlot = (slotHour: number, slotMinutes: number) => {
+  const isPastHour = (hour: number) => {
     if (!isSameDay(selectedDate, now)) {
       return false; // Don't gray out if viewing different date
     }
     const currentHour = now.getHours();
-    const currentMinutes = now.getMinutes();
-    
-    if (slotHour < currentHour) return true;
-    if (slotHour === currentHour && slotMinutes < currentMinutes) return true;
-    return false;
+    return hour < currentHour;
   };
 
-  const isBooked = (bayId: string, slotHour: number, slotMinutes: number) => {
+  const isBooked = (bayId: string, hour: number) => {
     const dayStart = startOfDay(selectedDate);
-    const slotStart = setMinutes(setHours(dayStart, slotHour), slotMinutes);
-    const slotEnd = setMinutes(setHours(dayStart, slotHour), slotMinutes + 14); // 15-minute slot
+    const slotStart = setMinutes(setHours(dayStart, hour), 0);
+    const slotEnd = setMinutes(setHours(dayStart, hour), 59);
 
     return todayBookings.find(booking => {
       const bookingStart = new Date(booking.startTime);
@@ -102,13 +92,13 @@ export default function Dashboard() {
     });
   };
 
-  const handleSlotClick = (bay: Bay, slotHour: number, slotMinutes: number) => {
-    const booking = isBooked(bay.id, slotHour, slotMinutes);
+  const handleSlotClick = (bay: Bay, hour: number) => {
+    const booking = isBooked(bay.id, hour);
     if (booking) {
       // Navigate to bookings page to view booking details
       setLocation('/bookings');
     } else if (bay.status === 'active') {
-      setSelectedSlot({ bay, hour: slotHour, minutes: slotMinutes });
+      setSelectedSlot({ bay, hour });
     }
   };
 
@@ -122,14 +112,14 @@ export default function Dashboard() {
     // Only show indicator during operating hours
     if (currentHour < 6 || currentHour >= 23) return null;
     
-    // Calculate position based on 15-minute slots
-    const currentDecimal = currentHour + currentMinute / 60;
-    const firstSlotDecimal = 6.0;
-    const slotPosition = (currentDecimal - firstSlotDecimal) * 4; // 4 slots per hour
-    const totalSlots = timeSlots.length;
+    // Find the index of the current hour in the hours array
+    const firstHour = hours[0];
+    const hourIndex = currentHour - firstHour;
+    const minuteFraction = currentMinute / 60;
+    const totalColumns = hours.length;
     
     // Position as percentage of the time columns only
-    const position = (slotPosition / totalSlots) * 100;
+    const position = ((hourIndex + minuteFraction) / totalColumns) * 100;
     
     return { position, hour: currentHour, minute: currentMinute };
   };
@@ -141,10 +131,8 @@ export default function Dashboard() {
     if (isSameDay(selectedDate, now) && scheduleRef.current) {
       const timer = setTimeout(() => {
         const currentHour = now.getHours();
-        const currentMinutes = now.getMinutes();
-        const currentDecimal = currentHour + currentMinutes / 60;
-        const slotIndex = Math.floor((currentDecimal - 6.0) * 4); // 4 slots per hour, starting at 6 AM
-        const scrollPosition = slotIndex * 150 - 600; // Scroll to show current time with context
+        const hourIndex = currentHour - 6; // 6 AM is index 0
+        const scrollPosition = hourIndex * 150 - 300; // Scroll to show current hour with some context before it
         scheduleRef.current?.scrollTo({
           left: Math.max(0, scrollPosition),
           behavior: 'smooth'
@@ -324,26 +312,22 @@ export default function Dashboard() {
             {/* Header Row */}
             <div 
               className="grid bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm"
-              style={{ gridTemplateColumns: `80px repeat(${timeSlots.length}, 150px)` }}
+              style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
             >
               <div className="p-3 font-semibold border-r border-b flex items-center justify-center sticky left-0 z-20 bg-gradient-to-br from-muted/80 to-muted/40">
                 <span className="text-xs">Bays</span>
               </div>
-              {timeSlots.map((slot, idx) => {
-                const showTime = slot.minutes === 0; // Show hour only on the hour
-                const isPast = isPastSlot(slot.hour, slot.minutes);
+              {hours.map(hour => {
+                const showAmPm = hour === 6 || hour === 12 || hour === 18;
+                const isPast = isPastHour(hour);
                 return (
                   <div 
-                    key={`${slot.hour}-${slot.minutes}`} 
+                    key={hour} 
                     className={`p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center ${isPast ? 'opacity-40' : ''}`}
                   >
-                    {showTime ? (
-                      <>
-                        <div className="text-sm font-semibold">{slot.hour > 12 ? slot.hour - 12 : slot.hour}</div>
-                        <div className="text-[9px] text-muted-foreground uppercase font-medium">{slot.hour < 12 ? 'am' : 'pm'}</div>
-                      </>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">:{slot.minutes.toString().padStart(2, '0')}</div>
+                    <div className="text-sm font-semibold">{hour > 12 ? hour - 12 : hour}</div>
+                    {showAmPm && (
+                      <div className="text-[9px] text-muted-foreground uppercase font-medium">{hour < 12 ? 'am' : 'pm'}</div>
                     )}
                   </div>
                 );
@@ -364,7 +348,7 @@ export default function Dashboard() {
                 <div 
                   key={bay.id} 
                   className="grid border-b last:border-b-0 transition-all"
-                  style={{ gridTemplateColumns: `80px repeat(${timeSlots.length}, 150px)` }}
+                  style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
                 >
                   {/* Bay Name Column */}
                   <div className="p-2 border-r flex items-center justify-center bg-muted/30 sticky left-0 z-10">
@@ -372,15 +356,15 @@ export default function Dashboard() {
                   </div>
 
                   {/* Time Slots */}
-                  {timeSlots.map(slot => {
-                    const booking = isBooked(bay.id, slot.hour, slot.minutes);
-                    const isPast = isPastSlot(slot.hour, slot.minutes);
+                  {hours.map(hour => {
+                    const booking = isBooked(bay.id, hour);
+                    const isPast = isPastHour(hour);
                     const isAvailable = !booking && bay.status === 'active' && !isPast;
 
                     return (
                       <div
-                        key={`${slot.hour}-${slot.minutes}`}
-                        onClick={() => !isPast && handleSlotClick(bay, slot.hour, slot.minutes)}
+                        key={hour}
+                        onClick={() => !isPast && handleSlotClick(bay, hour)}
                         className={`
                           p-2 border-r last:border-r-0 min-h-[60px] 
                           flex flex-col items-center justify-center text-xs 
@@ -393,7 +377,7 @@ export default function Dashboard() {
                             : 'bg-muted/50 cursor-not-allowed'
                           }
                         `}
-                        data-testid={`slot-${bay.id}-${slot.hour}-${slot.minutes}`}
+                        data-testid={`slot-${bay.id}-${hour}`}
                       >
                         {booking ? (
                           <div className="text-center space-y-1">
@@ -455,7 +439,6 @@ export default function Dashboard() {
         onClose={() => setSelectedSlot(null)}
         bay={selectedSlot?.bay}
         hour={selectedSlot?.hour}
-        minutes={selectedSlot?.minutes}
         selectedDate={selectedDate}
       />
     </div>
@@ -476,14 +459,12 @@ function QuickBookDialog({
   onClose, 
   bay, 
   hour, 
-  minutes,
   selectedDate 
 }: { 
   open: boolean; 
   onClose: () => void; 
   bay?: Bay; 
   hour?: number;
-  minutes?: number;
   selectedDate: Date;
 }) {
   const [duration, setDuration] = useState(1);
@@ -574,10 +555,10 @@ function QuickBookDialog({
     setManualPhone("");
   };
 
-  if (!bay || hour === undefined || minutes === undefined) return null;
+  if (!bay || hour === undefined) return null;
 
-  const startTime = setMinutes(setHours(startOfDay(selectedDate), hour), minutes);
-  const endTime = addHours(startTime, duration);
+  const startTime = setHours(startOfDay(selectedDate), hour);
+  const endTime = setHours(startOfDay(selectedDate), hour + duration);
 
   const filteredCustomers = customers.filter(c => {
     const searchLower = customerSearch.toLowerCase();
