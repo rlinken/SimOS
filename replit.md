@@ -12,6 +12,8 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 **Technical Implementations:**
 *   **Database:** PostgreSQL with a multi-tenant schema where all queries are filtered by `facilityId` (except for super-admin). Uses `varchar` UUIDs for primary keys and UTC timestamps.
 *   **Authentication:** Replit Auth (OIDC) integrated with role-based access control (super_admin, owner, administrator, instructor, club_fitter, support, customer, member).
+*   **Custom Roles System:** Facility-specific custom roles with 50 granular permissions covering all platform features. System roles (owner, administrator, etc.) are protected from editing/deletion. Users can be assigned either a system role OR a custom role.
+*   **Staff Payment Structures:** Flexible payment types including hourly (default), commission, salary, and tips. Each staff member has paymentType field, hourlyRate, salary, and commissionRate fields in the database.
 *   **Backend:** Express.js with a comprehensive API supporting CRUD operations, including PATCH for updates.
 *   **Frontend:** Vite with React, utilizing TanStack Query v5 for data fetching and Shadcn components for UI.
 *   **Smart Bay Assignment:** An algorithm auto-assigns the bay with the lowest usage hours when a booking is made without a specified bayId.
