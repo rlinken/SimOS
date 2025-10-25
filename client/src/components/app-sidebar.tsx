@@ -8,6 +8,7 @@ import {
   Settings,
   Building2,
   CreditCard,
+  User as UserIcon,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -33,6 +34,7 @@ function getMenuItems(user: User | undefined) {
   const isSuperAdmin = user.role === "super_admin";
   const isFacilityAdmin = user.role === "facility_admin";
   const isInstructor = user.role === "instructor";
+  const isCustomer = user.role === "customer" || user.role === "member";
 
   const items = [];
 
@@ -42,6 +44,15 @@ function getMenuItems(user: User | undefined) {
     url: "/",
     icon: LayoutDashboard,
   });
+
+  // Customer-only items
+  if (isCustomer) {
+    items.push({
+      title: "Account",
+      url: "/account",
+      icon: UserIcon,
+    });
+  }
 
   // Super Admin only
   if (isSuperAdmin) {

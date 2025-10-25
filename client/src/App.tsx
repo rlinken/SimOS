@@ -22,6 +22,7 @@ import FacilitiesPage from "@/pages/facilities";
 import SettingsPage from "@/pages/settings";
 import OnboardingPage from "@/pages/onboarding";
 import WidgetCalendar from "@/pages/widget-calendar";
+import AccountPage from "@/pages/account";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -32,6 +33,7 @@ function AuthenticatedRoutes() {
   return (
     <Switch>
       <Route path="/" component={DashboardComponent} />
+      <Route path="/account" component={AccountPage} />
       <Route path="/onboarding" component={OnboardingPage} />
       <Route path="/bays" component={BaysPage} />
       <Route path="/bookings" component={BookingsPage} />
