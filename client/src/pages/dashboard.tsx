@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -25,7 +26,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import { format, startOfDay, addHours, isSameDay, parseISO, isAfter, setHours, setMinutes, isWithinInterval } from "date-fns";
+import { format, startOfDay, addHours, addMinutes, isSameDay, parseISO, isAfter, setHours, setMinutes, isWithinInterval } from "date-fns";
 import { useState, useEffect, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -467,7 +468,7 @@ function QuickBookDialog({
   hour?: number;
   selectedDate: Date;
 }) {
-  const [duration, setDuration] = useState(1);
+  const [durationMinutes, setDurationMinutes] = useState(60); // Duration in minutes
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -536,7 +537,7 @@ function QuickBookDialog({
     setManualName("");
     setManualEmail("");
     setManualPhone("");
-    setDuration(1);
+    setDurationMinutes(60);
     onClose();
   };
 
@@ -558,7 +559,7 @@ function QuickBookDialog({
   if (!bay || hour === undefined) return null;
 
   const startTime = setHours(startOfDay(selectedDate), hour);
-  const endTime = setHours(startOfDay(selectedDate), hour + duration);
+  const endTime = addMinutes(startTime, durationMinutes);
 
   const filteredCustomers = customers.filter(c => {
     const searchLower = customerSearch.toLowerCase();
@@ -636,16 +637,32 @@ function QuickBookDialog({
 
           {/* Duration */}
           <div className="space-y-2">
-            <Label htmlFor="duration">Duration (hours)</Label>
-            <Input
-              id="duration"
-              type="number"
-              min="1"
-              max="8"
-              value={duration}
-              onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
-              data-testid="input-duration"
-            />
+            <Label htmlFor="duration">Duration</Label>
+            <Select 
+              value={durationMinutes.toString()} 
+              onValueChange={(value) => setDurationMinutes(parseInt(value))}
+            >
+              <SelectTrigger id="duration" data-testid="select-duration">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="15">15 minutes</SelectItem>
+                <SelectItem value="30">30 minutes</SelectItem>
+                <SelectItem value="45">45 minutes</SelectItem>
+                <SelectItem value="60">1 hour</SelectItem>
+                <SelectItem value="75">1 hour 15 minutes</SelectItem>
+                <SelectItem value="90">1 hour 30 minutes</SelectItem>
+                <SelectItem value="105">1 hour 45 minutes</SelectItem>
+                <SelectItem value="120">2 hours</SelectItem>
+                <SelectItem value="150">2 hours 30 minutes</SelectItem>
+                <SelectItem value="180">3 hours</SelectItem>
+                <SelectItem value="240">4 hours</SelectItem>
+                <SelectItem value="300">5 hours</SelectItem>
+                <SelectItem value="360">6 hours</SelectItem>
+                <SelectItem value="420">7 hours</SelectItem>
+                <SelectItem value="480">8 hours</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Customer Search/Select */}
