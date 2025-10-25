@@ -135,7 +135,7 @@ export default function Schedule() {
     const slotStart = setMinutes(setHours(dayStart, hour), 0);
     const slotEnd = setMinutes(setHours(dayStart, hour + 1), 0);
 
-    const found = dayBookings.find(booking => {
+    return dayBookings.find(booking => {
       if (!booking.bayIds?.includes(bayId)) return false;
       
       const bookingStart = new Date(booking.startTime);
@@ -143,25 +143,8 @@ export default function Schedule() {
 
       // Booking overlaps with this hour if it starts before the hour ends AND ends after the hour starts
       // Use < for bookingEnd comparison to exclude bookings that end exactly at the hour start
-      const overlaps = bookingStart < slotEnd && bookingEnd > slotStart;
-      
-      // Debug logging for hour 19 and 20 (7 PM and 8 PM)
-      if ((hour === 19 || hour === 20) && booking.bayIds.includes(bayId)) {
-        console.log(`Hour ${hour}, Bay ${bayId}:`, {
-          slotStart: slotStart.toISOString(),
-          slotEnd: slotEnd.toISOString(),
-          bookingStart: bookingStart.toISOString(),
-          bookingEnd: bookingEnd.toISOString(),
-          overlaps,
-          check1: bookingStart < slotEnd,
-          check2: bookingEnd > slotStart
-        });
-      }
-      
-      return overlaps;
+      return bookingStart < slotEnd && bookingEnd > slotStart;
     });
-    
-    return found;
   };
 
   const getTierColor = (tier: string) => {
@@ -265,6 +248,18 @@ export default function Schedule() {
     
     // Calculate pixel position based on grid layout constants
     const pixelPosition = BAY_COLUMN_WIDTH + ((hourIndex + minuteFraction) * HOUR_COLUMN_WIDTH);
+    
+    console.log('Time Indicator Calculation:', {
+      currentTime: `${currentHour}:${currentMinute.toString().padStart(2, '0')}`,
+      firstHour,
+      hourIndex,
+      minuteFraction,
+      calculation: `${BAY_COLUMN_WIDTH} + ((${hourIndex} + ${minuteFraction.toFixed(3)}) * ${HOUR_COLUMN_WIDTH})`,
+      pixelPosition: `${pixelPosition}px`,
+      expectedColumn: `Hour ${currentHour} (index ${hourIndex})`,
+      columnStart: `${BAY_COLUMN_WIDTH + (hourIndex * HOUR_COLUMN_WIDTH)}px`,
+      columnEnd: `${BAY_COLUMN_WIDTH + ((hourIndex + 1) * HOUR_COLUMN_WIDTH)}px`
+    });
     
     return { pixelPosition, hour: currentHour, minute: currentMinute, now };
   };
