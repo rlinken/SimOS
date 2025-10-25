@@ -20,6 +20,8 @@ import {
   Mail,
   Phone,
   GraduationCap,
+  Package,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
@@ -127,83 +129,120 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Quick Actions - Horizontal */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Link href="/schedule">
-          <button
-            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-            data-testid="button-new-booking"
-          >
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Plus className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <div className="font-medium">New Booking</div>
-                <div className="text-xs text-muted-foreground">
-                  Schedule bay rental
-                </div>
-              </div>
+      {/* Two Column Layout: Next Bookings + Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Next Bookings */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold">Next Bookings</h3>
+            <Clock className="w-5 h-5 text-muted-foreground" />
+          </div>
+          {upcomingBookings.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-20" />
+              <p>No upcoming bookings</p>
             </div>
-          </button>
-        </Link>
+          ) : (
+            <div className="space-y-3">
+              {upcomingBookings.slice(0, 5).map((booking) => (
+                <div
+                  key={booking.id}
+                  className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
+                  onClick={() => setLocation('/schedule')}
+                  data-testid={`booking-item-${booking.id}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">
+                        {booking.bays.map(b => b.name).join(', ')}
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {booking.user?.firstName} {booking.user?.lastName}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-3">
+                    <div className="text-sm font-mono">
+                      {format(parseISO(booking.startTime), "h:mm a")}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(parseISO(booking.startTime), "MMM d")}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
-        <Link href="/members">
-          <button
-            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-            data-testid="button-manage-members"
-          >
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Users className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <div className="font-medium">Manage Members</div>
-                <div className="text-xs text-muted-foreground">
-                  View and add
+        {/* Right Column: Quick Actions */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold">Quick Actions</h3>
+          </div>
+          <div className="space-y-2">
+            <Link href="/members">
+              <button
+                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
+                data-testid="button-manage-members"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="font-medium">Manage Members</div>
                 </div>
-              </div>
-            </div>
-          </button>
-        </Link>
-        
-        <Link href="/lessons">
-          <button
-            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-            data-testid="button-schedule-lessons"
-          >
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <GraduationCap className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <div className="font-medium">Schedule Lessons</div>
-                <div className="text-xs text-muted-foreground">
-                  Book lessons
-                </div>
-              </div>
-            </div>
-          </button>
-        </Link>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </button>
+            </Link>
 
-        <Link href="/fittings">
-          <button
-            className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2"
-            data-testid="button-schedule-fitting"
-          >
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Target className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <div className="font-medium">Schedule Fitting</div>
-                <div className="text-xs text-muted-foreground">
-                  Book club fitting
+            <Link href="/lessons">
+              <button
+                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
+                data-testid="button-schedule-lessons"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <GraduationCap className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="font-medium">Schedule Lessons</div>
                 </div>
-              </div>
-            </div>
-          </button>
-        </Link>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </button>
+            </Link>
+
+            <Link href="/fittings">
+              <button
+                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
+                data-testid="button-schedule-fitting"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Target className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="font-medium">Schedule Fitting</div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </button>
+            </Link>
+
+            <Link href="/products">
+              <button
+                className="w-full p-4 text-left rounded-lg border hover-elevate active-elevate-2 flex items-center justify-between group"
+                data-testid="button-products"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Package className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="font-medium">Products</div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </button>
+            </Link>
+          </div>
+        </Card>
       </div>
 
       {/* Today's Schedule - Matching Full Schedule Page */}
@@ -316,51 +355,6 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </Card>
-
-      {/* Next Bookings - Below Schedule */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">Next Bookings</h3>
-          <Clock className="w-5 h-5 text-muted-foreground" />
-        </div>
-        {upcomingBookings.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Calendar className="w-12 h-12 mx-auto mb-2 opacity-20" />
-            <p>No upcoming bookings</p>
-          </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-3">
-            {upcomingBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="flex items-center justify-between p-4 rounded-lg border hover-elevate cursor-pointer"
-                onClick={() => setLocation('/schedule')}
-                data-testid={`booking-item-${booking.id}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">
-                      {booking.bays.map(b => b.name).join(', ')}
-                    </div>
-                    <div className="text-sm text-muted-foreground truncate">
-                      {booking.user?.firstName} {booking.user?.lastName}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0 ml-3">
-                  <div className="text-sm font-mono">
-                    {format(parseISO(booking.startTime), "h:mm a")}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {format(parseISO(booking.startTime), "MMM d")}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </Card>
 
       {/* Quick Booking Dialog */}
