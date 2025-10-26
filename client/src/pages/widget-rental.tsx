@@ -273,7 +273,11 @@ export default function WidgetRental() {
                 return (
                   <button
                     key={offset}
-                    onClick={() => setSelectedDate(date)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSelectedDate(date);
+                    }}
                     className={`flex flex-col items-center justify-center h-20 rounded-lg border-2 transition-all ${
                       isSelected
                         ? "widget-rental-btn-primary border-transparent shadow-md"
@@ -321,8 +325,10 @@ export default function WidgetRental() {
                 return (
                   <button
                     key={time}
+                    type="button"
                     disabled={!available}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
                       setSelectedTime(time);
                       setShowBookingForm(true);
                     }}
@@ -453,7 +459,11 @@ export default function WidgetRental() {
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
-                  onClick={handleBooking}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleBooking();
+                  }}
                   disabled={createBookingMutation.isPending}
                   className="widget-rental-btn-primary flex-1 h-12 rounded-lg font-semibold flex items-center justify-center gap-2 transition-opacity"
                   data-testid="button-confirm-booking"

@@ -297,7 +297,11 @@ export default function WidgetFitting() {
                     return (
                       <button
                         key={offset}
-                        onClick={() => setSelectedDate(date)}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedDate(date);
+                        }}
                         className={`flex flex-col items-center justify-center h-20 rounded-lg border-2 transition-all ${
                           isSelected
                             ? "widget-fitting-btn-primary border-transparent shadow-md"
@@ -345,8 +349,10 @@ export default function WidgetFitting() {
                     return (
                       <button
                         key={time}
+                        type="button"
                         disabled={!available}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.preventDefault();
                           setSelectedTime(time);
                           setShowBookingForm(true);
                         }}

@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 type TimeUnit = "minutes" | "hours" | "days";
 
@@ -120,6 +121,49 @@ export default function SettingsPage() {
     enabled: !!facilityId,
   });
 
+  // Widget configurations
+  const { data: rentalWidgetConfig } = useQuery<any>({
+    queryKey: [`/api/widget-config/${facilityId}/rental`],
+    enabled: !!facilityId,
+  });
+
+  const { data: lessonWidgetConfig } = useQuery<any>({
+    queryKey: [`/api/widget-config/${facilityId}/lesson`],
+    enabled: !!facilityId,
+  });
+
+  const { data: fittingWidgetConfig } = useQuery<any>({
+    queryKey: [`/api/widget-config/${facilityId}/fitting`],
+    enabled: !!facilityId,
+  });
+
+  // Widget config mutations
+  const updateWidgetConfigMutation = useMutation({
+    mutationFn: async ({ widgetType, config }: { widgetType: string; config: any }) => {
+      const response = await fetch(`/api/widget-config/${facilityId}/${widgetType}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      if (!response.ok) throw new Error("Failed to update widget config");
+      return response.json();
+    },
+    onSuccess: (_, { widgetType }) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/widget-config/${facilityId}/${widgetType}`] });
+      toast({
+        title: "Success",
+        description: "Widget customization saved",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save widget customization",
+        variant: "destructive",
+      });
+    },
+  });
+
   useEffect(() => {
     if (paymentSettings) {
       setPaymentProvider(paymentSettings.paymentProvider || "stripe");
@@ -187,6 +231,221 @@ export default function SettingsPage() {
       description: `${label} copied to clipboard`,
     });
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Widget Customization Component
+  const WidgetCustomization = ({ widgetType, config }: { widgetType: string; config: any }) => {
+    const [localConfig, setLocalConfig] = useState(config || {});
+
+    useEffect(() => {
+      setLocalConfig(config || {});
+    }, [config]);
+
+    const handleSave = () => {
+      updateWidgetConfigMutation.mutate({ widgetType, config: localConfig });
+    };
+
+    const updateField = (field: string, value: any) => {
+      setLocalConfig((prev: any) => ({ ...prev, [field]: value }));
+    };
+
+    return (
+      <div className="space-y-6 border-b pb-6">
+        <div className="flex items-center gap-2">
+          <Palette className="w-5 h-5 text-primary" />
+          <h3 className="text-lg font-semibold">Customize Widget Appearance</h3>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Primary Color */}
+          <div className="space-y-2">
+            <Label htmlFor={`${widgetType}-primary-color`}>Primary Color</Label>
+            <div className="flex gap-2">
+              <Input
+                id={`${widgetType}-primary-color`}
+                type="color"
+                value={localConfig.primaryColor || "#22c55e"}
+                onChange={(e) => updateField("primaryColor", e.target.value)}
+                className="w-20 h-10 cursor-pointer"
+                data-testid={`input-${widgetType}-primary-color`}
+              />
+              <Input
+                value={localConfig.primaryColor || "#22c55e"}
+                onChange={(e) => updateField("primaryColor", e.target.value)}
+                placeholder="#22c55e"
+                className="flex-1 font-mono text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Accent Color */}
+          <div className="space-y-2">
+            <Label htmlFor={`${widgetType}-accent-color`}>Accent Color</Label>
+            <div className="flex gap-2">
+              <Input
+                id={`${widgetType}-accent-color`}
+                type="color"
+                value={localConfig.accentColor || "#16a34a"}
+                onChange={(e) => updateField("accentColor", e.target.value)}
+                className="w-20 h-10 cursor-pointer"
+                data-testid={`input-${widgetType}-accent-color`}
+              />
+              <Input
+                value={localConfig.accentColor || "#16a34a"}
+                onChange={(e) => updateField("accentColor", e.target.value)}
+                placeholder="#16a34a"
+                className="flex-1 font-mono text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Background Color */}
+          <div className="space-y-2">
+            <Label htmlFor={`${widgetType}-bg-color`}>Background Color</Label>
+            <div className="flex gap-2">
+              <Input
+                id={`${widgetType}-bg-color`}
+                type="color"
+                value={localConfig.backgroundColor || "#ffffff"}
+                onChange={(e) => updateField("backgroundColor", e.target.value)}
+                className="w-20 h-10 cursor-pointer"
+                data-testid={`input-${widgetType}-bg-color`}
+              />
+              <Input
+                value={localConfig.backgroundColor || "#ffffff"}
+                onChange={(e) => updateField("backgroundColor", e.target.value)}
+                placeholder="#ffffff"
+                className="flex-1 font-mono text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Text Color */}
+          <div className="space-y-2">
+            <Label htmlFor={`${widgetType}-text-color`}>Text Color</Label>
+            <div className="flex gap-2">
+              <Input
+                id={`${widgetType}-text-color`}
+                type="color"
+                value={localConfig.textColor || "#000000"}
+                onChange={(e) => updateField("textColor", e.target.value)}
+                className="w-20 h-10 cursor-pointer"
+                data-testid={`input-${widgetType}-text-color`}
+              />
+              <Input
+                value={localConfig.textColor || "#000000"}
+                onChange={(e) => updateField("textColor", e.target.value)}
+                placeholder="#000000"
+                className="flex-1 font-mono text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Border Radius */}
+          <div className="space-y-2">
+            <Label htmlFor={`${widgetType}-border-radius`}>Border Radius</Label>
+            <Select
+              value={localConfig.borderRadius || "8px"}
+              onValueChange={(value) => updateField("borderRadius", value)}
+            >
+              <SelectTrigger data-testid={`select-${widgetType}-border-radius`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0px">None (0px)</SelectItem>
+                <SelectItem value="4px">Small (4px)</SelectItem>
+                <SelectItem value="8px">Medium (8px)</SelectItem>
+                <SelectItem value="12px">Large (12px)</SelectItem>
+                <SelectItem value="16px">Extra Large (16px)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Custom Title */}
+          <div className="space-y-2">
+            <Label htmlFor={`${widgetType}-custom-title`}>Custom Title (optional)</Label>
+            <Input
+              id={`${widgetType}-custom-title`}
+              value={localConfig.customTitle || ""}
+              onChange={(e) => updateField("customTitle", e.target.value)}
+              placeholder="Leave empty to use default"
+              data-testid={`input-${widgetType}-custom-title`}
+            />
+          </div>
+
+          {/* Custom Description */}
+          <div className="space-y-2">
+            <Label htmlFor={`${widgetType}-custom-description`}>Custom Description (optional)</Label>
+            <Textarea
+              id={`${widgetType}-custom-description`}
+              value={localConfig.customDescription || ""}
+              onChange={(e) => updateField("customDescription", e.target.value)}
+              placeholder="Leave empty to use default"
+              rows={2}
+              data-testid={`input-${widgetType}-custom-description`}
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Show Logo */}
+          <div className="flex items-center justify-between space-x-2">
+            <Label htmlFor={`${widgetType}-show-logo`}>Show Facility Logo</Label>
+            <Switch
+              id={`${widgetType}-show-logo`}
+              checked={localConfig.showLogo !== false}
+              onCheckedChange={(checked) => updateField("showLogo", checked)}
+              data-testid={`switch-${widgetType}-show-logo`}
+            />
+          </div>
+
+          {/* Show Description */}
+          <div className="flex items-center justify-between space-x-2">
+            <Label htmlFor={`${widgetType}-show-description`}>Show Description</Label>
+            <Switch
+              id={`${widgetType}-show-description`}
+              checked={localConfig.showDescription !== false}
+              onCheckedChange={(checked) => updateField("showDescription", checked)}
+              data-testid={`switch-${widgetType}-show-description`}
+            />
+          </div>
+
+          {/* Show Pricing */}
+          <div className="flex items-center justify-between space-x-2">
+            <Label htmlFor={`${widgetType}-show-pricing`}>Show Pricing</Label>
+            <Switch
+              id={`${widgetType}-show-pricing`}
+              checked={localConfig.showPricing !== false}
+              onCheckedChange={(checked) => updateField("showPricing", checked)}
+              data-testid={`switch-${widgetType}-show-pricing`}
+            />
+          </div>
+
+          {/* Require Phone */}
+          <div className="flex items-center justify-between space-x-2">
+            <Label htmlFor={`${widgetType}-require-phone`}>Require Phone Number</Label>
+            <Switch
+              id={`${widgetType}-require-phone`}
+              checked={localConfig.requirePhone === true}
+              onCheckedChange={(checked) => updateField("requirePhone", checked)}
+              data-testid={`switch-${widgetType}-require-phone`}
+            />
+          </div>
+        </div>
+
+        <Button
+          onClick={handleSave}
+          disabled={updateWidgetConfigMutation.isPending}
+          data-testid={`button-save-${widgetType}-customization`}
+        >
+          {updateWidgetConfigMutation.isPending ? "Saving..." : "Save Customization"}
+        </Button>
+      </div>
+    );
   };
 
   if (!facilityId) {
@@ -459,6 +718,8 @@ export default function SettingsPage() {
 
               <TabsContent value="rental" className="space-y-6">
                 <div className="space-y-4">
+                  <WidgetCustomization widgetType="rental" config={rentalWidgetConfig} />
+                  
                   <div>
                     <Label htmlFor="rental-widget-url">Widget URL</Label>
                     <div className="flex gap-2 mt-2">
@@ -543,6 +804,8 @@ export default function SettingsPage() {
 
               <TabsContent value="lesson" className="space-y-6">
                 <div className="space-y-4">
+                  <WidgetCustomization widgetType="lesson" config={lessonWidgetConfig} />
+                  
                   <div>
                     <Label htmlFor="lesson-widget-url">Widget URL</Label>
                     <div className="flex gap-2 mt-2">
@@ -613,6 +876,8 @@ export default function SettingsPage() {
 
               <TabsContent value="fitting" className="space-y-6">
                 <div className="space-y-4">
+                  <WidgetCustomization widgetType="fitting" config={fittingWidgetConfig} />
+                  
                   <div>
                     <Label htmlFor="fitting-widget-url">Widget URL</Label>
                     <div className="flex gap-2 mt-2">
