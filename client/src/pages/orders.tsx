@@ -454,6 +454,7 @@ export default function OrdersPage() {
       {/* Record Payment Dialog */}
       {selectedOrderForPayment && (
         <RecordPaymentDialog
+          key={selectedOrderForPayment.id}
           open={recordPaymentDialogOpen}
           onOpenChange={(open) => {
             setRecordPaymentDialogOpen(open);
