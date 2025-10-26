@@ -2932,10 +2932,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(req.user.claims.sub);
       const facilityId = user?.facilityId;
       const orderId = req.params.orderId;
-      const { orderType, paymentMethod, paymentReference, notes } = req.body;
+      const { orderType, paymentMethod, paymentReference, notes, amountPaid } = req.body;
 
-      if (!orderType || !paymentMethod) {
-        return res.status(400).json({ message: "Order type and payment method are required" });
+      if (!orderType || !paymentMethod || !amountPaid) {
+        return res.status(400).json({ message: "Order type, payment method, and amount are required" });
+      }
+
+      // Validate amount is a positive number
+      const amount = parseFloat(amountPaid);
+      if (isNaN(amount) || amount < 0) {
+        return res.status(400).json({ message: "Invalid payment amount" });
       }
 
       // Update the appropriate table based on order type
@@ -2949,6 +2955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateBooking(orderId, {
             paymentStatus: "paid",
             paymentMethod: paymentMethod === "external_pos" ? "pay_at_desk" : paymentMethod,
+            amount: amount.toFixed(2),
             notes: notes ? `${booking.notes ? booking.notes + "\n\n" : ""}Payment recorded: ${paymentMethod}${paymentReference ? ` (${paymentReference})` : ""}${notes ? ` - ${notes}` : ""}` : booking.notes,
           });
           break;
@@ -2967,6 +2974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.updateBooking(lesson.bookingId, {
                 paymentStatus: "paid",
                 paymentMethod: paymentMethod === "external_pos" ? "pay_at_desk" : paymentMethod,
+                amount: amount.toFixed(2),
                 notes: notes ? `${booking.notes ? booking.notes + "\n\n" : ""}Payment recorded: ${paymentMethod}${paymentReference ? ` (${paymentReference})` : ""}${notes ? ` - ${notes}` : ""}` : booking.notes,
               });
             }
@@ -2991,6 +2999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.updateBooking(fitting.bookingId, {
                 paymentStatus: "paid",
                 paymentMethod: paymentMethod === "external_pos" ? "pay_at_desk" : paymentMethod,
+                amount: amount.toFixed(2),
                 notes: notes ? `${booking.notes ? booking.notes + "\n\n" : ""}Payment recorded: ${paymentMethod}${paymentReference ? ` (${paymentReference})` : ""}${notes ? ` - ${notes}` : ""}` : booking.notes,
               });
             }

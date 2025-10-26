@@ -37,6 +37,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { CustomerProfileDialog } from "@/components/customer-profile-dialog";
 import { CollectPaymentDialog } from "@/components/collect-payment-dialog";
+import { RecordPaymentDialog } from "@/components/record-payment-dialog";
 
 interface Order {
   id: string;
@@ -82,6 +83,7 @@ export default function OrdersPage() {
   const [customerProfileOpen, setCustomerProfileOpen] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<Order | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [recordPaymentDialogOpen, setRecordPaymentDialogOpen] = useState(false);
 
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders", typeFilter, statusFilter, dateFilter],
@@ -298,6 +300,7 @@ export default function OrdersPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Payment Method</TableHead>
                 <TableHead>Referred By</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -313,6 +316,7 @@ export default function OrdersPage() {
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   </TableRow>
                 ))
               ) : filteredOrders && filteredOrders.length > 0 ? (
@@ -395,12 +399,27 @@ export default function OrdersPage() {
                           ? `${order.referredBy.firstName} ${order.referredBy.lastName}`
                           : "—"}
                       </TableCell>
+                      <TableCell>
+                        {order.paymentStatus === "pending" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOrderForPayment(order);
+                              setRecordPaymentDialogOpen(true);
+                            }}
+                            data-testid={`button-record-payment-${order.id}`}
+                          >
+                            Record Payment
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12">
+                  <TableCell colSpan={10} className="text-center py-12">
                     <div className="flex flex-col items-center gap-2">
                       <Package className="w-12 h-12 text-muted-foreground" />
                       <p className="text-lg font-medium">No orders found</p>
@@ -431,6 +450,24 @@ export default function OrdersPage() {
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}
       />
+
+      {/* Record Payment Dialog */}
+      {selectedOrderForPayment && (
+        <RecordPaymentDialog
+          open={recordPaymentDialogOpen}
+          onOpenChange={(open) => {
+            setRecordPaymentDialogOpen(open);
+            if (!open) {
+              setSelectedOrderForPayment(null);
+            }
+          }}
+          orderId={selectedOrderForPayment.id}
+          orderType={selectedOrderForPayment.type}
+          customerName={`${selectedOrderForPayment.customer.firstName} ${selectedOrderForPayment.customer.lastName}`}
+          orderDescription={selectedOrderForPayment.description}
+          amount={selectedOrderForPayment.amount}
+        />
+      )}
     </div>
   );
 }

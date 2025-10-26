@@ -44,6 +44,7 @@ interface RecordPaymentDialogProps {
 }
 
 const recordPaymentSchema = z.object({
+  amountPaid: z.string().min(1, "Amount is required"),
   paymentMethod: z.enum(["cash", "check", "external_pos", "bank_transfer", "other"]),
   paymentReference: z.string().optional(),
   notes: z.string().optional(),
@@ -66,6 +67,7 @@ export function RecordPaymentDialog({
   const form = useForm<RecordPaymentFormData>({
     resolver: zodResolver(recordPaymentSchema),
     defaultValues: {
+      amountPaid: amount,
       paymentMethod: "cash",
       paymentReference: "",
       notes: "",
@@ -138,6 +140,50 @@ export function RecordPaymentDialog({
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="amountPaid"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount Paid</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={parseFloat(amount)}
+                          placeholder="0.00"
+                          className="pl-9"
+                          data-testid="input-amount-paid"
+                          {...field}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value);
+                            // Validate amount
+                            const numValue = parseFloat(value);
+                            const maxAmount = parseFloat(amount);
+                            if (numValue > maxAmount) {
+                              form.setError("amountPaid", {
+                                message: `Amount cannot exceed order total ($${maxAmount.toFixed(2)})`,
+                              });
+                            } else if (numValue < 0) {
+                              form.setError("amountPaid", {
+                                message: "Amount must be positive",
+                              });
+                            } else {
+                              form.clearErrors("amountPaid");
+                            }
+                          }}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="paymentMethod"
