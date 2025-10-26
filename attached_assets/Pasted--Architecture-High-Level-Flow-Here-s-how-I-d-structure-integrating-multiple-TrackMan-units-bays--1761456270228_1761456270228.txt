@@ -1,0 +1,115 @@
+✅ Architecture/High-Level Flow
+
+Here’s how I’d structure integrating multiple TrackMan units (“bays”) into a unified software system:
+
+Each unit registers/identifies itself
+
+Each bay or radar unit (we’ll call it a “device”) needs a unique ID (bayId, unit ID, or similar) in your system.
+
+When a unit starts a session you link it to your internal “bay” object in your database.
+
+In the API from TrackMan you’ll often see something like "bayId" or “targetId” etc. (see docs) 
+docs.trackmanrange.com
++2
+docs.trackmanrange.com
++2
+
+Authentication & secure tokens
+
+Your software will request an OAuth2 or similar token from TrackMan’s auth endpoint. 
+docs.trackmanrange.com
++1
+
+Use that token for subsequent API calls.
+
+Manage refresh tokens, expiry, etc (so you don’t lose connectivity).
+
+Session management per unit
+
+For a given unit: start session → receive sessionId → subscribe/listen for real-time measurements or fetch post-session data.
+
+For multiple units you run that for each device concurrently or via a multi-tenant architecture.
+
+Streaming/real-time data vs post-session data
+
+If you want live telemetry during a session: the API may provide WebSocket or webhook endpoints (or “feed” endpoints) where TrackMan pushes measurement data. Example: “measurements” link in the docs. 
+docs.trackmanrange.com
++1
+
+If you only care about the data after the session ends: then you’ll poll or query the post-session endpoints (list sessions, get data, etc).
+
+Your software handles aggregation, mapping bay → data
+
+Your DB will have something like: Bay_A = TrackManUnit_001, Bay_B = TrackManUnit_002.
+
+When data arrives from unit 001 you tag it with Bay_A in your system; same for unit 002.
+
+Then your internal dashboard, analytics, etc can treat all units uniformly.
+
+Error handling, concurrency & scale
+
+With multiple units you need to ensure:
+
+Data from each doesn’t collide.
+
+Unique sessionIDs per unit.
+
+Your API rate-limits or quotas are respected (TrackMan may have limits).
+
+Logging/tracking which bay produced which data.
+
+If you go live and streaming many bays simultaneously you may need load balancing, queueing.
+
+🛠 Step-By-Step for your setup
+
+Given your interest in building out multiple bays for your coaching software, here’s a recommended sequence:
+
+Step 1: Get API credentials
+
+Contact TrackMan and get access to the Data/API product. e.g., for the baseball side there’s the “Data API” where you get client ID & secret. 
+support.trackmanbaseball.com
+
+For the range/simulator side there is the “Range API” docs. 
+docs.trackmanrange.com
++1
+
+Confirm which product you have (Golf version vs Baseball version vs Range) and that API access supports multiple bays/units in your facility.
+
+Step 2: Define your internal “bay” model and mapping
+
+In your database create a table: Bays (bay_id, name, unit_identifier, location, status, last_active, etc).
+
+For each TrackMan unit you install, assign a unique entry in that table and note the TrackMan-provided unit identifier.
+
+In your software config, for each bay you’ll store: the authentication token (or shared token), the sessionId (when active), and its mapping to your internal user/coach sessions.
+
+Step 3: Connect to each unit’s API feed or session endpoint
+
+For each bay: when you want to start a session, call the TrackMan API endpoint POST /api/session (or whatever the appropriate for the unit type) specifying the bayId. (Example from docs: see root endpoint info). 
+docs.trackmanrange.com
+
+When the session starts, you’ll receive a sessionId. Keep track of sessionId + bayID.
+
+If streaming data: subscribe to the measurements link or WebSocket. For multiple bays you’ll open multiple connections or multiplex accordingly. Example in docs: "measurements": {"method":"GET","href":"ws://.../ws?type=measurements&sessionId=..."}". 
+docs.trackmanrange.com
+
+If using webhooks: configure your endpoint(s) for each bay/unit. E.g., for the Baseball API: you supply webhooks for “session start” and “ball events”. 
+support.trackmanbaseball.com
+
+Step 4: Data ingestion & processing
+
+Your system receives measurement events, each event likely includes: sessionId, timestamp, bayId or some link, club speed, ball speed, spin, etc.
+
+Your software attaches the bayId and sessionId → stores in your analytics database.
+
+For each unit, you can enforce consistent schema so later aggregation across bays is simple.
+
+You may want to tag by player ID, shot type, drill, etc (since you’re building the big coaching AI bot).
+
+Step 5: Session termination & archiving
+
+When the session ends (via API call or event), mark session in your DB as closed.
+
+Fetch any post-session summary data if required.
+
+Then you optionally reset the bay state and prepare for the next session.
