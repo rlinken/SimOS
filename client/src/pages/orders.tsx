@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CustomerProfileDialog } from "@/components/customer-profile-dialog";
+import { CollectPaymentDialog } from "@/components/collect-payment-dialog";
 
 interface Order {
   id: string;
@@ -79,6 +80,8 @@ export default function OrdersPage() {
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerProfileOpen, setCustomerProfileOpen] = useState(false);
+  const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<Order | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders", typeFilter, statusFilter, dateFilter],
@@ -359,12 +362,30 @@ export default function OrdersPage() {
                         {formatCurrency(order.amount)}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          className={statusConfig.className}
-                          data-testid={`badge-status-${order.paymentStatus}`}
-                        >
-                          {statusConfig.label}
-                        </Badge>
+                        {order.paymentStatus === "pending" ? (
+                          <button
+                            onClick={() => {
+                              setSelectedOrderForPayment(order);
+                              setPaymentDialogOpen(true);
+                            }}
+                            className="hover-elevate active-elevate-2 rounded"
+                            data-testid={`button-collect-payment-${order.id}`}
+                          >
+                            <Badge
+                              className={statusConfig.className}
+                              data-testid={`badge-status-${order.paymentStatus}`}
+                            >
+                              {statusConfig.label}
+                            </Badge>
+                          </button>
+                        ) : (
+                          <Badge
+                            className={statusConfig.className}
+                            data-testid={`badge-status-${order.paymentStatus}`}
+                          >
+                            {statusConfig.label}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm">
                         {order.paymentMethod || "—"}
@@ -402,6 +423,13 @@ export default function OrdersPage() {
         customerId={selectedCustomerId}
         open={customerProfileOpen}
         onOpenChange={setCustomerProfileOpen}
+      />
+
+      {/* Payment Collection Dialog */}
+      <CollectPaymentDialog
+        order={selectedOrderForPayment}
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
       />
     </div>
   );
