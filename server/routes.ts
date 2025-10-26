@@ -2926,6 +2926,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Record manual payment for an order
+  app.post("/api/orders/:orderId/record-payment", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const facilityId = user?.facilityId;
+      const orderId = req.params.orderId;
+      const { orderType, paymentMethod, paymentReference, notes } = req.body;
+
+      if (!orderType || !paymentMethod) {
+        return res.status(400).json({ message: "Order type and payment method are required" });
+      }
+
+      // Update the appropriate table based on order type
+      switch (orderType) {
+        case "booking": {
+          const booking = await storage.getBooking(orderId);
+          if (!booking || booking.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Booking not found" });
+          }
+
+          await storage.updateBooking(orderId, {
+            paymentStatus: "paid",
+            paymentMethod: paymentMethod === "external_pos" ? "pay_at_desk" : paymentMethod,
+            notes: notes ? `${booking.notes ? booking.notes + "\n\n" : ""}Payment recorded: ${paymentMethod}${paymentReference ? ` (${paymentReference})` : ""}${notes ? ` - ${notes}` : ""}` : booking.notes,
+          });
+          break;
+        }
+
+        case "lesson": {
+          const lesson = await storage.getLesson(orderId);
+          if (!lesson || lesson.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Lesson not found" });
+          }
+
+          // If lesson has a booking, update that booking's payment
+          if (lesson.bookingId) {
+            const booking = await storage.getBooking(lesson.bookingId);
+            if (booking) {
+              await storage.updateBooking(lesson.bookingId, {
+                paymentStatus: "paid",
+                paymentMethod: paymentMethod === "external_pos" ? "pay_at_desk" : paymentMethod,
+                notes: notes ? `${booking.notes ? booking.notes + "\n\n" : ""}Payment recorded: ${paymentMethod}${paymentReference ? ` (${paymentReference})` : ""}${notes ? ` - ${notes}` : ""}` : booking.notes,
+              });
+            }
+          }
+          // Update lesson notes
+          await storage.updateLesson(orderId, {
+            notes: notes ? `${lesson.notes ? lesson.notes + "\n\n" : ""}Payment recorded: ${paymentMethod}${paymentReference ? ` (${paymentReference})` : ""}${notes ? ` - ${notes}` : ""}` : lesson.notes,
+          });
+          break;
+        }
+
+        case "fitting": {
+          const fitting = await storage.getFitting(orderId);
+          if (!fitting || fitting.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Fitting not found" });
+          }
+
+          // If fitting has a booking, update that booking's payment
+          if (fitting.bookingId) {
+            const booking = await storage.getBooking(fitting.bookingId);
+            if (booking) {
+              await storage.updateBooking(fitting.bookingId, {
+                paymentStatus: "paid",
+                paymentMethod: paymentMethod === "external_pos" ? "pay_at_desk" : paymentMethod,
+                notes: notes ? `${booking.notes ? booking.notes + "\n\n" : ""}Payment recorded: ${paymentMethod}${paymentReference ? ` (${paymentReference})` : ""}${notes ? ` - ${notes}` : ""}` : booking.notes,
+              });
+            }
+          }
+          // Update fitting notes
+          await storage.updateFitting(orderId, {
+            notes: notes ? `${fitting.notes ? fitting.notes + "\n\n" : ""}Payment recorded: ${paymentMethod}${paymentReference ? ` (${paymentReference})` : ""}${notes ? ` - ${notes}` : ""}` : fitting.notes,
+          });
+          break;
+        }
+
+        case "transformation_package": {
+          const enrollment = await storage.getTransformationPackageEnrollment(orderId);
+          if (!enrollment || enrollment.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Package enrollment not found" });
+          }
+
+          await storage.updateTransformationPackageEnrollment(orderId, {
+            paymentStatus: "paid",
+          });
+          break;
+        }
+
+        case "membership": {
+          // For memberships, we would update the user's membership payment status
+          // This is a placeholder - actual implementation depends on membership structure
+          return res.status(400).json({ message: "Manual payment recording for memberships not yet implemented" });
+        }
+
+        default:
+          return res.status(400).json({ message: "Invalid order type" });
+      }
+
+      res.json({ message: "Payment recorded successfully" });
+    } catch (error: any) {
+      console.error("Error recording payment:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ============================================================================
   // Customer Profile Routes
   // ============================================================================
