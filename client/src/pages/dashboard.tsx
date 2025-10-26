@@ -79,17 +79,16 @@ export default function Dashboard() {
 
   const isBooked = (bayId: string, hour: number) => {
     const dayStart = startOfDay(selectedDate);
-    const slotStart = setMinutes(setHours(dayStart, hour), 0);
-    const slotEnd = setMinutes(setHours(dayStart, hour), 59);
+    const slotStart = setHours(dayStart, hour);
+    const slotEnd = addHours(slotStart, 1);
 
     return todayBookings.find(booking => {
-      const bookingStart = new Date(booking.startTime);
-      const bookingEnd = new Date(booking.endTime);
+      const bookingStart = parseISO(booking.startTime);
       
+      // Only show booking in the hour slot where it starts
       return booking.bays.some(b => b.id === bayId) &&
-        (isWithinInterval(slotStart, { start: bookingStart, end: bookingEnd }) ||
-         isWithinInterval(slotEnd, { start: bookingStart, end: bookingEnd }) ||
-         (bookingStart <= slotStart && bookingEnd >= slotEnd));
+        bookingStart >= slotStart &&
+        bookingStart < slotEnd;
     });
   };
 
