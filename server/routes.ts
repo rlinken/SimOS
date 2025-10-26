@@ -2689,6 +2689,244 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Orders Route (Unified view of all transactions)
+  // ============================================================================
+
+  app.get("/api/orders", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "User facility not found" });
+      }
+
+      const { type, status, date } = req.query;
+
+      // Fetch all transaction types
+      const bookings = await storage.getBookings(user.facilityId);
+      const lessons = await storage.getLessons(user.facilityId);
+      const fittings = await storage.getFittings(user.facilityId);
+      const packageEnrollments = await storage.getTransformationPackageEnrollments(user.facilityId);
+
+      // Helper to get date range based on filter
+      const getDateRange = (filter: string) => {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        switch (filter) {
+          case "today":
+            return { start: today, end: new Date(today.getTime() + 24 * 60 * 60 * 1000) };
+          case "week": {
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 7);
+            return { start: weekStart, end: weekEnd };
+          }
+          case "month": {
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            return { start: monthStart, end: monthEnd };
+          }
+          case "quarter": {
+            const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
+            const quarterStart = new Date(now.getFullYear(), quarterMonth, 1);
+            const quarterEnd = new Date(now.getFullYear(), quarterMonth + 3, 0, 23, 59, 59);
+            return { start: quarterStart, end: quarterEnd };
+          }
+          case "year": {
+            const yearStart = new Date(now.getFullYear(), 0, 1);
+            const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+            return { start: yearStart, end: yearEnd };
+          }
+          default:
+            return null;
+        }
+      };
+
+      const dateRange = date ? getDateRange(date as string) : null;
+
+      // Helper to check if date is in range
+      const isInDateRange = (orderDate: Date) => {
+        if (!dateRange) return true;
+        return orderDate >= dateRange.start && orderDate <= dateRange.end;
+      };
+
+      const orders: any[] = [];
+
+      // Process bookings
+      if (!type || type === "all" || type === "booking") {
+        for (const booking of bookings) {
+          if (status && status !== "all" && booking.paymentStatus !== status) continue;
+          if (!isInDateRange(new Date(booking.createdAt))) continue;
+
+          const customer = await storage.getUser(booking.customerId);
+          const referrer = booking.referredBy ? await storage.getUser(booking.referredBy) : null;
+
+          if (customer) {
+            orders.push({
+              id: booking.id,
+              type: "booking",
+              date: booking.createdAt,
+              customer: {
+                id: customer.id,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                email: customer.email,
+              },
+              description: `${booking.type === "rental" ? "Bay Rental" : booking.type === "lesson" ? "Lesson Booking" : booking.type === "fitting" ? "Fitting Booking" : "Event"} - ${new Date(booking.startTime).toLocaleDateString()}`,
+              amount: booking.amount || "0",
+              paymentStatus: booking.paymentStatus,
+              paymentMethod: booking.paymentMethod,
+              referredBy: referrer ? {
+                firstName: referrer.firstName,
+                lastName: referrer.lastName,
+              } : undefined,
+            });
+          }
+        }
+      }
+
+      // Process lessons (payment info comes from associated booking if exists)
+      if (!type || type === "all" || type === "lesson") {
+        for (const lesson of lessons) {
+          if (!isInDateRange(new Date(lesson.createdAt))) continue;
+
+          const customer = await storage.getUser(lesson.studentId);
+          const referrer = lesson.referredBy ? await storage.getUser(lesson.referredBy) : null;
+
+          // Get payment info from associated booking if it exists
+          let paymentStatus = "pending"; // Default to pending for standalone lessons
+          let paymentMethod = undefined;
+          let amount = "0";
+
+          if (lesson.bookingId) {
+            const relatedBooking = bookings.find(b => b.id === lesson.bookingId);
+            if (relatedBooking) {
+              paymentStatus = relatedBooking.paymentStatus;
+              paymentMethod = relatedBooking.paymentMethod;
+              amount = relatedBooking.amount || "0";
+            }
+          }
+
+          if (status && status !== "all" && paymentStatus !== status) continue;
+
+          if (customer) {
+            orders.push({
+              id: lesson.id,
+              type: "lesson",
+              date: lesson.createdAt,
+              customer: {
+                id: customer.id,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                email: customer.email,
+              },
+              description: `${lesson.title} - ${new Date(lesson.date).toLocaleDateString()}`,
+              amount,
+              paymentStatus,
+              paymentMethod,
+              referredBy: referrer ? {
+                firstName: referrer.firstName,
+                lastName: referrer.lastName,
+              } : undefined,
+            });
+          }
+        }
+      }
+
+      // Process fittings (payment info comes from associated booking if exists)
+      if (!type || type === "all" || type === "fitting") {
+        for (const fitting of fittings) {
+          if (!isInDateRange(new Date(fitting.createdAt))) continue;
+
+          const customer = await storage.getUser(fitting.userId);
+          const referrer = fitting.referredBy ? await storage.getUser(fitting.referredBy) : null;
+
+          // Get payment info from associated booking if it exists
+          let paymentStatus = "pending"; // Default to pending for standalone fittings
+          let paymentMethod = undefined;
+          let amount = "0";
+
+          if (fitting.bookingId) {
+            const relatedBooking = bookings.find(b => b.id === fitting.bookingId);
+            if (relatedBooking) {
+              paymentStatus = relatedBooking.paymentStatus;
+              paymentMethod = relatedBooking.paymentMethod;
+              amount = relatedBooking.amount || "0";
+            }
+          }
+
+          if (status && status !== "all" && paymentStatus !== status) continue;
+
+          if (customer) {
+            orders.push({
+              id: fitting.id,
+              type: "fitting",
+              date: fitting.createdAt,
+              customer: {
+                id: customer.id,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                email: customer.email,
+              },
+              description: `${fitting.title} - ${new Date(fitting.date).toLocaleDateString()}`,
+              amount,
+              paymentStatus,
+              paymentMethod,
+              referredBy: referrer ? {
+                firstName: referrer.firstName,
+                lastName: referrer.lastName,
+              } : undefined,
+            });
+          }
+        }
+      }
+
+      // Process transformation package enrollments
+      if (!type || type === "all" || type === "transformation_package") {
+        for (const enrollment of packageEnrollments) {
+          if (status && status !== "all" && enrollment.paymentStatus !== status) continue;
+          if (!isInDateRange(new Date(enrollment.createdAt))) continue;
+
+          const customer = await storage.getUser(enrollment.userId);
+          const pkg = await storage.getTransformationPackage(enrollment.packageId);
+          const referrer = enrollment.referredBy ? await storage.getUser(enrollment.referredBy) : null;
+
+          if (customer && pkg) {
+            orders.push({
+              id: enrollment.id,
+              type: "transformation_package",
+              date: enrollment.createdAt,
+              customer: {
+                id: customer.id,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                email: customer.email,
+              },
+              description: `${pkg.name} Package`,
+              amount: pkg.price || "0",
+              paymentStatus: enrollment.paymentStatus,
+              paymentMethod: undefined, // Not tracked on enrollments
+              referredBy: referrer ? {
+                firstName: referrer.firstName,
+                lastName: referrer.lastName,
+              } : undefined,
+            });
+          }
+        }
+      }
+
+      // Sort by date (newest first)
+      orders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      res.json(orders);
+    } catch (error: any) {
+      console.error("Error fetching orders:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Dashboard Stats Route
   // ============================================================================
 

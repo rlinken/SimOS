@@ -30,6 +30,7 @@ import TransformationPackagesPage from "@/pages/transformation-packages";
 import BuyMembership from "@/pages/buy-membership";
 import BuyTransformationPackage from "@/pages/buy-transformation-package";
 import TrackmanSettings from "@/pages/trackman-settings";
+import OrdersPage from "@/pages/orders";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -41,6 +42,7 @@ function AuthenticatedRoutes() {
     <Switch>
       <Route path="/" component={DashboardComponent} />
       <Route path="/schedule" component={SchedulePage} />
+      <Route path="/orders" component={OrdersPage} />
       <Route path="/contacts" component={ContactsPage} />
       <Route path="/sales" component={SalesPage} />
       <Route path="/account" component={AccountPage} />

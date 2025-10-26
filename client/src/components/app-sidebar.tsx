@@ -16,6 +16,7 @@ import {
   UserCog,
   Sparkles,
   Radio,
+  ShoppingCart,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -84,6 +85,11 @@ function getMenuItems(user: User | undefined) {
         title: "Bookings",
         url: "/bookings",
         icon: Calendar,
+      },
+      {
+        title: "Orders",
+        url: "/orders",
+        icon: ShoppingCart,
       }
     );
   }
