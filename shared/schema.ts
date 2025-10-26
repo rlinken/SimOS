@@ -8,6 +8,7 @@ import {
   boolean,
   json,
   index,
+  uniqueIndex,
   jsonb,
   pgEnum,
   numeric,
@@ -1822,3 +1823,435 @@ export const insertPayrollPaymentSchema = createInsertSchema(payrollPayments).om
 
 export type PayrollPayment = typeof payrollPayments.$inferSelect;
 export type InsertPayrollPayment = z.infer<typeof insertPayrollPaymentSchema>;
+
+// ============================================================================
+// GOLF MARKETING OS - Event-Driven Marketing Automation
+// ============================================================================
+
+// Marketing Enums
+export const marketingChannelTypeEnum = pgEnum("marketing_channel_type", [
+  "email",
+  "sms",
+  "in_app_banner",
+  "in_app_notification",
+  "push_notification",
+]);
+
+export const marketingEventTypeEnum = pgEnum("marketing_event_type", [
+  "swing_pattern_detected",
+  "session_completed",
+  "booking_created",
+  "booking_no_show",
+  "membership_expiring",
+  "inactivity_detected",
+  "milestone_achieved",
+]);
+
+export const marketingTriggerStatusEnum = pgEnum("marketing_trigger_status", [
+  "active",
+  "paused",
+  "draft",
+]);
+
+export const marketingCampaignStatusEnum = pgEnum("marketing_campaign_status", [
+  "draft",
+  "scheduled",
+  "active",
+  "paused",
+  "completed",
+]);
+
+export const marketingMessageStatusEnum = pgEnum("marketing_message_status", [
+  "queued",
+  "sending",
+  "sent",
+  "failed",
+  "cancelled",
+]);
+
+export const marketingJourneyStepTypeEnum = pgEnum("marketing_journey_step_type", [
+  "send_message",
+  "wait_delay",
+  "conditional_split",
+  "add_to_segment",
+  "remove_from_segment",
+]);
+
+// Marketing Events - Raw events ingested from various sources
+export const marketingEvents = pgTable("marketing_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  eventType: marketingEventTypeEnum("event_type").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  bookingId: varchar("booking_id").references(() => bookings.id),
+  
+  // Event metadata (flexible JSON for different event types)
+  eventData: jsonb("event_data").notNull(),
+  
+  // Tracking
+  processed: boolean("processed").default(false).notNull(),
+  processedAt: timestamp("processed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  facilityEventTypeIdx: index("facility_event_type_idx").on(table.facilityId, table.eventType),
+  facilityProcessedIdx: index("facility_processed_idx").on(table.facilityId, table.processed),
+}));
+
+export const marketingEventsRelations = relations(marketingEvents, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [marketingEvents.facilityId],
+    references: [facilities.id],
+  }),
+  user: one(users, {
+    fields: [marketingEvents.userId],
+    references: [users.id],
+  }),
+  booking: one(bookings, {
+    fields: [marketingEvents.bookingId],
+    references: [bookings.id],
+  }),
+}));
+
+export type MarketingEvent = typeof marketingEvents.$inferSelect;
+
+// Contact Preferences - Opt-in/opt-out management
+export const marketingContactPreferences = pgTable("marketing_contact_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Channel opt-ins
+  emailOptIn: boolean("email_opt_in").default(true).notNull(),
+  smsOptIn: boolean("sms_opt_in").default(false).notNull(),
+  pushOptIn: boolean("push_opt_in").default(true).notNull(),
+  
+  // Category opt-ins
+  marketingOptIn: boolean("marketing_opt_in").default(true).notNull(),
+  transactionalOptIn: boolean("transactional_opt_in").default(true).notNull(),
+  
+  // Compliance
+  emailOptInDate: timestamp("email_opt_in_date"),
+  smsOptInDate: timestamp("sms_opt_in_date"),
+  emailOptOutDate: timestamp("email_opt_out_date"),
+  smsOptOutDate: timestamp("sms_opt_out_date"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueUserFacility: uniqueIndex("unique_user_facility_pref").on(table.userId, table.facilityId),
+}));
+
+export const marketingContactPreferencesRelations = relations(marketingContactPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [marketingContactPreferences.userId],
+    references: [users.id],
+  }),
+  facility: one(facilities, {
+    fields: [marketingContactPreferences.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export type MarketingContactPreference = typeof marketingContactPreferences.$inferSelect;
+
+// Marketing Templates
+export const marketingTemplates = pgTable("marketing_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  channel: marketingChannelTypeEnum("channel").notNull(),
+  
+  // Template content
+  subject: text("subject"), // For email
+  body: text("body").notNull(), // Supports variables like {{firstName}}
+  
+  // Metadata
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const marketingTemplatesRelations = relations(marketingTemplates, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [marketingTemplates.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export type MarketingTemplate = typeof marketingTemplates.$inferSelect;
+
+// Marketing Segments - Audience definitions
+export const marketingSegments = pgTable("marketing_segments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Segment criteria (JSON for flexibility)
+  criteria: jsonb("criteria").notNull(), // e.g., {role: "customer", membershipTier: "premium"}
+  
+  // Dynamic vs static
+  isDynamic: boolean("is_dynamic").default(true).notNull(), // Recalculates membership
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const marketingSegmentsRelations = relations(marketingSegments, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [marketingSegments.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export type MarketingSegment = typeof marketingSegments.$inferSelect;
+
+// Marketing Campaigns
+export const marketingCampaigns = pgTable("marketing_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  status: marketingCampaignStatusEnum("status").default("draft").notNull(),
+  
+  // Scheduling
+  scheduledAt: timestamp("scheduled_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Stats
+  totalSent: integer("total_sent").default(0),
+  totalDelivered: integer("total_delivered").default(0),
+  totalFailed: integer("total_failed").default(0),
+  totalClicked: integer("total_clicked").default(0),
+  totalConverted: integer("total_converted").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const marketingCampaignsRelations = relations(marketingCampaigns, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [marketingCampaigns.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
+
+// Marketing Triggers - Event-based campaign rules
+export const marketingTriggers = pgTable("marketing_triggers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  campaignId: varchar("campaign_id").references(() => marketingCampaigns.id),
+  
+  name: text("name").notNull(),
+  description: text("description"),
+  status: marketingTriggerStatusEnum("status").default("draft").notNull(),
+  
+  // Trigger configuration
+  eventType: marketingEventTypeEnum("event_type").notNull(),
+  eventConditions: jsonb("event_conditions"), // Additional filtering on event data
+  
+  // Target audience
+  segmentId: varchar("segment_id").references(() => marketingSegments.id),
+  
+  // Message configuration
+  channel: marketingChannelTypeEnum("channel").notNull(),
+  templateId: varchar("template_id").references(() => marketingTemplates.id),
+  
+  // Throttling
+  maxSendsPerDay: integer("max_sends_per_day"),
+  cooldownHours: integer("cooldown_hours").default(24), // Min hours between sends to same user
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const marketingTriggersRelations = relations(marketingTriggers, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [marketingTriggers.facilityId],
+    references: [facilities.id],
+  }),
+  campaign: one(marketingCampaigns, {
+    fields: [marketingTriggers.campaignId],
+    references: [marketingCampaigns.id],
+  }),
+  segment: one(marketingSegments, {
+    fields: [marketingTriggers.segmentId],
+    references: [marketingSegments.id],
+  }),
+  template: one(marketingTemplates, {
+    fields: [marketingTriggers.templateId],
+    references: [marketingTemplates.id],
+  }),
+}));
+
+export type MarketingTrigger = typeof marketingTriggers.$inferSelect;
+
+// Marketing Message Queue
+export const marketingMessageQueue = pgTable("marketing_message_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Recipient
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  // Message details
+  channel: marketingChannelTypeEnum("channel").notNull(),
+  subject: text("subject"),
+  body: text("body").notNull(),
+  
+  // Tracking
+  campaignId: varchar("campaign_id").references(() => marketingCampaigns.id),
+  triggerId: varchar("trigger_id").references(() => marketingTriggers.id),
+  
+  // Status
+  status: marketingMessageStatusEnum("status").default("queued").notNull(),
+  scheduledFor: timestamp("scheduled_for").defaultNow().notNull(),
+  sentAt: timestamp("sent_at"),
+  
+  // Retry logic
+  attempts: integer("attempts").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  errorMessage: text("error_message"),
+  
+  // Idempotency
+  idempotencyKey: varchar("idempotency_key").unique(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  facilityStatusScheduledIdx: index("facility_status_scheduled_idx").on(table.facilityId, table.status, table.scheduledFor),
+}));
+
+export const marketingMessageQueueRelations = relations(marketingMessageQueue, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [marketingMessageQueue.facilityId],
+    references: [facilities.id],
+  }),
+  user: one(users, {
+    fields: [marketingMessageQueue.userId],
+    references: [users.id],
+  }),
+  campaign: one(marketingCampaigns, {
+    fields: [marketingMessageQueue.campaignId],
+    references: [marketingCampaigns.id],
+  }),
+  trigger: one(marketingTriggers, {
+    fields: [marketingMessageQueue.triggerId],
+    references: [marketingTriggers.id],
+  }),
+}));
+
+export type MarketingMessageQueue = typeof marketingMessageQueue.$inferSelect;
+
+// Marketing Delivery Log
+export const marketingDeliveryLog = pgTable("marketing_delivery_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  messageId: varchar("message_id").references(() => marketingMessageQueue.id),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  
+  channel: marketingChannelTypeEnum("channel").notNull(),
+  status: marketingMessageStatusEnum("status").notNull(),
+  
+  // External provider tracking
+  externalId: varchar("external_id"), // Provider's message ID (SendGrid, Twilio, etc.)
+  
+  // Engagement tracking
+  deliveredAt: timestamp("delivered_at"),
+  openedAt: timestamp("opened_at"),
+  clickedAt: timestamp("clicked_at"),
+  convertedAt: timestamp("converted_at"),
+  
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  facilityUserChannelIdx: index("facility_user_channel_idx").on(table.facilityId, table.userId, table.channel),
+  facilityCreatedIdx: index("facility_created_idx").on(table.facilityId, table.createdAt),
+}));
+
+export const marketingDeliveryLogRelations = relations(marketingDeliveryLog, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [marketingDeliveryLog.facilityId],
+    references: [facilities.id],
+  }),
+  message: one(marketingMessageQueue, {
+    fields: [marketingDeliveryLog.messageId],
+    references: [marketingMessageQueue.id],
+  }),
+  user: one(users, {
+    fields: [marketingDeliveryLog.userId],
+    references: [users.id],
+  }),
+}));
+
+export type MarketingDeliveryLog = typeof marketingDeliveryLog.$inferSelect;
+
+// Marketing Banner Announcements (In-App)
+export const marketingBannerAnnouncements = pgTable("marketing_banner_announcements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: varchar("type").default("info").notNull(), // info, warning, success, error
+  
+  // Targeting
+  segmentId: varchar("segment_id").references(() => marketingSegments.id),
+  
+  // Scheduling
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  
+  // Display settings
+  dismissible: boolean("dismissible").default(true).notNull(),
+  priority: integer("priority").default(0).notNull(),
+  
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const marketingBannerAnnouncementsRelations = relations(marketingBannerAnnouncements, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [marketingBannerAnnouncements.facilityId],
+    references: [facilities.id],
+  }),
+  segment: one(marketingSegments, {
+    fields: [marketingBannerAnnouncements.segmentId],
+    references: [marketingSegments.id],
+  }),
+}));
+
+export type MarketingBannerAnnouncement = typeof marketingBannerAnnouncements.$inferSelect;
