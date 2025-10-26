@@ -425,6 +425,9 @@ export const users = pgTable("users", {
   ghlContactId: varchar("ghl_contact_id"),
   stripeCustomerId: varchar("stripe_customer_id"),
   
+  // Customer management fields
+  tags: varchar("tags").array(), // Staff-added tags for customer categorization
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -446,6 +449,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   instructedLessons: many(lessons, { relationName: "instructor" }),
   studentLessons: many(lessons, { relationName: "student" }),
   fittings: many(fittings),
+  notes: many(customerNotes, { relationName: "customerNotes" }),
+  authoredNotes: many(customerNotes, { relationName: "authoredNotes" }),
 }));
 
 export const upsertUserSchema = createInsertSchema(users).omit({
@@ -571,6 +576,57 @@ export const updateLeadSchema = createInsertSchema(leads)
   .partial();
 
 export type UpdateLead = z.infer<typeof updateLeadSchema>;
+
+// ============================================================================
+// CUSTOMER NOTES TABLE (Staff notes on customers)
+// ============================================================================
+
+export const customerNotes = pgTable("customer_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  customerId: varchar("customer_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Note content
+  content: text("content").notNull(),
+  
+  // Tracking
+  createdBy: varchar("created_by")
+    .references(() => users.id)
+    .notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const customerNotesRelations = relations(customerNotes, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [customerNotes.facilityId],
+    references: [facilities.id],
+  }),
+  customer: one(users, {
+    fields: [customerNotes.customerId],
+    references: [users.id],
+    relationName: "customerNotes",
+  }),
+  author: one(users, {
+    fields: [customerNotes.createdBy],
+    references: [users.id],
+    relationName: "authoredNotes",
+  }),
+}));
+
+export const insertCustomerNoteSchema = createInsertSchema(customerNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CustomerNote = typeof customerNotes.$inferSelect;
+export type InsertCustomerNote = z.infer<typeof insertCustomerNoteSchema>;
 
 // ============================================================================
 // MEMBERSHIP TIERS TABLE
