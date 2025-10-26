@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { bayWearCalculator } from "./services/bay-wear-calculator";
 
 // Helper function to check if user has admin privileges
 function isAdmin(role: string): boolean {
@@ -1173,7 +1174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: customerId, // DEPRECATED: for backward compatibility
       });
 
-      // Smart bay assignment - find bays with lowest usage
+      // Smart bay assignment - prioritize bays with lowest wear using Trackman data
       if (!validatedData.bayIds || validatedData.bayIds.length === 0) {
         const numberOfBays = req.body.numberOfBays || 1;
         const bays = await storage.getBays(user.facilityId);
@@ -1185,9 +1186,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Sort by usage hours (ascending) and take the requested number
-        activeBays.sort((a, b) => (a.usageHours || 0) - (b.usageHours || 0));
+        // Get real Trackman wear scores for intelligent bay assignment
+        const wearScores = await bayWearCalculator.getBayWearScores(user.facilityId);
+        
+        // Sort by wear score (ascending = lowest wear first)
+        // Fall back to usage hours if wear data not available
+        activeBays.sort((a, b) => {
+          const wearA = wearScores.get(a.id) || 0;
+          const wearB = wearScores.get(b.id) || 0;
+          
+          // If wear scores are equal, use usage hours as tiebreaker
+          if (wearA === wearB) {
+            return (a.usageHours || 0) - (b.usageHours || 0);
+          }
+          
+          return wearA - wearB;
+        });
+        
         validatedData.bayIds = activeBays.slice(0, numberOfBays).map(b => b.id);
+        
+        // Log assignment for monitoring
+        console.log(`🎯 Smart bay assignment: Selected bays ${validatedData.bayIds.join(', ')} with wear scores ${validatedData.bayIds.map(id => wearScores.get(id) || 0).join(', ')}`);
       } else {
         // Manual bay selection - validate all bays belong to user's facility
         const bays = await storage.getBays(user.facilityId);
