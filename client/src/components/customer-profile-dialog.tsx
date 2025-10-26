@@ -74,10 +74,7 @@ export function CustomerProfileDialog({
   // Update customer mutation
   const updateCustomerMutation = useMutation({
     mutationFn: async (data: Partial<UserType>) => {
-      return apiRequest(`/api/customers/${customerId}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", `/api/customers/${customerId}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers", customerId] });
@@ -101,12 +98,9 @@ export function CustomerProfileDialog({
   // Add note mutation
   const addNoteMutation = useMutation({
     mutationFn: async (content: string) => {
-      return apiRequest("/api/customer-notes", {
-        method: "POST",
-        body: JSON.stringify({
-          customerId,
-          content,
-        }),
+      return apiRequest("POST", "/api/customer-notes", {
+        customerId,
+        content,
       });
     },
     onSuccess: () => {
@@ -129,9 +123,7 @@ export function CustomerProfileDialog({
   // Delete note mutation
   const deleteNoteMutation = useMutation({
     mutationFn: async (noteId: string) => {
-      return apiRequest(`/api/customer-notes/${noteId}`, {
-        method: "DELETE",
-      });
+      return apiRequest("DELETE", `/api/customer-notes/${noteId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers", customerId] });
