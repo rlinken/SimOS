@@ -72,23 +72,75 @@ export const eventBus = new EventBus();
 
 // Event type definitions for type safety
 export type MarketingEventData = {
-  swing_pattern_detected: {
+  'swing_pattern.slice_detected': {
     userId: string;
-    bookingId: string;
     facilityId: string;
-    pattern: 'slice' | 'hook' | 'poor_contact' | 'low_distance';
-    severity: 'low' | 'medium' | 'high';
-    shots: number;
-    avgDeviation?: number;
+    timestamp: Date;
+    data: {
+      sessionId: string;
+      bookingId: string;
+      severity: 'mild' | 'moderate' | 'severe';
+      confidence: number;
+      metrics: any;
+    };
   };
-  session_completed: {
+  'swing_pattern.hook_detected': {
     userId: string;
-    bookingId: string;
     facilityId: string;
-    totalShots: number;
-    duration: number;
-    avgBallSpeed?: number;
-    avgCarry?: number;
+    timestamp: Date;
+    data: {
+      sessionId: string;
+      bookingId: string;
+      severity: 'mild' | 'moderate' | 'severe';
+      confidence: number;
+      metrics: any;
+    };
+  };
+  'swing_pattern.distance_loss_detected': {
+    userId: string;
+    facilityId: string;
+    timestamp: Date;
+    data: {
+      sessionId: string;
+      bookingId: string;
+      severity: 'mild' | 'moderate' | 'severe';
+      confidence: number;
+      metrics: any;
+    };
+  };
+  'swing_pattern.poor_contact_detected': {
+    userId: string;
+    facilityId: string;
+    timestamp: Date;
+    data: {
+      sessionId: string;
+      bookingId: string;
+      severity: 'mild' | 'moderate' | 'severe';
+      confidence: number;
+      metrics: any;
+    };
+  };
+  'trackman.session_completed': {
+    userId: string;
+    facilityId: string;
+    timestamp: Date;
+    data: {
+      sessionId: string;
+      bookingId: string;
+      totalShots: number;
+    };
+  };
+  'trackman.shot_captured': {
+    userId: string;
+    facilityId: string;
+    timestamp: Date;
+    data: {
+      sessionId: string;
+      shotId: string;
+      bookingId: string;
+      bayId: string;
+      shotData: any;
+    };
   };
   booking_created: {
     userId: string;

@@ -32,8 +32,12 @@ export class MarketingEngine {
     console.log('🎯 Initializing GolfMarketingOS...');
 
     // Subscribe to all marketing events
-    eventBus.on('swing_pattern_detected', (data) => this.handleEvent('swing_pattern_detected', data));
-    eventBus.on('session_completed', (data) => this.handleEvent('session_completed', data));
+    eventBus.on('swing_pattern.slice_detected', (data) => this.handleEvent('swing_pattern.slice_detected', data));
+    eventBus.on('swing_pattern.hook_detected', (data) => this.handleEvent('swing_pattern.hook_detected', data));
+    eventBus.on('swing_pattern.distance_loss_detected', (data) => this.handleEvent('swing_pattern.distance_loss_detected', data));
+    eventBus.on('swing_pattern.poor_contact_detected', (data) => this.handleEvent('swing_pattern.poor_contact_detected', data));
+    eventBus.on('trackman.session_completed', (data) => this.handleEvent('trackman.session_completed', data));
+    eventBus.on('trackman.shot_captured', (data) => this.handleEvent('trackman.shot_captured', data));
     eventBus.on('booking_created', (data) => this.handleEvent('booking_created', data));
     eventBus.on('booking_no_show', (data) => this.handleEvent('booking_no_show', data));
     eventBus.on('membership_expiring', (data) => this.handleEvent('membership_expiring', data));

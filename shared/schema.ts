@@ -2087,8 +2087,12 @@ export const marketingChannelTypeEnum = pgEnum("marketing_channel_type", [
 ]);
 
 export const marketingEventTypeEnum = pgEnum("marketing_event_type", [
-  "swing_pattern_detected",
-  "session_completed",
+  "swing_pattern.slice_detected",
+  "swing_pattern.hook_detected",
+  "swing_pattern.distance_loss_detected",
+  "swing_pattern.poor_contact_detected",
+  "trackman.session_completed",
+  "trackman.shot_captured",
   "booking_created",
   "booking_no_show",
   "membership_expiring",

@@ -51,6 +51,15 @@ app.use((req, res, next) => {
   // Initialize GolfMarketingOS
   await marketingEngine.initialize();
   
+  // Start message queue processor (runs every 10 seconds)
+  setInterval(async () => {
+    try {
+      await marketingEngine.processMessageQueue();
+    } catch (error) {
+      console.error('Error processing message queue:', error);
+    }
+  }, 10000);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
