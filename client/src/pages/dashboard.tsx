@@ -84,6 +84,23 @@ export default function Dashboard() {
     );
   };
 
+  // Check if a bay has any booking during a specific hour
+  const hasBookingInHour = (bayId: string, hour: number) => {
+    const dayStart = startOfDay(selectedDate);
+    const slotStart = setHours(dayStart, hour);
+    const slotEnd = addHours(slotStart, 1);
+
+    return todayBookings.some(booking => {
+      if (!booking.bays.some(b => b.id === bayId)) return false;
+      
+      const bookingStart = parseISO(booking.startTime);
+      const bookingEnd = parseISO(booking.endTime);
+
+      // Check if booking overlaps with this hour slot
+      return bookingStart < slotEnd && bookingEnd > slotStart;
+    });
+  };
+
   // Calculate booking position and width based on actual times
   const getBookingPosition = (booking: Booking & { bays: Bay[]; user: any }) => {
     const startTime = parseISO(booking.startTime);
@@ -104,7 +121,8 @@ export default function Dashboard() {
   };
 
   const handleSlotClick = (bay: Bay, hour: number) => {
-    if (bay.status === 'active' && !isPastHour(hour)) {
+    const hasBooking = hasBookingInHour(bay.id, hour);
+    if (!hasBooking && bay.status === 'active' && !isPastHour(hour)) {
       setSelectedSlot({ bay, hour });
     }
   };
