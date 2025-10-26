@@ -318,17 +318,16 @@ export default function Dashboard() {
                 <span className="text-xs">Bays</span>
               </div>
               {hours.map(hour => {
-                const showAmPm = hour === 6 || hour === 12 || hour === 18;
                 const isPast = isPastHour(hour);
+                const displayHour = hour > 12 ? hour - 12 : hour;
+                const ampm = hour < 12 ? 'AM' : 'PM';
                 return (
                   <div 
                     key={hour} 
                     className={`p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center ${isPast ? 'opacity-40' : ''}`}
                   >
-                    <div className="text-sm font-semibold">{hour > 12 ? hour - 12 : hour}</div>
-                    {showAmPm && (
-                      <div className="text-[9px] text-muted-foreground uppercase font-medium">{hour < 12 ? 'am' : 'pm'}</div>
-                    )}
+                    <div className="text-xs font-semibold">{displayHour}:00</div>
+                    <div className="text-[9px] text-muted-foreground uppercase font-medium">{ampm}</div>
                   </div>
                 );
               })}
