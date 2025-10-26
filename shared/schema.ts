@@ -2565,3 +2565,65 @@ export const marketingBannerAnnouncementsRelations = relations(marketingBannerAn
 }));
 
 export type MarketingBannerAnnouncement = typeof marketingBannerAnnouncements.$inferSelect;
+
+// ============================================================================
+// WIDGET CONFIGURATIONS
+// ============================================================================
+
+export const widgetTypeEnum = pgEnum("widget_type", [
+  "rental", // Bay rental booking widget
+  "lesson", // Lesson booking widget
+  "fitting", // Club fitting booking widget
+]);
+
+export const widgetDisplayModeEnum = pgEnum("widget_display_mode", [
+  "full", // Full page width
+  "partial", // Partial width (e.g., 2/3 width)
+  "sidebar", // Sidebar width (narrow)
+]);
+
+export const widgetConfigurations = pgTable("widget_configurations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  widgetType: widgetTypeEnum("widget_type").notNull(),
+  
+  // Display settings
+  displayMode: widgetDisplayModeEnum("display_mode").default("full").notNull(),
+  showLogo: boolean("show_logo").default(true).notNull(),
+  showDescription: boolean("show_description").default(true).notNull(),
+  
+  // Styling
+  primaryColor: varchar("primary_color"),
+  accentColor: varchar("accent_color"),
+  backgroundColor: varchar("background_color"),
+  textColor: varchar("text_color"),
+  borderRadius: varchar("border_radius").default("8px"),
+  
+  // Content
+  customTitle: text("custom_title"),
+  customDescription: text("custom_description"),
+  
+  // Size settings
+  maxWidth: varchar("max_width").default("1200px"),
+  minHeight: varchar("min_height").default("600px"),
+  
+  // Behavior
+  showPricing: boolean("show_pricing").default(true).notNull(),
+  requirePhone: boolean("require_phone").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const widgetConfigurationsRelations = relations(widgetConfigurations, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [widgetConfigurations.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export type WidgetConfiguration = typeof widgetConfigurations.$inferSelect;
+export const insertWidgetConfigurationSchema = createInsertSchema(widgetConfigurations).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertWidgetConfiguration = z.infer<typeof insertWidgetConfigurationSchema>;
