@@ -130,21 +130,29 @@ export default function Schedule() {
   // Operating hours (6 AM to 10 PM) - render all hours for scrolling
   const hours = Array.from({ length: 17 }, (_, i) => i + 6);
 
-  // Helper to check if a bay is booked at a specific hour
-  const isBooked = (bayId: string, hour: number) => {
-    const slotStart = setMinutes(setHours(dayStart, hour), 0);
-    const slotEnd = setMinutes(setHours(dayStart, hour + 1), 0);
+  // Get bookings for a specific bay
+  const getBayBookings = (bayId: string) => {
+    return dayBookings.filter(booking => 
+      booking.bayIds?.includes(bayId)
+    );
+  };
 
-    return dayBookings.find(booking => {
-      if (!booking.bayIds?.includes(bayId)) return false;
-      
-      const bookingStart = new Date(booking.startTime);
-      const bookingEnd = new Date(booking.endTime);
-
-      // Booking overlaps with this hour if it starts before the hour ends AND ends after the hour starts
-      // Use < for bookingEnd comparison to exclude bookings that end exactly at the hour start
-      return bookingStart < slotEnd && bookingEnd > slotStart;
-    });
+  // Calculate booking position and width based on actual times
+  const getBookingPosition = (booking: Booking) => {
+    const startTime = new Date(booking.startTime);
+    const endTime = new Date(booking.endTime);
+    
+    // Calculate minutes from start of day (6 AM)
+    const startMinutes = (startTime.getHours() - 6) * 60 + startTime.getMinutes();
+    const endMinutes = (endTime.getHours() - 6) * 60 + endTime.getMinutes();
+    const duration = endMinutes - startMinutes;
+    
+    // Each hour column is 150px, so each minute is 150/60 = 2.5px
+    const pixelsPerMinute = 150 / 60;
+    const left = startMinutes * pixelsPerMinute;
+    const width = duration * pixelsPerMinute;
+    
+    return { left, width };
   };
 
   const getTierColor = (tier: string) => {
@@ -172,12 +180,13 @@ export default function Schedule() {
     if (isPastHour(hour)) {
       return; // Prevent booking past slots
     }
-    const booking = isBooked(bay.id, hour);
-    if (booking) {
-      setSelectedBooking(booking);
-    } else if (bay.status === 'active') {
+    if (bay.status === 'active') {
       setSelectedSlot({ bay, hour });
     }
+  };
+
+  const handleBookingClick = (booking: Booking) => {
+    setSelectedBooking(booking);
   };
 
   // Navigation handlers for different views
@@ -381,100 +390,93 @@ export default function Schedule() {
                 <p className="text-muted-foreground">Add bays in the Bays page to get started.</p>
               </div>
             ) : (
-              bays.map(bay => (
-                <div 
-                  key={bay.id} 
-                  className={`grid border-b last:border-b-0 transition-all ${getTierColor(bay.tier)}`}
-                  style={{ gridTemplateColumns: `${BAY_COLUMN_WIDTH}px repeat(${hours.length}, ${HOUR_COLUMN_WIDTH}px)` }}
-                  data-testid={`bay-row-${bay.id}`}
-                >
-                  {/* Bay Name Column */}
-                  <div className="p-2 border-r flex items-center justify-center bg-muted/30 sticky left-0 z-10">
-                    <div className="font-semibold text-xs text-center leading-tight">{bay.name}</div>
-                  </div>
+              bays.map(bay => {
+                const bayBookings = getBayBookings(bay.id);
+                
+                return (
+                  <div 
+                    key={bay.id} 
+                    className={`grid border-b last:border-b-0 transition-all relative ${getTierColor(bay.tier)}`}
+                    style={{ gridTemplateColumns: `${BAY_COLUMN_WIDTH}px repeat(${hours.length}, ${HOUR_COLUMN_WIDTH}px)` }}
+                    data-testid={`bay-row-${bay.id}`}
+                  >
+                    {/* Bay Name Column */}
+                    <div className="p-2 border-r flex items-center justify-center bg-muted/30 sticky left-0 z-10">
+                      <div className="font-semibold text-xs text-center leading-tight">{bay.name}</div>
+                    </div>
 
-                  {/* Time Slots */}
-                  {hours.map(hour => {
-                    const booking = isBooked(bay.id, hour);
-                    const isPast = isPastHour(hour);
-                    const isAvailable = !booking && bay.status === 'active' && !isPast;
+                    {/* Time Slots (Background Grid) */}
+                    {hours.map(hour => {
+                      const isPast = isPastHour(hour);
+                      const isAvailable = bay.status === 'active' && !isPast;
 
-                    return (
-                      <div
-                        key={hour}
-                        onClick={() => handleSlotClick(bay, hour)}
-                        className={`
-                          p-2 border-r last:border-r-0 min-h-[60px] 
-                          flex flex-col items-center justify-center text-xs 
-                          transition-all relative group
-                          ${isPast ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
-                          ${booking 
-                            ? 'bg-primary/10 hover:bg-primary/20' 
-                            : isAvailable 
-                            ? 'bg-background hover:bg-green-50 dark:hover:bg-green-950/20' 
-                            : 'bg-muted/50 cursor-not-allowed'
-                          }
-                        `}
-                        data-testid={`slot-${bay.id}-${hour}`}
-                      >
-                        {booking ? (
-                          <div className="text-center space-y-1">
-                            <div className="w-8 h-8 mx-auto rounded-full bg-primary/20 flex items-center justify-center mb-2">
-                              <User className="w-4 h-4 text-primary" />
+                      return (
+                        <div
+                          key={hour}
+                          onClick={() => handleSlotClick(bay, hour)}
+                          className={`
+                            p-2 border-r last:border-r-0 min-h-[80px] 
+                            flex flex-col items-center justify-center text-xs 
+                            transition-all relative group
+                            ${isPast ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                            ${isAvailable 
+                              ? 'bg-background hover:bg-green-50 dark:hover:bg-green-950/20' 
+                              : 'bg-muted/50 cursor-not-allowed'
+                            }
+                          `}
+                          data-testid={`slot-${bay.id}-${hour}`}
+                        >
+                          {isAvailable && (
+                            <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="w-10 h-10 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                                <Plus className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="text-xs font-medium text-muted-foreground">Book</div>
                             </div>
-                            <div className="font-semibold text-foreground">
-                              {booking.user?.firstName} {booking.user?.lastName}
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Bookings Layer (Absolutely Positioned) */}
+                    {bayBookings.map(booking => {
+                      const { left, width } = getBookingPosition(booking);
+                      
+                      return (
+                        <div
+                          key={booking.id}
+                          onClick={() => handleBookingClick(booking)}
+                          className="absolute top-0 h-full flex items-center z-20 cursor-pointer group"
+                          style={{ 
+                            left: `${BAY_COLUMN_WIDTH + left}px`,
+                            width: `${width}px`,
+                          }}
+                        >
+                          <div className="relative w-full h-16 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg p-2 transition-colors">
+                            <div className="text-center space-y-1 h-full flex flex-col items-center justify-center">
+                              <div className="w-6 h-6 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
+                                <User className="w-3 h-3 text-primary" />
+                              </div>
+                              <div className="font-semibold text-foreground text-[10px] leading-tight truncate max-w-full px-1">
+                                {booking.user?.firstName} {booking.user?.lastName}
+                              </div>
+                              <div className="text-[9px] text-muted-foreground flex items-center justify-center gap-1 truncate max-w-full">
+                                <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+                                <span className="truncate">{format(new Date(booking.startTime), "h:mm")} - {format(new Date(booking.endTime), "h:mm a")}</span>
+                              </div>
                             </div>
-                            <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {format(new Date(booking.startTime), "h:mm")} - {format(new Date(booking.endTime), "h:mm a")}
-                            </div>
-                            {booking.paymentMethod === 'pay_at_desk' && booking.paymentStatus !== 'paid' && (
-                              <Badge variant="default" className="text-[9px] bg-amber-500 hover:bg-amber-600 flex items-center gap-1">
-                                <DollarSign className="w-3 h-3" />
-                                PAY AT DESK
-                              </Badge>
-                            )}
-                            {booking.checkInStatus === 'pending' && (
-                              <Badge variant="secondary" className="text-[9px]">
-                                Not checked in
-                              </Badge>
-                            )}
-                            {booking.checkInStatus === 'checked_in' && (
-                              <Badge variant="default" className="text-[9px] bg-green-600 hover:bg-green-700 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" />
-                                Checked In
-                              </Badge>
-                            )}
-                            {booking.checkInStatus === 'no_show' && (
-                              <Badge variant="default" className="text-[9px] bg-red-600 hover:bg-red-700 flex items-center gap-1">
-                                <X className="w-3 h-3" />
-                                No Show
-                              </Badge>
-                            )}
-                            <div className={`absolute inset-0 border-2 rounded transition-colors pointer-events-none ${
+                            <div className={`absolute inset-0 border-2 rounded-lg transition-colors pointer-events-none ${
                               booking.paymentStatus === 'pending' 
                                 ? 'border-amber-500 group-hover:border-amber-600' 
                                 : 'border-transparent group-hover:border-primary/50'
                             }`} />
                           </div>
-                        ) : isAvailable ? (
-                          <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="w-10 h-10 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                              <Plus className="w-5 h-5 text-primary" />
-                            </div>
-                            <div className="text-xs font-medium text-muted-foreground">Book</div>
-                          </div>
-                        ) : !isPast ? (
-                          <div className="text-center">
-                            <div className="text-xs text-muted-foreground capitalize">{bay.status}</div>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })
             )}
 
             {/* Current Time Indicator */}

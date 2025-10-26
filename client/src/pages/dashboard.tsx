@@ -77,29 +77,41 @@ export default function Dashboard() {
     return hour < currentHour;
   };
 
-  const isBooked = (bayId: string, hour: number) => {
-    const dayStart = startOfDay(selectedDate);
-    const slotStart = setHours(dayStart, hour);
-    const slotEnd = addHours(slotStart, 1);
+  // Get bookings for a specific bay
+  const getBayBookings = (bayId: string) => {
+    return todayBookings.filter(booking => 
+      booking.bays.some(b => b.id === bayId)
+    );
+  };
 
-    return todayBookings.find(booking => {
-      const bookingStart = parseISO(booking.startTime);
-      
-      // Only show booking in the hour slot where it starts
-      return booking.bays.some(b => b.id === bayId) &&
-        bookingStart >= slotStart &&
-        bookingStart < slotEnd;
-    });
+  // Calculate booking position and width based on actual times
+  const getBookingPosition = (booking: Booking & { bays: Bay[]; user: any }) => {
+    const startTime = parseISO(booking.startTime);
+    const endTime = parseISO(booking.endTime);
+    const dayStart = setHours(startOfDay(selectedDate), 6); // 6 AM start
+    
+    // Calculate minutes from start of day (6 AM)
+    const startMinutes = (startTime.getHours() - 6) * 60 + startTime.getMinutes();
+    const endMinutes = (endTime.getHours() - 6) * 60 + endTime.getMinutes();
+    const duration = endMinutes - startMinutes;
+    
+    // Each hour column is 150px, so each minute is 150/60 = 2.5px
+    const pixelsPerMinute = 150 / 60;
+    const left = startMinutes * pixelsPerMinute;
+    const width = duration * pixelsPerMinute;
+    
+    return { left, width };
   };
 
   const handleSlotClick = (bay: Bay, hour: number) => {
-    const booking = isBooked(bay.id, hour);
-    if (booking) {
-      // Navigate to bookings page to view booking details
-      setLocation('/bookings');
-    } else if (bay.status === 'active') {
+    if (bay.status === 'active' && !isPastHour(hour)) {
       setSelectedSlot({ bay, hour });
     }
+  };
+
+  const handleBookingClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLocation('/bookings');
   };
 
   // Calculate current time position for indicator
@@ -343,76 +355,92 @@ export default function Dashboard() {
                 <p className="text-muted-foreground">Add bays in the Bays page to get started.</p>
               </div>
             ) : (
-              bays.map(bay => (
-                <div 
-                  key={bay.id} 
-                  className="grid border-b last:border-b-0 transition-all"
-                  style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
-                >
-                  {/* Bay Name Column */}
-                  <div className="p-2 border-r flex items-center justify-center bg-muted/30 sticky left-0 z-10">
-                    <div className="font-semibold text-xs text-center leading-tight">{bay.name}</div>
-                  </div>
+              bays.map(bay => {
+                const bayBookings = getBayBookings(bay.id);
+                
+                return (
+                  <div 
+                    key={bay.id} 
+                    className="grid border-b last:border-b-0 transition-all relative"
+                    style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
+                  >
+                    {/* Bay Name Column */}
+                    <div className="p-2 border-r flex items-center justify-center bg-muted/30 sticky left-0 z-10">
+                      <div className="font-semibold text-xs text-center leading-tight">{bay.name}</div>
+                    </div>
 
-                  {/* Time Slots */}
-                  {hours.map(hour => {
-                    const booking = isBooked(bay.id, hour);
-                    const isPast = isPastHour(hour);
-                    const isAvailable = !booking && bay.status === 'active' && !isPast;
+                    {/* Time Slots (Background Grid) */}
+                    {hours.map(hour => {
+                      const isPast = isPastHour(hour);
+                      const isAvailable = bay.status === 'active' && !isPast;
 
-                    return (
-                      <div
-                        key={hour}
-                        onClick={() => !isPast && handleSlotClick(bay, hour)}
-                        className={`
-                          p-2 border-r last:border-r-0 min-h-[60px] 
-                          flex flex-col items-center justify-center text-xs 
-                          transition-all relative group
-                          ${isPast ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
-                          ${booking 
-                            ? 'bg-primary/10 hover:bg-primary/20' 
-                            : isAvailable 
-                            ? 'bg-background hover:bg-green-50 dark:hover:bg-green-950/20' 
-                            : 'bg-muted/50 cursor-not-allowed'
-                          }
-                        `}
-                        data-testid={`slot-${bay.id}-${hour}`}
-                      >
-                        {booking ? (
-                          <div className="text-center space-y-1">
-                            <div className="w-8 h-8 mx-auto rounded-full bg-primary/20 flex items-center justify-center mb-2">
-                              <User className="w-4 h-4 text-primary" />
+                      return (
+                        <div
+                          key={hour}
+                          onClick={() => handleSlotClick(bay, hour)}
+                          className={`
+                            p-2 border-r last:border-r-0 min-h-[80px] 
+                            flex flex-col items-center justify-center text-xs 
+                            transition-all relative group
+                            ${isPast ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                            ${isAvailable 
+                              ? 'bg-background hover:bg-green-50 dark:hover:bg-green-950/20' 
+                              : 'bg-muted/50 cursor-not-allowed'
+                            }
+                          `}
+                          data-testid={`slot-${bay.id}-${hour}`}
+                        >
+                          {isAvailable && (
+                            <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="w-10 h-10 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                                <Plus className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="text-xs font-medium text-muted-foreground">Book</div>
                             </div>
-                            <div className="font-semibold text-foreground text-[10px] leading-tight">
-                              {booking.user?.firstName} {booking.user?.lastName}
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Bookings Layer (Absolutely Positioned) */}
+                    {bayBookings.map(booking => {
+                      const { left, width } = getBookingPosition(booking);
+                      
+                      return (
+                        <div
+                          key={booking.id}
+                          onClick={handleBookingClick}
+                          className="absolute top-0 h-full flex items-center z-20 cursor-pointer group"
+                          style={{ 
+                            left: `${80 + left}px`,
+                            width: `${width}px`,
+                          }}
+                        >
+                          <div className="relative w-full h-16 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg p-2 transition-colors">
+                            <div className="text-center space-y-1 h-full flex flex-col items-center justify-center">
+                              <div className="w-6 h-6 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
+                                <User className="w-3 h-3 text-primary" />
+                              </div>
+                              <div className="font-semibold text-foreground text-[10px] leading-tight truncate max-w-full px-1">
+                                {booking.user?.firstName} {booking.user?.lastName}
+                              </div>
+                              <div className="text-[9px] text-muted-foreground flex items-center justify-center gap-1 truncate max-w-full">
+                                <Clock className="w-2.5 h-2.5 flex-shrink-0" />
+                                <span className="truncate">{format(parseISO(booking.startTime), "h:mm")} - {format(parseISO(booking.endTime), "h:mm a")}</span>
+                              </div>
                             </div>
-                            <div className="text-[9px] text-muted-foreground flex items-center justify-center gap-1">
-                              <Clock className="w-2.5 h-2.5" />
-                              {format(parseISO(booking.startTime), "h:mm")} - {format(parseISO(booking.endTime), "h:mm a")}
-                            </div>
-                            <div className={`absolute inset-0 border-2 rounded transition-colors pointer-events-none ${
+                            <div className={`absolute inset-0 border-2 rounded-lg transition-colors pointer-events-none ${
                               booking.paymentStatus === 'pending' 
                                 ? 'border-amber-500 group-hover:border-amber-600' 
                                 : 'border-transparent group-hover:border-primary/50'
                             }`} />
                           </div>
-                        ) : isAvailable ? (
-                          <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="w-10 h-10 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                              <Plus className="w-5 h-5 text-primary" />
-                            </div>
-                            <div className="text-xs font-medium text-muted-foreground">Book</div>
-                          </div>
-                        ) : !isPast ? (
-                          <div className="text-center">
-                            <div className="text-xs text-muted-foreground capitalize">{bay.status}</div>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })
             )}
 
             {/* Current Time Indicator */}
