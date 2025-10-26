@@ -294,6 +294,12 @@ export const facilities = pgTable("facilities", {
   paymentProvider: varchar("payment_provider").default("stripe"), // "stripe", "square", etc.
   paymentsEnabled: boolean("payments_enabled").default(false),
   
+  // Trackman API integration settings
+  trackmanEnabled: boolean("trackman_enabled").default(false),
+  trackmanClientId: text("trackman_client_id"),
+  trackmanClientSecret: text("trackman_client_secret"),
+  trackmanApiUrl: text("trackman_api_url").default("https://api.trackman.com"), // Base API URL
+  
   // Referral tracking settings
   enableReferralTracking: boolean("enable_referral_tracking").default(false),
   showReferralOnPublicForms: boolean("show_referral_on_public_forms").default(false),
@@ -307,7 +313,53 @@ export const facilities = pgTable("facilities", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const facilitiesRelations = relations(facilities, ({ many }) => ({
+// ============================================================================
+// TRACKMAN OAUTH TOKENS (OAuth 2.0 Access & Refresh Tokens)
+// ============================================================================
+// Note: Must be defined before facilitiesRelations to avoid initialization errors
+
+export const trackmanTokens = pgTable("trackman_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(), // One token record per facility
+  
+  // OAuth tokens
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  tokenType: varchar("token_type").default("Bearer").notNull(),
+  
+  // Expiry management
+  expiresAt: timestamp("expires_at").notNull(), // When access token expires
+  scope: text("scope"), // OAuth scopes granted
+  
+  // Metadata
+  lastRefreshedAt: timestamp("last_refreshed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  facilityIdIdx: index("trackman_tokens_facility_id_idx").on(table.facilityId),
+}));
+
+export const trackmanTokensRelations = relations(trackmanTokens, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [trackmanTokens.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const insertTrackmanTokenSchema = createInsertSchema(trackmanTokens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TrackmanToken = typeof trackmanTokens.$inferSelect;
+export type InsertTrackmanToken = z.infer<typeof insertTrackmanTokenSchema>;
+
+// Facilities relations (defined after trackmanTokens to avoid initialization errors)
+export const facilitiesRelations = relations(facilities, ({ one, many }) => ({
   users: many(users),
   bays: many(bays),
   bookings: many(bookings),
@@ -315,6 +367,7 @@ export const facilitiesRelations = relations(facilities, ({ many }) => ({
   lessons: many(lessons),
   fittings: many(fittings),
   customRoles: many(customRoles),
+  trackmanToken: one(trackmanTokens),
 }));
 
 export const insertFacilitySchema = createInsertSchema(facilities).omit({
