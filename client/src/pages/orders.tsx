@@ -38,6 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CustomerProfileDialog } from "@/components/customer-profile-dialog";
 import { CollectPaymentDialog } from "@/components/collect-payment-dialog";
 import { RecordPaymentDialog } from "@/components/record-payment-dialog";
+import { ReceiptDialog } from "@/components/receipt-dialog";
 
 interface Order {
   id: string;
@@ -84,6 +85,8 @@ export default function OrdersPage() {
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<Order | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [recordPaymentDialogOpen, setRecordPaymentDialogOpen] = useState(false);
+  const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<Order | null>(null);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
 
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders", typeFilter, statusFilter, dateFilter],
@@ -99,6 +102,11 @@ export default function OrdersPage() {
       if (!response.ok) throw new Error("Failed to fetch orders");
       return response.json();
     },
+  });
+
+  // Fetch current user to get facility info for receipts
+  const { data: currentUser } = useQuery<any>({
+    queryKey: ["/api/auth/user"],
   });
 
   const filteredOrders = orders?.filter((order) => {
@@ -400,19 +408,33 @@ export default function OrdersPage() {
                           : "—"}
                       </TableCell>
                       <TableCell>
-                        {order.paymentStatus === "pending" && (
+                        <div className="flex items-center gap-2">
+                          {order.paymentStatus === "pending" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedOrderForPayment(order);
+                                setRecordPaymentDialogOpen(true);
+                              }}
+                              data-testid={`button-record-payment-${order.id}`}
+                            >
+                              Record Payment
+                            </Button>
+                          )}
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setSelectedOrderForPayment(order);
-                              setRecordPaymentDialogOpen(true);
+                              setSelectedOrderForReceipt(order);
+                              setReceiptDialogOpen(true);
                             }}
-                            data-testid={`button-record-payment-${order.id}`}
+                            data-testid={`button-view-receipt-${order.id}`}
                           >
-                            Record Payment
+                            <FileText className="w-4 h-4 mr-1" />
+                            Receipt
                           </Button>
-                        )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -467,6 +489,28 @@ export default function OrdersPage() {
           customerName={`${selectedOrderForPayment.customer.firstName} ${selectedOrderForPayment.customer.lastName}`}
           orderDescription={selectedOrderForPayment.description}
           amount={selectedOrderForPayment.amount}
+        />
+      )}
+
+      {/* Receipt Dialog */}
+      {selectedOrderForReceipt && (
+        <ReceiptDialog
+          key={selectedOrderForReceipt.id}
+          open={receiptDialogOpen}
+          onOpenChange={(open) => {
+            setReceiptDialogOpen(open);
+            if (!open) {
+              setSelectedOrderForReceipt(null);
+            }
+          }}
+          order={selectedOrderForReceipt}
+          facility={currentUser?.facility ? {
+            name: currentUser.facility.name || "Golf Simulator Facility",
+            address: currentUser.facility.address,
+            phone: currentUser.facility.phone,
+            email: currentUser.facility.email,
+            website: currentUser.facility.website,
+          } : undefined}
         />
       )}
     </div>

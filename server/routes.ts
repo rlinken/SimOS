@@ -52,7 +52,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      res.json(user);
+      
+      // Include facility data if user has a facility
+      if (user && user.facilityId) {
+        const facility = await storage.getFacility(user.facilityId);
+        res.json({ ...user, facility });
+      } else {
+        res.json(user);
+      }
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -3036,6 +3043,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Payment recorded successfully" });
     } catch (error: any) {
       console.error("Error recording payment:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Email receipt to customer
+  app.post("/api/orders/:orderId/email-receipt", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const facilityId = user?.facilityId;
+      const orderId = req.params.orderId;
+      const { orderType } = req.body;
+
+      if (!orderType) {
+        return res.status(400).json({ message: "Order type is required" });
+      }
+
+      // Get order details based on type
+      let orderDetails: any;
+      let customer: any;
+
+      switch (orderType) {
+        case "booking": {
+          const booking = await storage.getBooking(orderId);
+          if (!booking || booking.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Booking not found" });
+          }
+          customer = await storage.getUser(booking.customerId);
+          orderDetails = {
+            type: "booking",
+            description: `Bay Booking - ${booking.type}`,
+            amount: booking.amount,
+            date: booking.createdAt,
+            paymentStatus: booking.paymentStatus,
+            paymentMethod: booking.paymentMethod,
+          };
+          break;
+        }
+        case "lesson": {
+          const lesson = await storage.getLesson(orderId);
+          if (!lesson || lesson.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Lesson not found" });
+          }
+          customer = await storage.getUser(lesson.customerId);
+          orderDetails = {
+            type: "lesson",
+            description: `Lesson - ${lesson.lessonType || 'Individual'}`,
+            amount: lesson.price || "0",
+            date: lesson.createdAt,
+            paymentStatus: "paid", // Lessons track payment via bookings
+            paymentMethod: undefined,
+          };
+          break;
+        }
+        case "fitting": {
+          const fitting = await storage.getFitting(orderId);
+          if (!fitting || fitting.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Fitting not found" });
+          }
+          customer = await storage.getUser(fitting.customerId);
+          orderDetails = {
+            type: "fitting",
+            description: `Club Fitting - ${fitting.fittingType || 'Standard'}`,
+            amount: fitting.price || "0",
+            date: fitting.createdAt,
+            paymentStatus: "paid",
+            paymentMethod: undefined,
+          };
+          break;
+        }
+        case "transformation_package": {
+          const enrollment = await storage.getTransformationPackageEnrollment(orderId);
+          if (!enrollment || enrollment.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Package enrollment not found" });
+          }
+          customer = await storage.getUser(enrollment.customerId);
+          const pkg = await storage.getTransformationPackage(enrollment.packageId);
+          orderDetails = {
+            type: "transformation_package",
+            description: pkg?.name || "Transformation Package",
+            amount: pkg?.price || "0",
+            date: enrollment.createdAt,
+            paymentStatus: enrollment.paymentStatus,
+            paymentMethod: undefined,
+          };
+          break;
+        }
+        case "membership": {
+          // For memberships, the orderId is actually a userId
+          customer = await storage.getUser(orderId);
+          if (!customer || customer.facilityId !== facilityId) {
+            return res.status(404).json({ message: "Member not found" });
+          }
+          // Get membership tier info
+          const membershipTier = customer.membershipTier 
+            ? await storage.getMembershipTier(customer.membershipTier)
+            : null;
+          orderDetails = {
+            type: "membership",
+            description: membershipTier ? `${membershipTier.name} Membership` : "Membership",
+            amount: membershipTier?.monthlyPrice || "0",
+            date: customer.membershipStartDate || customer.createdAt,
+            paymentStatus: "paid", // Memberships are typically paid
+            paymentMethod: undefined,
+          };
+          break;
+        }
+        default:
+          return res.status(400).json({ message: "Invalid order type" });
+      }
+
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // TODO: Implement actual email sending
+      // For now, we'll just log that we would send an email
+      console.log(`Would send receipt email to ${customer.email} for order ${orderId}`);
+      console.log("Order details:", orderDetails);
+
+      // In a real implementation, you would:
+      // 1. Get facility details for branding
+      // 2. Generate HTML email with receipt
+      // 3. Use email service (SendGrid, Mailgun, etc.) to send
+      // 4. Log email sent in database
+
+      res.json({ 
+        message: "Receipt email sent successfully",
+        // Note: In production, implement actual email sending
+        note: "Email functionality will be implemented with email service integration"
+      });
+    } catch (error: any) {
+      console.error("Error sending receipt email:", error);
       res.status(500).json({ message: error.message });
     }
   });

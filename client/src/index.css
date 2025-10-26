@@ -334,3 +334,36 @@
     inset: -1px;
   }
 }
+
+/* Print Styles for Receipts */
+@media print {
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #receipt-content,
+  #receipt-content * {
+    visibility: visible;
+  }
+
+  #receipt-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+  }
+
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  .print\\:max-w-full {
+    max-width: 100% !important;
+  }
+}
