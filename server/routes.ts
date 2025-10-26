@@ -209,6 +209,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Trackman WebSocket Management Routes (Admin only)
+  // ============================================================================
+
+  app.post("/api/trackman/connect", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { getTrackmanWebSocketService } = await import("./services/trackman-websocket");
+      const wsService = getTrackmanWebSocketService();
+      
+      await wsService.connect(user.facilityId);
+      res.json({ message: "Trackman WebSocket connected successfully" });
+    } catch (error: any) {
+      console.error("Error connecting Trackman WebSocket:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trackman/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { getTrackmanWebSocketService } = await import("./services/trackman-websocket");
+      const wsService = getTrackmanWebSocketService();
+      
+      wsService.disconnect(user.facilityId);
+      res.json({ message: "Trackman WebSocket disconnected successfully" });
+    } catch (error: any) {
+      console.error("Error disconnecting Trackman WebSocket:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Payment Settings Routes (Admin only)
   // ============================================================================
 
