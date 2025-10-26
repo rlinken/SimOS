@@ -2387,6 +2387,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Widget Configuration Routes
+  app.get("/api/widget-config/:facilityId/:widgetType", async (req, res) => {
+    try {
+      const { facilityId, widgetType } = req.params;
+      
+      const facility = await storage.getFacility(facilityId);
+      if (!facility) {
+        return res.status(404).json({ message: "Facility not found" });
+      }
+      
+      const config = await storage.getWidgetConfig(facilityId, widgetType);
+      
+      if (config) {
+        res.json(config);
+      } else {
+        res.json({
+          facilityId,
+          widgetType,
+          displayMode: "full",
+          showLogo: true,
+          showDescription: true,
+          primaryColor: facility.primaryColor || "#16a34a",
+          accentColor: facility.accentColor || "#22c55e",
+          showPricing: true,
+          requirePhone: false,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error fetching widget config:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/widget-config/:facilityId/:widgetType", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      
+      const { facilityId, widgetType } = req.params;
+      
+      if (facilityId !== user.facilityId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { insertWidgetConfigurationSchema } = await import("@shared/schema");
+      const validatedData = insertWidgetConfigurationSchema.parse({
+        ...req.body,
+        facilityId,
+        widgetType,
+      });
+      
+      const config = await storage.upsertWidgetConfig(validatedData);
+      res.json(config);
+    } catch (error: any) {
+      console.error("Error updating widget config:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // ============================================================================
   // Custom Roles Routes
   // ============================================================================

@@ -22,6 +22,9 @@ import FacilitiesPage from "@/pages/facilities";
 import SettingsPage from "@/pages/settings";
 import OnboardingPage from "@/pages/onboarding";
 import WidgetCalendar from "@/pages/widget-calendar";
+import WidgetRental from "@/pages/widget-rental";
+import WidgetLesson from "@/pages/widget-lesson";
+import WidgetFitting from "@/pages/widget-fitting";
 import AccountPage from "@/pages/account";
 import SchedulePage from "@/pages/schedule";
 import ContactsPage from "@/pages/contacts";
@@ -90,6 +93,9 @@ function AppContent() {
     return (
       <Switch>
         <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
+        <Route path="/widget/rental/:facilityId" component={WidgetRental} />
+        <Route path="/widget/lesson/:facilityId/:lessonOfferId" component={WidgetLesson} />
+        <Route path="/widget/fitting/:facilityId" component={WidgetFitting} />
         <Route path="/buy/membership/:id" component={BuyMembership} />
         <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
         <UnauthenticatedRoutes />
@@ -100,6 +106,9 @@ function AppContent() {
   return (
     <Switch>
       <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
+      <Route path="/widget/rental/:facilityId" component={WidgetRental} />
+      <Route path="/widget/lesson/:facilityId/:lessonOfferId" component={WidgetLesson} />
+      <Route path="/widget/fitting/:facilityId" component={WidgetFitting} />
       <Route path="/buy/membership/:id" component={BuyMembership} />
       <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
       <Route>

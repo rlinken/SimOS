@@ -79,6 +79,9 @@ import {
   type CustomerNote,
   type InsertCustomerNote,
   customerNotes,
+  widgetConfigurations,
+  type WidgetConfiguration,
+  type InsertWidgetConfiguration,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, gt, lt, asc, desc } from "drizzle-orm";
@@ -247,6 +250,10 @@ export interface IStorage {
   getCustomerNote(id: string): Promise<CustomerNote | undefined>;
   createCustomerNote(note: InsertCustomerNote): Promise<CustomerNote>;
   deleteCustomerNote(id: string): Promise<void>;
+  
+  // Widget Configurations
+  getWidgetConfig(facilityId: string, widgetType: string): Promise<WidgetConfiguration | undefined>;
+  upsertWidgetConfig(config: InsertWidgetConfiguration): Promise<WidgetConfiguration>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1337,6 +1344,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomerNote(id: string): Promise<void> {
     await db.delete(customerNotes).where(eq(customerNotes.id, id));
+  }
+
+  // Widget Configurations
+  async getWidgetConfig(facilityId: string, widgetType: string): Promise<WidgetConfiguration | undefined> {
+    const [config] = await db
+      .select()
+      .from(widgetConfigurations)
+      .where(
+        and(
+          eq(widgetConfigurations.facilityId, facilityId),
+          eq(widgetConfigurations.widgetType, widgetType as any)
+        )
+      );
+    return config;
+  }
+
+  async upsertWidgetConfig(config: InsertWidgetConfiguration): Promise<WidgetConfiguration> {
+    const [result] = await db
+      .insert(widgetConfigurations)
+      .values(config)
+      .onConflictDoUpdate({
+        target: [widgetConfigurations.facilityId, widgetConfigurations.widgetType],
+        set: {
+          ...config,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
   }
 }
 

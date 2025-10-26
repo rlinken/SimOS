@@ -378,93 +378,335 @@ export default function SettingsPage() {
 
         <TabsContent value="widgets" className="space-y-6">
           <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Booking Calendar Widget</h2>
+            <h2 className="text-xl font-semibold mb-4">Booking Widgets</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Embed this calendar on your website to allow customers to book bay time directly
+              Embed these widgets on your website to allow customers to book services directly
             </p>
 
-            <div className="space-y-6">
-              <div>
-                <Label htmlFor="widget-url">Widget URL</Label>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    id="widget-url"
-                    value={widgetUrl}
-                    readOnly
-                    className="font-mono text-sm"
-                    data-testid="input-widget-url"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => handleCopy(widgetUrl, "Widget URL")}
-                    data-testid="button-copy-url"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(widgetUrl, "_blank")}
-                    data-testid="button-open-widget"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Direct link to your booking widget
-                </p>
-              </div>
+            <Tabs defaultValue="calendar" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="calendar" data-testid="tab-calendar-widget">Calendar</TabsTrigger>
+                <TabsTrigger value="rental" data-testid="tab-rental-widget">Rentals</TabsTrigger>
+                <TabsTrigger value="lesson" data-testid="tab-lesson-widget">Lessons</TabsTrigger>
+                <TabsTrigger value="fitting" data-testid="tab-fitting-widget">Fittings</TabsTrigger>
+              </TabsList>
 
-              <div>
-                <Label htmlFor="embed-code">Embed Code (iframe)</Label>
-                <div className="mt-2 space-y-2">
-                  <div className="relative">
-                    <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono">
-                      <code data-testid="text-embed-code">{embedCode}</code>
-                    </pre>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="absolute top-2 right-2"
-                      onClick={() => handleCopy(embedCode, "Embed code")}
-                      data-testid="button-copy-embed"
-                    >
-                      <Copy className="w-3 h-3 mr-1" />
-                      {copied ? "Copied!" : "Copy"}
-                    </Button>
+              <TabsContent value="calendar" className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="calendar-widget-url">Widget URL</Label>
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        id="calendar-widget-url"
+                        value={widgetUrl}
+                        readOnly
+                        className="font-mono text-sm"
+                        data-testid="input-calendar-widget-url"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCopy(widgetUrl, "Calendar Widget URL")}
+                        data-testid="button-copy-calendar-url"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(widgetUrl, "_blank")}
+                        data-testid="button-open-calendar-widget"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Copy and paste this code into your website's HTML
-                  </p>
-                </div>
-              </div>
 
-              <div className="border-t pt-6">
-                <h3 className="font-semibold mb-2">Preview</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  This is how the widget will appear on your website
-                </p>
-                <div className="border rounded-lg overflow-hidden">
-                  <iframe
-                    src={widgetUrl}
-                    width="100%"
-                    height="600"
-                    style={{ border: "none" }}
-                    title="Widget Preview"
-                    data-testid="iframe-widget-preview"
-                  />
+                  <div>
+                    <Label htmlFor="calendar-embed-code">Embed Code</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="relative">
+                        <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono">
+                          <code data-testid="text-calendar-embed-code">{embedCode}</code>
+                        </pre>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="absolute top-2 right-2"
+                          onClick={() => handleCopy(embedCode, "Calendar embed code")}
+                          data-testid="button-copy-calendar-embed"
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          {copied ? "Copied!" : "Copy"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-2">Preview</h3>
+                    <div className="border rounded-lg overflow-hidden">
+                      <iframe
+                        src={widgetUrl}
+                        width="100%"
+                        height="600"
+                        style={{ border: "none" }}
+                        title="Calendar Widget Preview"
+                        data-testid="iframe-calendar-widget-preview"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </TabsContent>
+
+              <TabsContent value="rental" className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="rental-widget-url">Widget URL</Label>
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        id="rental-widget-url"
+                        value={`${window.location.origin}/widget/rental/${facilityId}`}
+                        readOnly
+                        className="font-mono text-sm"
+                        data-testid="input-rental-widget-url"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCopy(`${window.location.origin}/widget/rental/${facilityId}`, "Rental Widget URL")}
+                        data-testid="button-copy-rental-url"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(`${window.location.origin}/widget/rental/${facilityId}`, "_blank")}
+                        data-testid="button-open-rental-widget"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="rental-embed-code">Embed Code</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="relative">
+                        <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono">
+                          <code data-testid="text-rental-embed-code">{`<iframe 
+  src="${window.location.origin}/widget/rental/${facilityId}" 
+  width="100%" 
+  height="800" 
+  frameborder="0"
+  style="border: 1px solid #e5e7eb; border-radius: 8px;"
+></iframe>`}</code>
+                        </pre>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="absolute top-2 right-2"
+                          onClick={() => handleCopy(`<iframe src="${window.location.origin}/widget/rental/${facilityId}" width="100%" height="800" frameborder="0" style="border: 1px solid #e5e7eb; border-radius: 8px;"></iframe>`, "Rental embed code")}
+                          data-testid="button-copy-rental-embed"
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          {copied ? "Copied!" : "Copy"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 p-4 rounded-md">
+                    <h4 className="font-medium text-sm mb-2">Display Modes</h4>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Add <code className="bg-background px-1 py-0.5 rounded">?mode=</code> parameter to control widget display:
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=full</code> - Full widget with all features (default)</li>
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=partial</code> - Compact view</li>
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=sidebar</code> - Narrow sidebar layout</li>
+                    </ul>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-2">Preview</h3>
+                    <div className="border rounded-lg overflow-hidden">
+                      <iframe
+                        src={`${window.location.origin}/widget/rental/${facilityId}`}
+                        width="100%"
+                        height="600"
+                        style={{ border: "none" }}
+                        title="Rental Widget Preview"
+                        data-testid="iframe-rental-widget-preview"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="lesson" className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="lesson-widget-url">Widget URL</Label>
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        id="lesson-widget-url"
+                        value={`${window.location.origin}/widget/lesson/${facilityId}/[LESSON_OFFER_ID]`}
+                        readOnly
+                        className="font-mono text-sm"
+                        data-testid="input-lesson-widget-url"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCopy(`${window.location.origin}/widget/lesson/${facilityId}/[LESSON_OFFER_ID]`, "Lesson Widget URL")}
+                        data-testid="button-copy-lesson-url"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Replace <code className="bg-background px-1 py-0.5 rounded">[LESSON_OFFER_ID]</code> with your specific lesson offering ID
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="lesson-embed-code">Embed Code</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="relative">
+                        <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono">
+                          <code data-testid="text-lesson-embed-code">{`<iframe 
+  src="${window.location.origin}/widget/lesson/${facilityId}/[LESSON_OFFER_ID]" 
+  width="100%" 
+  height="800" 
+  frameborder="0"
+  style="border: 1px solid #e5e7eb; border-radius: 8px;"
+></iframe>`}</code>
+                        </pre>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="absolute top-2 right-2"
+                          onClick={() => handleCopy(`<iframe src="${window.location.origin}/widget/lesson/${facilityId}/[LESSON_OFFER_ID]" width="100%" height="800" frameborder="0" style="border: 1px solid #e5e7eb; border-radius: 8px;"></iframe>`, "Lesson embed code")}
+                          data-testid="button-copy-lesson-embed"
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          {copied ? "Copied!" : "Copy"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 p-4 rounded-md">
+                    <h4 className="font-medium text-sm mb-2">Required Parameter</h4>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      The lesson widget requires a <code className="bg-background px-1 py-0.5 rounded">lessonOfferId</code> to display the correct lesson offering.
+                    </p>
+                    <h4 className="font-medium text-sm mb-2 mt-4">Display Modes</h4>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Add <code className="bg-background px-1 py-0.5 rounded">?mode=</code> parameter to control widget display:
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=full</code> - Full widget with all features (default)</li>
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=partial</code> - Compact view</li>
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=sidebar</code> - Narrow sidebar layout</li>
+                    </ul>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="fitting" className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="fitting-widget-url">Widget URL</Label>
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        id="fitting-widget-url"
+                        value={`${window.location.origin}/widget/fitting/${facilityId}`}
+                        readOnly
+                        className="font-mono text-sm"
+                        data-testid="input-fitting-widget-url"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => handleCopy(`${window.location.origin}/widget/fitting/${facilityId}`, "Fitting Widget URL")}
+                        data-testid="button-copy-fitting-url"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(`${window.location.origin}/widget/fitting/${facilityId}`, "_blank")}
+                        data-testid="button-open-fitting-widget"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="fitting-embed-code">Embed Code</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="relative">
+                        <pre className="bg-muted p-4 rounded-md overflow-x-auto text-xs font-mono">
+                          <code data-testid="text-fitting-embed-code">{`<iframe 
+  src="${window.location.origin}/widget/fitting/${facilityId}" 
+  width="100%" 
+  height="800" 
+  frameborder="0"
+  style="border: 1px solid #e5e7eb; border-radius: 8px;"
+></iframe>`}</code>
+                        </pre>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="absolute top-2 right-2"
+                          onClick={() => handleCopy(`<iframe src="${window.location.origin}/widget/fitting/${facilityId}" width="100%" height="800" frameborder="0" style="border: 1px solid #e5e7eb; border-radius: 8px;"></iframe>`, "Fitting embed code")}
+                          data-testid="button-copy-fitting-embed"
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          {copied ? "Copied!" : "Copy"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 p-4 rounded-md">
+                    <h4 className="font-medium text-sm mb-2">Display Modes</h4>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Add <code className="bg-background px-1 py-0.5 rounded">?mode=</code> parameter to control widget display:
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-1 ml-4">
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=full</code> - Full widget with all features (default)</li>
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=partial</code> - Compact view</li>
+                      <li>• <code className="bg-background px-1 py-0.5 rounded">?mode=sidebar</code> - Narrow sidebar layout</li>
+                    </ul>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-2">Preview</h3>
+                    <div className="border rounded-lg overflow-hidden">
+                      <iframe
+                        src={`${window.location.origin}/widget/fitting/${facilityId}`}
+                        width="100%"
+                        height="600"
+                        style={{ border: "none" }}
+                        title="Fitting Widget Preview"
+                        data-testid="iframe-fitting-widget-preview"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </Card>
 
           <Card className="p-6 bg-muted/50">
             <h3 className="font-semibold mb-2">Integration Instructions</h3>
             <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-              <li>Copy the embed code above</li>
+              <li>Select the widget type you want to embed (Calendar, Rental, Lesson, or Fitting)</li>
+              <li>Copy the embed code for your chosen widget</li>
               <li>Open your website's HTML editor or page builder</li>
-              <li>Paste the code where you want the calendar to appear</li>
+              <li>Paste the code where you want the widget to appear</li>
+              <li>For lesson widgets, replace [LESSON_OFFER_ID] with your specific lesson offering ID</li>
               <li>Save and publish your changes</li>
-              <li>The calendar will automatically update with your facility's availability</li>
+              <li>The widget will automatically update with your facility's availability</li>
             </ol>
           </Card>
         </TabsContent>
