@@ -43,14 +43,21 @@ interface RecordPaymentDialogProps {
   amount: string;
 }
 
-const recordPaymentSchema = z.object({
-  amountPaid: z.string().min(1, "Amount is required"),
+const createRecordPaymentSchema = (maxAmount: number) => z.object({
+  amountPaid: z.coerce.number()
+    .min(0.01, "Amount must be greater than $0")
+    .max(maxAmount, `Amount cannot exceed $${maxAmount.toFixed(2)}`),
   paymentMethod: z.enum(["cash", "check", "external_pos", "bank_transfer", "other"]),
   paymentReference: z.string().optional(),
   notes: z.string().optional(),
 });
 
-type RecordPaymentFormData = z.infer<typeof recordPaymentSchema>;
+type RecordPaymentFormData = {
+  amountPaid: number;
+  paymentMethod: "cash" | "check" | "external_pos" | "bank_transfer" | "other";
+  paymentReference?: string;
+  notes?: string;
+};
 
 export function RecordPaymentDialog({
   open,
@@ -63,11 +70,14 @@ export function RecordPaymentDialog({
 }: RecordPaymentDialogProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const maxAmount = parseFloat(amount);
+  const recordPaymentSchema = createRecordPaymentSchema(maxAmount);
 
   const form = useForm<RecordPaymentFormData>({
     resolver: zodResolver(recordPaymentSchema),
     defaultValues: {
-      amountPaid: amount,
+      amountPaid: maxAmount,
       paymentMethod: "cash",
       paymentReference: "",
       notes: "",
@@ -153,29 +163,13 @@ export function RecordPaymentDialog({
                           type="number"
                           step="0.01"
                           min="0"
-                          max={parseFloat(amount)}
+                          max={maxAmount}
                           placeholder="0.00"
                           className="pl-9"
                           data-testid="input-amount-paid"
                           {...field}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(value);
-                            // Validate amount
-                            const numValue = parseFloat(value);
-                            const maxAmount = parseFloat(amount);
-                            if (numValue > maxAmount) {
-                              form.setError("amountPaid", {
-                                message: `Amount cannot exceed order total ($${maxAmount.toFixed(2)})`,
-                              });
-                            } else if (numValue < 0) {
-                              form.setError("amountPaid", {
-                                message: "Amount must be positive",
-                              });
-                            } else {
-                              form.clearErrors("amountPaid");
-                            }
-                          }}
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value)}
                         />
                       </div>
                     </FormControl>
