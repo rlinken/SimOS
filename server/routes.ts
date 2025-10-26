@@ -2933,6 +2933,203 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Analytics endpoint with comprehensive revenue breakdowns
+  app.get("/api/analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "User facility not found" });
+      }
+
+      const { startDate, endDate } = req.query;
+
+      // Default to current month if no dates provided
+      const now = new Date();
+      const start = startDate ? new Date(startDate as string) : new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = endDate ? new Date(endDate as string) : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+      // Fetch all data
+      const bookings = await storage.getBookings(user.facilityId);
+      const lessons = await storage.getLessons(user.facilityId);
+      const fittings = await storage.getFittings(user.facilityId);
+      const packageEnrollments = await storage.getTransformationPackageEnrollments(user.facilityId);
+      const members = await storage.getMembers(user.facilityId);
+
+      // Filter by date range
+      const isInRange = (date: Date) => date >= start && date <= end;
+
+      const filteredBookings = bookings.filter(b => isInRange(new Date(b.createdAt)));
+      const filteredLessons = lessons.filter(l => isInRange(new Date(l.createdAt)));
+      const filteredFittings = fittings.filter(f => isInRange(new Date(f.createdAt)));
+      const filteredPackages = packageEnrollments.filter(p => isInRange(new Date(p.createdAt)));
+      const filteredMembers = members.filter(m => isInRange(new Date(m.createdAt)));
+
+      // Revenue by product type
+      let transformationPackagesRevenue = 0;
+      for (const pkg of filteredPackages.filter(p => p.paymentStatus === "paid")) {
+        const packageData = await storage.getTransformationPackage(pkg.packageId);
+        transformationPackagesRevenue += parseFloat(packageData?.price || "0");
+      }
+
+      // Calculate membership revenue from new sign-ups in date range
+      let membershipsRevenue = 0;
+      for (const member of filteredMembers.filter(m => m.status === "active")) {
+        const tier = member.tierId ? await storage.getMembershipTier(member.tierId) : null;
+        // Count first month's revenue for new memberships in this period
+        membershipsRevenue += parseFloat(tier?.monthlyPrice || "0");
+      }
+
+      const revenueByType = {
+        bookings: filteredBookings
+          .filter(b => b.paymentStatus === "paid")
+          .reduce((sum, b) => sum + parseFloat(b.amount || "0"), 0),
+        lessons: filteredLessons
+          .filter(l => {
+            if (l.bookingId) {
+              const booking = bookings.find(b => b.id === l.bookingId);
+              return booking?.paymentStatus === "paid";
+            }
+            return false;
+          })
+          .reduce((sum, l) => {
+            const booking = bookings.find(b => b.id === l.bookingId);
+            return sum + parseFloat(booking?.amount || "0");
+          }, 0),
+        fittings: filteredFittings
+          .filter(f => {
+            if (f.bookingId) {
+              const booking = bookings.find(b => b.id === f.bookingId);
+              return booking?.paymentStatus === "paid";
+            }
+            return false;
+          })
+          .reduce((sum, f) => {
+            const booking = bookings.find(b => b.id === f.bookingId);
+            return sum + parseFloat(booking?.amount || "0");
+          }, 0),
+        transformationPackages: transformationPackagesRevenue,
+        memberships: membershipsRevenue,
+      };
+
+      // Monthly recurring revenue (MRR) from active memberships
+      const activeMemberships = members.filter(m => m.status === "active");
+      let mrr = 0;
+      for (const member of activeMemberships) {
+        const tier = member.tierId ? await storage.getMembershipTier(member.tierId) : null;
+        mrr += parseFloat(tier?.monthlyPrice || "0");
+      }
+
+      // Revenue by referral
+      const revenueByReferrer: { [key: string]: { name: string; revenue: number; count: number } } = {};
+      
+      for (const booking of filteredBookings.filter(b => b.paymentStatus === "paid" && b.referredBy)) {
+        if (booking.referredBy) {
+          if (!revenueByReferrer[booking.referredBy]) {
+            const referrer = await storage.getUser(booking.referredBy);
+            revenueByReferrer[booking.referredBy] = {
+              name: referrer ? `${referrer.firstName} ${referrer.lastName}` : "Unknown",
+              revenue: 0,
+              count: 0,
+            };
+          }
+          revenueByReferrer[booking.referredBy].revenue += parseFloat(booking.amount || "0");
+          revenueByReferrer[booking.referredBy].count += 1;
+        }
+      }
+
+      for (const pkg of filteredPackages.filter(p => p.paymentStatus === "paid" && p.referredBy)) {
+        if (pkg.referredBy) {
+          if (!revenueByReferrer[pkg.referredBy]) {
+            const referrer = await storage.getUser(pkg.referredBy);
+            revenueByReferrer[pkg.referredBy] = {
+              name: referrer ? `${referrer.firstName} ${referrer.lastName}` : "Unknown",
+              revenue: 0,
+              count: 0,
+            };
+          }
+          const packageData = await storage.getTransformationPackage(pkg.packageId);
+          revenueByReferrer[pkg.referredBy].revenue += parseFloat(packageData?.price || "0");
+          revenueByReferrer[pkg.referredBy].count += 1;
+        }
+      }
+
+      // Revenue by instructor
+      const revenueByInstructor: { [key: string]: { name: string; revenue: number; count: number } } = {};
+      
+      for (const lesson of filteredLessons) {
+        if (lesson.bookingId) {
+          const booking = bookings.find(b => b.id === lesson.bookingId);
+          if (booking?.paymentStatus === "paid") {
+            if (!revenueByInstructor[lesson.instructorId]) {
+              const instructor = await storage.getUser(lesson.instructorId);
+              revenueByInstructor[lesson.instructorId] = {
+                name: instructor ? `${instructor.firstName} ${instructor.lastName}` : "Unknown",
+                revenue: 0,
+                count: 0,
+              };
+            }
+            revenueByInstructor[lesson.instructorId].revenue += parseFloat(booking.amount || "0");
+            revenueByInstructor[lesson.instructorId].count += 1;
+          }
+        }
+      }
+
+      // Monthly breakdown for the year
+      const monthlyRevenue: { month: string; revenue: number }[] = [];
+      const currentYear = new Date().getFullYear();
+      
+      for (let month = 0; month < 12; month++) {
+        const monthStart = new Date(currentYear, month, 1);
+        const monthEnd = new Date(currentYear, month + 1, 0, 23, 59, 59);
+        
+        const monthlyBookings = bookings.filter(b => {
+          const date = new Date(b.createdAt);
+          return b.paymentStatus === "paid" && date >= monthStart && date <= monthEnd;
+        });
+        
+        const monthlyPackages = packageEnrollments.filter(p => {
+          const date = new Date(p.createdAt);
+          return p.paymentStatus === "paid" && date >= monthStart && date <= monthEnd;
+        });
+
+        let revenue = monthlyBookings.reduce((sum, b) => sum + parseFloat(b.amount || "0"), 0);
+        
+        for (const pkg of monthlyPackages) {
+          const packageData = await storage.getTransformationPackage(pkg.packageId);
+          revenue += parseFloat(packageData?.price || "0");
+        }
+
+        monthlyRevenue.push({
+          month: monthStart.toLocaleDateString('en-US', { month: 'short' }),
+          revenue,
+        });
+      }
+
+      res.json({
+        dateRange: { start, end },
+        revenueByType,
+        recurringRevenue: {
+          mrr,
+          activeMemberships: activeMemberships.length,
+          annualizedRevenue: mrr * 12,
+        },
+        revenueByReferrer: Object.entries(revenueByReferrer).map(([id, data]) => ({
+          id,
+          ...data,
+        })).sort((a, b) => b.revenue - a.revenue),
+        revenueByInstructor: Object.entries(revenueByInstructor).map(([id, data]) => ({
+          id,
+          ...data,
+        })).sort((a, b) => b.revenue - a.revenue),
+        monthlyRevenue,
+        totalRevenue: Object.values(revenueByType).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0),
+      });
+    } catch (error: any) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Record manual payment for an order
   app.post("/api/orders/:orderId/record-payment", isAuthenticated, async (req: any, res) => {
     try {
