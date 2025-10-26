@@ -20,6 +20,7 @@ import { eq, and } from 'drizzle-orm';
 import { TrackmanOAuthService } from './trackman-oauth';
 import { eventBus } from '../marketing/event-bus';
 import { bayWearCalculator } from './bay-wear-calculator';
+import { swingPatternDetector } from './swing-pattern-detector';
 
 interface TrackmanShotData {
   shotId: string;
@@ -430,9 +431,24 @@ export class TrackmanWebSocketService {
         new Date(data.timestamp)
       );
 
-      // Emit event to marketing engine for swing pattern analysis
-      // Only emit for booked sessions (we have user context)
+      // Add shot to swing pattern detector for session-level analysis
+      // Only track booked sessions (we need user context for marketing)
       if (session?.userId && session?.bookingId) {
+        swingPatternDetector.addShot(session.id, {
+          shotId: shot.id,
+          spinAxis: shot.spinAxis ? parseFloat(shot.spinAxis) : null,
+          curve: shot.curve ? parseFloat(shot.curve) : null,
+          offline: shot.offline ? parseFloat(shot.offline) : null,
+          faceToPath: shot.faceToPath ? parseFloat(shot.faceToPath) : null,
+          clubPath: shot.clubPath ? parseFloat(shot.clubPath) : null,
+          ballSpeed: shot.ballSpeed ? parseFloat(shot.ballSpeed) : null,
+          carryDistance: shot.carryDistance ? parseFloat(shot.carryDistance) : null,
+          impactOffset: shot.impactOffset ? parseFloat(shot.impactOffset) : null,
+          smashFactor: shot.smashFactor ? parseFloat(shot.smashFactor) : null,
+          club: shot.club,
+        });
+        
+        // Emit raw shot event for real-time tracking
         await eventBus.emit('trackman.shot_captured', {
           userId: session.userId,
           facilityId,
@@ -488,6 +504,7 @@ export class TrackmanWebSocketService {
       });
 
       if (session?.userId && session?.bookingId) {
+        // Emit session complete event
         await eventBus.emit('trackman.session_completed', {
           userId: session.userId,
           facilityId,
@@ -498,6 +515,21 @@ export class TrackmanWebSocketService {
             totalShots: data.totalShots,
           },
         });
+        
+        // Analyze swing patterns and emit marketing events
+        console.log(`🔍 Analyzing swing patterns for session ${session.id}...`);
+        const patterns = await swingPatternDetector.analyzeSession(
+          session.id,
+          session.userId,
+          facilityId,
+          session.bookingId
+        );
+        
+        if (Object.keys(patterns).length > 0) {
+          console.log(`✅ Pattern analysis complete:`, patterns);
+        } else {
+          console.log(`ℹ️ No patterns detected (may need more shots)`);
+        }
       }
     } catch (error) {
       console.error('Error handling Trackman session end:', error);
