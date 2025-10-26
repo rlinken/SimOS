@@ -66,22 +66,22 @@ export default function WidgetFitting() {
   const searchParams = new URLSearchParams(window.location.search);
   const displayMode = searchParams.get("mode") || "full";
 
-  const { data: facility } = useQuery({
+  const { data: facility, isLoading: facilityLoading, error: facilityError } = useQuery({
     queryKey: [`/api/facilities/${facilityId}`],
     enabled: !!facilityId,
   });
 
-  const { data: fitters } = useQuery<any[]>({
+  const { data: fitters, isLoading: fittersLoading } = useQuery<any[]>({
     queryKey: [`/api/users?facilityId=${facilityId}&role=club_fitter`],
     enabled: !!facilityId,
   });
 
-  const { data: widgetConfig } = useQuery<WidgetConfig>({
+  const { data: widgetConfig, isLoading: configLoading } = useQuery<WidgetConfig>({
     queryKey: [`/api/widget-config/${facilityId}/fitting`],
     enabled: !!facilityId,
   });
 
-  const { data: availability } = useQuery<TimeSlot[]>({
+  const { data: availability, isLoading: availabilityLoading, error: availabilityError } = useQuery<TimeSlot[]>({
     queryKey: [
       `/api/widget/fitting-availability/${facilityId}/${selectedFitter}`,
       selectedDate.toISOString(),
@@ -95,6 +95,8 @@ export default function WidgetFitting() {
     },
     enabled: !!facilityId && !!selectedFitter,
   });
+
+  const isLoading = facilityLoading || fittersLoading || configLoading || availabilityLoading;
 
   const createFittingBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -186,6 +188,32 @@ export default function WidgetFitting() {
         : "max-w-6xl";
 
   const selectedFitterData = fitters?.find(f => f.id === selectedFitter);
+
+  if (facilityError || availabilityError) {
+    return (
+      <div className="min-h-screen p-8 flex items-center justify-center">
+        <Card className="p-8 text-center max-w-md">
+          <h2 className="text-xl font-semibold mb-2">Unable to Load Widget</h2>
+          <p className="text-muted-foreground">
+            {availabilityError
+              ? "Unable to load fitting availability. Please try again."
+              : "Please check the widget URL and try again."}
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading fitting widget...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -67,17 +67,17 @@ export default function WidgetRental() {
   const searchParams = new URLSearchParams(window.location.search);
   const displayMode = searchParams.get("mode") || "full";
 
-  const { data: facility } = useQuery({
+  const { data: facility, isLoading: facilityLoading, error: facilityError } = useQuery({
     queryKey: [`/api/facilities/${facilityId}`],
     enabled: !!facilityId,
   });
 
-  const { data: widgetConfig } = useQuery<WidgetConfig>({
+  const { data: widgetConfig, isLoading: configLoading } = useQuery<WidgetConfig>({
     queryKey: [`/api/widget-config/${facilityId}/rental`],
     enabled: !!facilityId,
   });
 
-  const { data: availability } = useQuery<TimeSlot[]>({
+  const { data: availability, isLoading: availabilityLoading, error: availabilityError } = useQuery<TimeSlot[]>({
     queryKey: [
       `/api/widget/availability/${facilityId}`,
       selectedDate.toISOString(),
@@ -91,6 +91,8 @@ export default function WidgetRental() {
     },
     enabled: !!facilityId,
   });
+
+  const isLoading = facilityLoading || configLoading || availabilityLoading;
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -180,6 +182,32 @@ export default function WidgetRental() {
       : displayMode === "partial"
         ? "max-w-3xl"
         : "max-w-6xl";
+
+  if (facilityError || availabilityError) {
+    return (
+      <div className="min-h-screen p-8 flex items-center justify-center">
+        <Card className="p-8 text-center max-w-md">
+          <h2 className="text-xl font-semibold mb-2">Unable to Load Widget</h2>
+          <p className="text-muted-foreground">
+            {availabilityError
+              ? "Unable to load availability. Please try again."
+              : "Please check the widget URL and try again."}
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading widget...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
