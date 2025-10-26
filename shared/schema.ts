@@ -1878,6 +1878,213 @@ export type PayrollPayment = typeof payrollPayments.$inferSelect;
 export type InsertPayrollPayment = z.infer<typeof insertPayrollPaymentSchema>;
 
 // ============================================================================
+// TRACKMAN INTEGRATION - Session Tracking & Shot Data
+// ============================================================================
+
+// Trackman Sessions - Simulator sessions (may or may not be linked to bookings)
+export const trackmanSessions = pgTable("trackman_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  bayId: varchar("bay_id")
+    .references(() => bays.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Optional booking link (null for walk-ins)
+  bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+  
+  // User (null for anonymous walk-ins)
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Session metadata
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  totalShots: integer("total_shots").default(0).notNull(),
+  
+  // Session type
+  sessionType: varchar("session_type"), // practice, lesson, fitting, competition
+  
+  // Trackman external ID
+  trackmanSessionId: varchar("trackman_session_id").unique(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  facilityBayIdx: index("trackman_sessions_facility_bay_idx").on(table.facilityId, table.bayId),
+  facilityUserIdx: index("trackman_sessions_facility_user_idx").on(table.facilityId, table.userId),
+  bookingIdx: index("trackman_sessions_booking_idx").on(table.bookingId),
+  startTimeIdx: index("trackman_sessions_start_time_idx").on(table.startTime),
+}));
+
+// Trackman Shots - Individual shot data with extensive metrics
+export const trackmanShots = pgTable("trackman_shots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id")
+    .references(() => trackmanSessions.id, { onDelete: "cascade" })
+    .notNull(),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Shot metadata
+  shotNumber: integer("shot_number").notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+  club: varchar("club"), // Driver, 7 Iron, Pitching Wedge, etc.
+  
+  // Ball data
+  ballSpeed: numeric("ball_speed", { precision: 5, scale: 2 }), // mph
+  totalSpin: numeric("total_spin", { precision: 6, scale: 0 }), // rpm
+  backSpin: numeric("back_spin", { precision: 6, scale: 0 }), // rpm
+  sideSpin: numeric("side_spin", { precision: 6, scale: 0 }), // rpm
+  spinAxis: numeric("spin_axis", { precision: 5, scale: 2 }), // degrees
+  launchAngle: numeric("launch_angle", { precision: 5, scale: 2 }), // degrees
+  launchDirection: numeric("launch_direction", { precision: 5, scale: 2 }), // degrees
+  
+  // Club data
+  clubSpeed: numeric("club_speed", { precision: 5, scale: 2 }), // mph
+  attackAngle: numeric("attack_angle", { precision: 5, scale: 2 }), // degrees
+  clubPath: numeric("club_path", { precision: 5, scale: 2 }), // degrees
+  faceAngle: numeric("face_angle", { precision: 5, scale: 2 }), // degrees
+  faceToPath: numeric("face_to_path", { precision: 5, scale: 2 }), // degrees
+  dynamicLoft: numeric("dynamic_loft", { precision: 5, scale: 2 }), // degrees
+  
+  // Impact data
+  smashFactor: numeric("smash_factor", { precision: 4, scale: 3 }),
+  impactOffset: numeric("impact_offset", { precision: 5, scale: 2 }), // inches from center
+  
+  // Distance data
+  carryDistance: numeric("carry_distance", { precision: 6, scale: 2 }), // yards
+  totalDistance: numeric("total_distance", { precision: 6, scale: 2 }), // yards
+  offline: numeric("offline", { precision: 6, scale: 2 }), // yards
+  curve: numeric("curve", { precision: 6, scale: 2 }), // yards (negative = left, positive = right)
+  maxHeight: numeric("max_height", { precision: 6, scale: 2 }), // yards
+  landingAngle: numeric("landing_angle", { precision: 5, scale: 2 }), // degrees
+  hangTime: numeric("hang_time", { precision: 5, scale: 2 }), // seconds
+  
+  // Trackman external ID
+  trackmanShotId: varchar("trackman_shot_id").unique(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  sessionIdx: index("trackman_shots_session_idx").on(table.sessionId),
+  facilityTimestampIdx: index("trackman_shots_facility_timestamp_idx").on(table.facilityId, table.timestamp),
+}));
+
+export const trackmanShotsRelations = relations(trackmanShots, ({ one }) => ({
+  session: one(trackmanSessions, {
+    fields: [trackmanShots.sessionId],
+    references: [trackmanSessions.id],
+  }),
+  facility: one(facilities, {
+    fields: [trackmanShots.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const insertTrackmanShotSchema = createInsertSchema(trackmanShots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TrackmanShot = typeof trackmanShots.$inferSelect;
+export type InsertTrackmanShot = z.infer<typeof insertTrackmanShotSchema>;
+
+// Trackman Sessions Relations (defined after trackmanShots to avoid initialization errors)
+export const trackmanSessionsRelations = relations(trackmanSessions, ({ one, many }) => ({
+  facility: one(facilities, {
+    fields: [trackmanSessions.facilityId],
+    references: [facilities.id],
+  }),
+  bay: one(bays, {
+    fields: [trackmanSessions.bayId],
+    references: [bays.id],
+  }),
+  booking: one(bookings, {
+    fields: [trackmanSessions.bookingId],
+    references: [bookings.id],
+  }),
+  user: one(users, {
+    fields: [trackmanSessions.userId],
+    references: [users.id],
+  }),
+  shots: many(trackmanShots),
+}));
+
+export const insertTrackmanSessionSchema = createInsertSchema(trackmanSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TrackmanSession = typeof trackmanSessions.$inferSelect;
+export type InsertTrackmanSession = z.infer<typeof insertTrackmanSessionSchema>;
+
+// Bay Wear Tracking - Aggregate wear data per bay
+export const bayWearTracking = pgTable("bay_wear_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  bayId: varchar("bay_id")
+    .references(() => bays.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Time period for aggregation
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  periodType: varchar("period_type").notNull(), // daily, weekly, monthly
+  
+  // Wear metrics
+  totalShots: integer("total_shots").default(0).notNull(),
+  wearScore: numeric("wear_score", { precision: 10, scale: 2 }).default("0").notNull(),
+  
+  // Shot breakdown
+  bookedShots: integer("booked_shots").default(0).notNull(),
+  walkInShots: integer("walk_in_shots").default(0).notNull(),
+  
+  // Cumulative totals (lifetime)
+  cumulativeTotalShots: integer("cumulative_total_shots").default(0).notNull(),
+  cumulativeWearScore: numeric("cumulative_wear_score", { precision: 10, scale: 2 }).default("0").notNull(),
+  
+  // Wear factors (for algorithmic scoring)
+  highSpeedShots: integer("high_speed_shots").default(0).notNull(), // > 100 mph ball speed
+  driverShots: integer("driver_shots").default(0).notNull(),
+  poorContactShots: integer("poor_contact_shots").default(0).notNull(), // Toe/heel hits
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  facilityBayPeriodIdx: uniqueIndex("bay_wear_facility_bay_period_idx").on(
+    table.facilityId,
+    table.bayId,
+    table.periodStart,
+    table.periodType
+  ),
+  bayPeriodTypeIdx: index("bay_wear_bay_period_type_idx").on(table.bayId, table.periodType),
+}));
+
+export const bayWearTrackingRelations = relations(bayWearTracking, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [bayWearTracking.facilityId],
+    references: [facilities.id],
+  }),
+  bay: one(bays, {
+    fields: [bayWearTracking.bayId],
+    references: [bays.id],
+  }),
+}));
+
+export const insertBayWearTrackingSchema = createInsertSchema(bayWearTracking).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BayWearTracking = typeof bayWearTracking.$inferSelect;
+export type InsertBayWearTracking = z.infer<typeof insertBayWearTrackingSchema>;
+
+// ============================================================================
 // GOLF MARKETING OS - Event-Driven Marketing Automation
 // ============================================================================
 
