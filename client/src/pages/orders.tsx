@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CustomerProfileDialog } from "@/components/customer-profile-dialog";
 
 interface Order {
   id: string;
@@ -76,6 +77,8 @@ export default function OrdersPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerProfileOpen, setCustomerProfileOpen] = useState(false);
 
   const { data: orders, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders", typeFilter, statusFilter, dateFilter],
@@ -333,12 +336,21 @@ export default function OrdersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm font-medium">
-                          {order.customer.firstName} {order.customer.lastName}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {order.customer.email}
-                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedCustomerId(order.customer.id);
+                            setCustomerProfileOpen(true);
+                          }}
+                          className="text-left hover-elevate active-elevate-2 rounded p-1 -m-1"
+                          data-testid={`button-customer-${order.customer.id}`}
+                        >
+                          <div className="text-sm font-medium text-primary">
+                            {order.customer.firstName} {order.customer.lastName}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {order.customer.email}
+                          </div>
+                        </button>
                       </TableCell>
                       <TableCell className="max-w-xs">
                         <div className="text-sm truncate">{order.description}</div>
@@ -384,6 +396,13 @@ export default function OrdersPage() {
           </Table>
         </div>
       </Card>
+
+      {/* Customer Profile Dialog */}
+      <CustomerProfileDialog
+        customerId={selectedCustomerId}
+        open={customerProfileOpen}
+        onOpenChange={setCustomerProfileOpen}
+      />
     </div>
   );
 }
