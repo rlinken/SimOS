@@ -2030,27 +2030,17 @@ export const bayWearTracking = pgTable("bay_wear_tracking", {
     .references(() => bays.id, { onDelete: "cascade" })
     .notNull(),
   
-  // Time period for aggregation
-  periodStart: timestamp("period_start").notNull(),
-  periodEnd: timestamp("period_end").notNull(),
-  periodType: varchar("period_type").notNull(), // daily, weekly, monthly
+  // Time period identifier: "2025-10-26" (daily), "2025-W43" (weekly), "2025-10" (monthly), "lifetime"
+  period: varchar("period").notNull(),
   
   // Wear metrics
   totalShots: integer("total_shots").default(0).notNull(),
-  wearScore: numeric("wear_score", { precision: 10, scale: 2 }).default("0").notNull(),
+  totalWearScore: numeric("total_wear_score", { precision: 12, scale: 2 }).default("0").notNull(),
+  averageWearScore: numeric("average_wear_score", { precision: 10, scale: 2 }).default("0").notNull(),
   
   // Shot breakdown
   bookedShots: integer("booked_shots").default(0).notNull(),
   walkInShots: integer("walk_in_shots").default(0).notNull(),
-  
-  // Cumulative totals (lifetime)
-  cumulativeTotalShots: integer("cumulative_total_shots").default(0).notNull(),
-  cumulativeWearScore: numeric("cumulative_wear_score", { precision: 10, scale: 2 }).default("0").notNull(),
-  
-  // Wear factors (for algorithmic scoring)
-  highSpeedShots: integer("high_speed_shots").default(0).notNull(), // > 100 mph ball speed
-  driverShots: integer("driver_shots").default(0).notNull(),
-  poorContactShots: integer("poor_contact_shots").default(0).notNull(), // Toe/heel hits
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -2058,10 +2048,9 @@ export const bayWearTracking = pgTable("bay_wear_tracking", {
   facilityBayPeriodIdx: uniqueIndex("bay_wear_facility_bay_period_idx").on(
     table.facilityId,
     table.bayId,
-    table.periodStart,
-    table.periodType
+    table.period
   ),
-  bayPeriodTypeIdx: index("bay_wear_bay_period_type_idx").on(table.bayId, table.periodType),
+  bayPeriodIdx: index("bay_wear_bay_period_idx").on(table.bayId, table.period),
 }));
 
 export const bayWearTrackingRelations = relations(bayWearTracking, ({ one }) => ({

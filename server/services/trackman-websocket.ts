@@ -19,6 +19,7 @@ import {
 import { eq, and } from 'drizzle-orm';
 import { TrackmanOAuthService } from './trackman-oauth';
 import { eventBus } from '../marketing/event-bus';
+import { bayWearCalculator } from './bay-wear-calculator';
 
 interface TrackmanShotData {
   shotId: string;
@@ -404,12 +405,33 @@ export class TrackmanWebSocketService {
         .values(shotData)
         .returning();
 
-      // Emit event to marketing engine for swing pattern analysis
-      // Only emit for booked sessions (we have user context)
+      // Get session to determine if booked or walk-in
       const session = await db.query.trackmanSessions.findFirst({
         where: eq(trackmanSessions.id, sessionId),
       });
 
+      // Calculate wear score for this shot
+      const wearScore = bayWearCalculator.calculateShotWear({
+        ballSpeed: shot.ballSpeed,
+        clubSpeed: shot.clubSpeed,
+        impactOffsetX: shot.impactOffsetX,
+        impactOffsetY: shot.impactOffsetY,
+        clubType: shot.club,
+        attackAngle: shot.attackAngle,
+      });
+
+      // Update bay wear tracking
+      const isBooked = session?.sessionType === 'booked';
+      await bayWearCalculator.updateBayWear(
+        facilityId,
+        bay.id,
+        wearScore.totalScore,
+        isBooked,
+        new Date(data.timestamp)
+      );
+
+      // Emit event to marketing engine for swing pattern analysis
+      // Only emit for booked sessions (we have user context)
       if (session?.userId && session?.bookingId) {
         await eventBus.emit('trackman.shot_captured', {
           userId: session.userId,
@@ -425,7 +447,7 @@ export class TrackmanWebSocketService {
         });
       }
 
-      console.log(`⛳ Shot captured: ${shot.id} (session: ${sessionId})`);
+      console.log(`⛳ Shot captured: ${shot.id} (wear: ${wearScore.totalScore.toFixed(2)}, session: ${sessionId})`);
     } catch (error) {
       console.error('Error handling Trackman shot:', error);
     }
