@@ -352,12 +352,15 @@ export default function Dashboard() {
                 const isPast = isPastHour(hour);
                 const displayHour = hour > 12 ? hour - 12 : hour;
                 const ampm = hour < 12 ? 'AM' : 'PM';
+                const isEvenHour = hour % 2 === 0;
                 return (
                   <div 
                     key={hour} 
-                    className={`p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center ${isPast ? 'opacity-40' : ''}`}
+                    className={`p-2 text-center border-r-2 last:border-r-0 border-b flex flex-col items-center justify-center ${
+                      isPast ? 'opacity-40' : ''
+                    } ${isEvenHour ? 'bg-muted/20' : 'bg-background'}`}
                   >
-                    <div className="text-xs font-semibold">{displayHour}:00</div>
+                    <div className="text-xs font-bold font-mono">{displayHour}:00</div>
                     <div className="text-[9px] text-muted-foreground uppercase font-medium">{ampm}</div>
                   </div>
                 );
@@ -392,25 +395,35 @@ export default function Dashboard() {
                     {hours.map(hour => {
                       const isPast = isPastHour(hour);
                       const isAvailable = bay.status === 'active' && !isPast;
+                      const isEvenHour = hour % 2 === 0;
 
                       return (
                         <div
                           key={hour}
                           onClick={() => handleSlotClick(bay, hour)}
                           className={`
-                            p-2 border-r last:border-r-0 min-h-[80px] 
+                            p-2 border-r-2 last:border-r-0 min-h-[80px] 
                             flex flex-col items-center justify-center text-xs 
                             transition-all relative group
-                            ${isPast ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
-                            ${isAvailable 
-                              ? 'bg-background hover:bg-green-50 dark:hover:bg-green-950/20' 
-                              : 'bg-muted/50 cursor-not-allowed'
-                            }
+                            ${!isAvailable ? 'bg-muted/50 cursor-not-allowed' : ''}
+                            ${isAvailable ? 'cursor-pointer' : ''}
+                            ${isAvailable && isEvenHour ? 'bg-muted/10' : ''}
+                            ${isAvailable && !isEvenHour ? 'bg-background' : ''}
+                            ${isAvailable ? 'hover:bg-green-50 dark:hover:bg-green-950/20' : ''}
+                            ${isPast ? 'opacity-40' : ''}
                           `}
                           data-testid={`slot-${bay.id}-${hour}`}
                         >
+                          {/* Quarter-hour tick marks */}
+                          <div className="absolute inset-0 flex pointer-events-none">
+                            <div className="w-1/4 border-r border-border/20" />
+                            <div className="w-1/4 border-r border-border/30" />
+                            <div className="w-1/4 border-r border-border/20" />
+                            <div className="w-1/4" />
+                          </div>
+                          
                           {isAvailable && (
-                            <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
                               <div className="w-10 h-10 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
                                 <Plus className="w-5 h-5 text-primary" />
                               </div>

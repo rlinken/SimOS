@@ -380,18 +380,18 @@ export default function Schedule() {
                 <div className="p-3 font-semibold border-r border-b flex items-center justify-center sticky left-0 z-20 bg-gradient-to-br from-muted/80 to-muted/40">
                   <span className="text-xs">Bays</span>
                 </div>
-                {hours.map(hour => {
-                  const showAmPm = hour === 6 || hour === 12 || hour === 18;
+                {hours.map((hour, index) => {
+                  const isEvenHour = hour % 2 === 0;
                   return (
                     <div 
                       key={hour} 
-                      className="p-2 text-center border-r last:border-r-0 border-b flex flex-col items-center justify-center"
+                      className={`p-2 text-center border-r-2 last:border-r-0 border-b flex flex-col items-center justify-center ${
+                        isEvenHour ? 'bg-muted/20' : 'bg-background'
+                      }`}
                       data-testid={`header-hour-${hour}`}
                     >
-                      <div className="text-sm font-semibold">{hour > 12 ? hour - 12 : hour}</div>
-                      {showAmPm && (
-                        <div className="text-[9px] text-muted-foreground uppercase font-medium">{hour < 12 ? 'am' : 'pm'}</div>
-                      )}
+                      <div className="text-sm font-bold font-mono">{hour > 12 ? hour - 12 : hour}:00</div>
+                      <div className="text-[9px] text-muted-foreground uppercase font-medium">{hour < 12 ? 'am' : 'pm'}</div>
                     </div>
                   );
                 })}
@@ -426,25 +426,35 @@ export default function Schedule() {
                     {hours.map(hour => {
                       const isPast = isPastHour(hour);
                       const isAvailable = bay.status === 'active' && !isPast;
+                      const isEvenHour = hour % 2 === 0;
 
                       return (
                         <div
                           key={hour}
                           onClick={() => handleSlotClick(bay, hour)}
                           className={`
-                            p-2 border-r last:border-r-0 min-h-[80px] 
+                            p-2 border-r-2 last:border-r-0 min-h-[80px] 
                             flex flex-col items-center justify-center text-xs 
                             transition-all relative group
-                            ${isPast ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
-                            ${isAvailable 
-                              ? 'bg-background hover:bg-green-50 dark:hover:bg-green-950/20' 
-                              : 'bg-muted/50 cursor-not-allowed'
-                            }
+                            ${!isAvailable ? 'bg-muted/50 cursor-not-allowed' : ''}
+                            ${isAvailable ? 'cursor-pointer' : ''}
+                            ${isAvailable && isEvenHour ? 'bg-muted/10' : ''}
+                            ${isAvailable && !isEvenHour ? 'bg-background' : ''}
+                            ${isAvailable ? 'hover:bg-green-50 dark:hover:bg-green-950/20' : ''}
+                            ${isPast ? 'opacity-40' : ''}
                           `}
                           data-testid={`slot-${bay.id}-${hour}`}
                         >
+                          {/* Quarter-hour tick marks */}
+                          <div className="absolute inset-0 flex pointer-events-none">
+                            <div className="w-1/4 border-r border-border/20" />
+                            <div className="w-1/4 border-r border-border/30" />
+                            <div className="w-1/4 border-r border-border/20" />
+                            <div className="w-1/4" />
+                          </div>
+                          
                           {isAvailable && (
-                            <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="text-center space-y-2 opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
                               <div className="w-10 h-10 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
                                 <Plus className="w-5 h-5 text-primary" />
                               </div>
