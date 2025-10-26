@@ -418,7 +418,7 @@ export default function Schedule() {
                     data-testid={`bay-row-${bay.id}`}
                   >
                     {/* Bay Name Column */}
-                    <div className="p-2 border-r flex items-center justify-center bg-muted/30 sticky left-0 z-30">
+                    <div className="p-2 border-r flex items-center justify-center bg-muted sticky left-0 z-40">
                       <div className="font-semibold text-xs text-center leading-tight">{bay.name}</div>
                     </div>
 
