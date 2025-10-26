@@ -79,6 +79,7 @@ export default function BookingsPage() {
   const [selectedBookingForTopOff, setSelectedBookingForTopOff] = useState<string | null>(null);
   const [topOffMinutes, setTopOffMinutes] = useState(30);
   const [topOffPrice, setTopOffPrice] = useState("32.50");
+  const [showArchivedBookings, setShowArchivedBookings] = useState(false);
   const { toast } = useToast();
 
   const { data: bookings, isLoading } = useQuery<(Booking & { bays: Bay[]; user: User })[]>({
@@ -92,6 +93,20 @@ export default function BookingsPage() {
   const { data: staffMembers = [] } = useQuery<User[]>({
     queryKey: ["/api/staff"],
   });
+
+  // Categorize bookings
+  const now = new Date();
+  const currentAndFutureBookings = bookings?.filter(booking => 
+    new Date(booking.endTime) >= now
+  ) || [];
+  
+  const unpaidPastBookings = bookings?.filter(booking => 
+    new Date(booking.endTime) < now && booking.paymentStatus !== 'paid'
+  ) || [];
+  
+  const archivedBookings = bookings?.filter(booking => 
+    new Date(booking.endTime) < now && booking.paymentStatus === 'paid'
+  ) || [];
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
@@ -553,9 +568,16 @@ export default function BookingsPage() {
           </Button>
         </Card>
       ) : (
-        <Card className="p-6">
-          <div className="space-y-3">
-            {bookings.map((booking) => (
+        <div className="space-y-6">
+          {/* Current & Future Bookings */}
+          {currentAndFutureBookings.length > 0 && (
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Current & Upcoming Bookings</h2>
+                <Badge variant="secondary">{currentAndFutureBookings.length}</Badge>
+              </div>
+              <div className="space-y-3">
+                {currentAndFutureBookings.map((booking) => (
               <div
                 key={booking.id}
                 className="grid grid-cols-[1fr_auto] gap-4 p-4 rounded-lg border hover-elevate"
@@ -688,9 +710,228 @@ export default function BookingsPage() {
                   </Button>
                 </div>
               </div>
-            ))}
-          </div>
-        </Card>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Unpaid Past Bookings */}
+          {unpaidPastBookings.length > 0 && (
+            <Card className="p-6 border-amber-500/30 bg-amber-50/30 dark:bg-amber-950/10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">Unpaid Past Bookings</h2>
+                  <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                    {unpaidPastBookings.length} Unpaid
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {unpaidPastBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="grid grid-cols-[1fr_auto] gap-4 p-4 rounded-lg border border-amber-500/30 hover-elevate opacity-75"
+                    data-testid={`booking-item-${booking.id}`}
+                  >
+                    {/* Left side: Booking info */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-primary" />
+                          <div className="flex flex-wrap gap-1">
+                            {booking.bays && booking.bays.length > 0 ? (
+                              booking.bays.map((bay, idx) => (
+                                <span key={bay?.id || idx} className="font-medium">
+                                  {bay?.name}{idx < booking.bays.length - 1 ? ',' : ''}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="font-medium text-muted-foreground">No bays</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-sm font-mono">
+                            {format(new Date(booking.startTime), "MMM d, h:mm a")} -{" "}
+                            {format(new Date(booking.endTime), "h:mm a")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <UserIcon className="w-4 h-4" />
+                          {booking.user?.firstName} {booking.user?.lastName}
+                        </div>
+                      </div>
+
+                      {/* Check-in status */}
+                      <div className="flex items-center gap-2">
+                        {booking.checkInStatus === 'checked_in' && (
+                          <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Checked In
+                          </Badge>
+                        )}
+                        {booking.checkInStatus === 'no_show' && (
+                          <Badge variant="default" className="bg-red-600 hover:bg-red-700 text-xs flex items-center gap-1">
+                            <X className="w-3 h-3" />
+                            No Show
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right side: Dropdowns and actions */}
+                    <div className="flex items-center gap-3">
+                      {/* Booking Type Dropdown */}
+                      <div className="w-36">
+                        <Select
+                          value={booking.type}
+                          onValueChange={(value) => updateTypeMutation.mutate({ id: booking.id, type: value })}
+                          disabled={updateTypeMutation.isPending}
+                        >
+                          <SelectTrigger className="h-9 text-xs" data-testid={`select-type-${booking.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="rental">Sim Rental</SelectItem>
+                            <SelectItem value="lesson">Lesson</SelectItem>
+                            <SelectItem value="fitting">Club Fitting</SelectItem>
+                            <SelectItem value="event">Event</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Payment Method Dropdown */}
+                      <div className="w-36">
+                        <Select
+                          value={booking.paymentMethod || "pay_at_desk"}
+                          onValueChange={(value) => updatePaymentMethodMutation.mutate({ id: booking.id, paymentMethod: value })}
+                          disabled={updatePaymentMethodMutation.isPending || booking.paymentStatus === 'paid'}
+                        >
+                          <SelectTrigger className="h-9 text-xs" data-testid={`select-payment-method-${booking.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new_card">Paid Online</SelectItem>
+                            <SelectItem value="membership">Member</SelectItem>
+                            <SelectItem value="pay_at_desk">Pay At Desk</SelectItem>
+                            <SelectItem value="card_on_file">Card on File</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Payment Status Badge - Always Pending for this section */}
+                      <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 flex items-center gap-1">
+                        <DollarSign className="w-3 h-3" />
+                        Unpaid
+                      </Badge>
+
+                      {/* Payment Action Button */}
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleCollectPayment(booking.id)}
+                        disabled={markAsPaidMutation.isPending}
+                        data-testid={`button-collect-payment-${booking.id}`}
+                      >
+                        <CreditCard className="w-3 h-3 mr-1" />
+                        Collect Payment
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Archived Bookings (Paid Past Bookings) */}
+          {archivedBookings.length > 0 && (
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">Archived Bookings</h2>
+                  <Badge variant="secondary">{archivedBookings.length}</Badge>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowArchivedBookings(!showArchivedBookings)}
+                  data-testid="button-toggle-archived"
+                >
+                  {showArchivedBookings ? 'Hide' : 'Show'} Archived
+                </Button>
+              </div>
+              
+              {showArchivedBookings && (
+                <div className="space-y-3">
+                  {archivedBookings.map((booking) => (
+                    <div
+                      key={booking.id}
+                      className="grid grid-cols-[1fr_auto] gap-4 p-4 rounded-lg border hover-elevate opacity-60"
+                      data-testid={`booking-item-${booking.id}`}
+                    >
+                      {/* Left side: Booking info */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-primary" />
+                            <div className="flex flex-wrap gap-1">
+                              {booking.bays && booking.bays.length > 0 ? (
+                                booking.bays.map((bay, idx) => (
+                                  <span key={bay?.id || idx} className="font-medium">
+                                    {bay?.name}{idx < booking.bays.length - 1 ? ',' : ''}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="font-medium text-muted-foreground">No bays</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Clock className="w-4 h-4" />
+                            <span className="text-sm font-mono">
+                              {format(new Date(booking.startTime), "MMM d, h:mm a")} -{" "}
+                              {format(new Date(booking.endTime), "h:mm a")}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <UserIcon className="w-4 h-4" />
+                            {booking.user?.firstName} {booking.user?.lastName}
+                          </div>
+                        </div>
+
+                        {/* Check-in status */}
+                        <div className="flex items-center gap-2">
+                          {booking.checkInStatus === 'checked_in' && (
+                            <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Checked In
+                            </Badge>
+                          )}
+                          {booking.checkInStatus === 'no_show' && (
+                            <Badge variant="default" className="bg-red-600 hover:bg-red-700 text-xs flex items-center gap-1">
+                              <X className="w-3 h-3" />
+                              No Show
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right side: Type and Payment Status */}
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary">{BOOKING_TYPE_LABELS[booking.type]}</Badge>
+                        <Badge variant="default" className="bg-green-600 hover:bg-green-700 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Paid
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Payment Collection Dialog */}
