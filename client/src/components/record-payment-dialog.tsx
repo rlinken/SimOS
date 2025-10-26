@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -83,6 +83,23 @@ export function RecordPaymentDialog({
       notes: "",
     },
   });
+
+  // Reset form when dialog opens or order changes
+  useEffect(() => {
+    if (open) {
+      const currentMaxAmount = parseFloat(amount);
+      const currentSchema = createRecordPaymentSchema(currentMaxAmount);
+      form.reset({
+        amountPaid: currentMaxAmount,
+        paymentMethod: "cash",
+        paymentReference: "",
+        notes: "",
+      });
+      // Update the resolver with the new schema
+      // @ts-ignore - accessing internal form state to update resolver
+      form._options.resolver = zodResolver(currentSchema);
+    }
+  }, [open, orderId, amount, form]);
 
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: RecordPaymentFormData) => {
