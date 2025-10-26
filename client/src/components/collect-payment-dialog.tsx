@@ -36,7 +36,7 @@ export function CollectPaymentDialog({
   onOpenChange,
 }: CollectPaymentDialogProps) {
   const { toast } = useToast();
-  const [paymentType, setPaymentType] = useState<"card_on_file" | "new_card" | "pos">(
+  const [paymentType, setPaymentType] = useState<"card_on_file" | "new_card" | "pay_at_desk">(
     "card_on_file"
   );
 
@@ -68,12 +68,7 @@ export function CollectPaymentDialog({
 
       return apiRequest("PATCH", endpoint, {
         paymentStatus: "paid",
-        paymentMethod:
-          paymentType === "card_on_file"
-            ? "Card on File"
-            : paymentType === "new_card"
-            ? "Paid Online"
-            : "Pay At Desk",
+        paymentMethod: paymentType, // Send enum value directly
       });
     },
     onSuccess: () => {
@@ -150,7 +145,7 @@ export function CollectPaymentDialog({
             <RadioGroup
               value={paymentType}
               onValueChange={(value) =>
-                setPaymentType(value as "card_on_file" | "new_card" | "pos")
+                setPaymentType(value as "card_on_file" | "new_card" | "pay_at_desk")
               }
             >
               <div className="flex items-center space-x-2 p-3 border rounded-lg hover-elevate active-elevate-2">
@@ -188,8 +183,8 @@ export function CollectPaymentDialog({
               </div>
 
               <div className="flex items-center space-x-2 p-3 border rounded-lg hover-elevate active-elevate-2">
-                <RadioGroupItem value="pos" id="pos" data-testid="radio-pos" />
-                <Label htmlFor="pos" className="flex items-center gap-2 flex-1 cursor-pointer">
+                <RadioGroupItem value="pay_at_desk" id="pay_at_desk" data-testid="radio-pay-at-desk" />
+                <Label htmlFor="pay_at_desk" className="flex items-center gap-2 flex-1 cursor-pointer">
                   <DollarSign className="w-4 h-4" />
                   <div>
                     <div className="font-medium">POS / Cash</div>

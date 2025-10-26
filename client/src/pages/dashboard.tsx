@@ -112,8 +112,9 @@ export default function Dashboard() {
     const endMinutes = (endTime.getHours() - 6) * 60 + endTime.getMinutes();
     const duration = endMinutes - startMinutes;
     
-    // Each hour column is 150px, so each minute is 150/60 = 2.5px
-    const pixelsPerMinute = 150 / 60;
+    // Each hour column is 150px (matching grid), so each minute is 150/60 = 2.5px
+    const HOUR_WIDTH = 150;
+    const pixelsPerMinute = HOUR_WIDTH / 60;
     const left = startMinutes * pixelsPerMinute;
     const width = duration * pixelsPerMinute;
     
