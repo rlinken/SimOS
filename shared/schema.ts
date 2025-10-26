@@ -710,6 +710,7 @@ export const bays = pgTable("bays", {
   
   name: text("name").notNull(), // "Bay 1", "Bay 2", etc.
   description: text("description"),
+  trackmanUnitId: varchar("trackman_unit_id"), // TrackMan device identifier for this bay
   tier: bayTierEnum("tier").notNull().default("standard"),
   status: bayStatusEnum("status").notNull().default("active"),
   

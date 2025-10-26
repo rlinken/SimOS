@@ -15,6 +15,7 @@ import {
   Package,
   UserCog,
   Sparkles,
+  Radio,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -112,6 +113,11 @@ function getMenuItems(user: User | undefined) {
         title: "Bays",
         url: "/bays",
         icon: MapPin,
+      },
+      {
+        title: "TrackMan",
+        url: "/trackman-settings",
+        icon: Radio,
       },
       {
         title: "Memberships",
