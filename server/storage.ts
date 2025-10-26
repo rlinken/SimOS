@@ -76,6 +76,9 @@ import {
   type InsertCommissionPayment,
   type PayrollPayment,
   type InsertPayrollPayment,
+  type CustomerNote,
+  type InsertCustomerNote,
+  customerNotes,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, gt, lt, asc, desc } from "drizzle-orm";
@@ -238,6 +241,12 @@ export interface IStorage {
   getPayrollPayment(id: string): Promise<PayrollPayment | undefined>;
   createPayrollPayment(payment: InsertPayrollPayment): Promise<PayrollPayment>;
   getPayrollPaymentsByStaff(staffId: string, startDate?: Date, endDate?: Date): Promise<PayrollPayment[]>;
+  
+  // Customer Notes
+  getCustomerNotes(customerId: string): Promise<CustomerNote[]>;
+  getCustomerNote(id: string): Promise<CustomerNote | undefined>;
+  createCustomerNote(note: InsertCustomerNote): Promise<CustomerNote>;
+  deleteCustomerNote(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1299,6 +1308,35 @@ export class DatabaseStorage implements IStorage {
       .from(payrollPayments)
       .where(and(...conditions))
       .orderBy(desc(payrollPayments.paidDate));
+  }
+
+  // Customer Notes
+  async getCustomerNotes(customerId: string): Promise<CustomerNote[]> {
+    return await db
+      .select()
+      .from(customerNotes)
+      .where(eq(customerNotes.customerId, customerId))
+      .orderBy(desc(customerNotes.createdAt));
+  }
+
+  async getCustomerNote(id: string): Promise<CustomerNote | undefined> {
+    const [note] = await db
+      .select()
+      .from(customerNotes)
+      .where(eq(customerNotes.id, id));
+    return note;
+  }
+
+  async createCustomerNote(note: InsertCustomerNote): Promise<CustomerNote> {
+    const [newNote] = await db
+      .insert(customerNotes)
+      .values(note)
+      .returning();
+    return newNote;
+  }
+
+  async deleteCustomerNote(id: string): Promise<void> {
+    await db.delete(customerNotes).where(eq(customerNotes.id, id));
   }
 }
 

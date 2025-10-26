@@ -2927,6 +2927,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Customer Profile Routes
+  // ============================================================================
+
+  // Get customer profile with notes
+  app.get("/api/customers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const facilityId = user?.facilityId;
+      const customerId = req.params.id;
+
+      // Get customer
+      const customer = await storage.getUser(customerId);
+      if (!customer || customer.facilityId !== facilityId) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get customer notes
+      const notes = await storage.getCustomerNotes(customerId);
+
+      res.json({ ...customer, notes });
+    } catch (error: any) {
+      console.error("Error fetching customer profile:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Update customer profile (including tags)
+  app.patch("/api/customers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const facilityId = user?.facilityId;
+      const customerId = req.params.id;
+
+      // Verify customer belongs to facility
+      const customer = await storage.getUser(customerId);
+      if (!customer || customer.facilityId !== facilityId) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Update customer
+      const updatedCustomer = await storage.updateUser(customerId, req.body);
+      res.json(updatedCustomer);
+    } catch (error: any) {
+      console.error("Error updating customer profile:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get customer notes
+  app.get("/api/customers/:customerId/notes", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const facilityId = user?.facilityId;
+      const customerId = req.params.customerId;
+
+      // Verify customer belongs to facility
+      const customer = await storage.getUser(customerId);
+      if (!customer || customer.facilityId !== facilityId) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const notes = await storage.getCustomerNotes(customerId);
+      res.json(notes);
+    } catch (error: any) {
+      console.error("Error fetching customer notes:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create customer note
+  app.post("/api/customer-notes", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const facilityId = user?.facilityId;
+      const { customerId, content } = req.body;
+
+      if (!customerId || !content) {
+        return res.status(400).json({ message: "customerId and content are required" });
+      }
+
+      // Verify customer belongs to facility
+      const customer = await storage.getUser(customerId);
+      if (!customer || customer.facilityId !== facilityId) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const note = await storage.createCustomerNote({
+        facilityId: facilityId!,
+        customerId,
+        content,
+        createdBy: user!.id,
+      });
+
+      res.json(note);
+    } catch (error: any) {
+      console.error("Error creating customer note:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Delete customer note
+  app.delete("/api/customer-notes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const facilityId = user?.facilityId;
+      const noteId = req.params.id;
+
+      // Get note to verify it belongs to this facility
+      const note = await storage.getCustomerNote(noteId);
+      if (!note || note.facilityId !== facilityId) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+
+      await storage.deleteCustomerNote(noteId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting customer note:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Dashboard Stats Route
   // ============================================================================
 
