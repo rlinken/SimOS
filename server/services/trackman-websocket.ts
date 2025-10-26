@@ -25,7 +25,7 @@ import { swingPatternDetector } from './swing-pattern-detector';
 interface TrackmanShotData {
   shotId: string;
   timestamp: string;
-  bayNumber: number;
+  bayId: string; // TrackMan unit/device identifier
   
   // Ball data
   ballSpeed?: number;
@@ -63,7 +63,7 @@ interface TrackmanShotData {
 
 interface TrackmanSessionStart {
   sessionId: string;
-  bayNumber: number;
+  bayId: string; // TrackMan unit/device identifier
   timestamp: string;
   userId?: string; // If user is logged in
 }
@@ -232,9 +232,9 @@ export class TrackmanWebSocketService {
     try {
       // Check if there's an active booking for this bay at this time
       const now = new Date(data.timestamp);
-      const bayNumber = data.bayNumber;
+      const trackmanUnitId = data.bayId;
 
-      // Find the bay
+      // Find the bay by TrackMan unit ID
       const facility = await db.query.facilities.findFirst({
         where: eq(facilities.id, facilityId),
         with: {
@@ -242,9 +242,9 @@ export class TrackmanWebSocketService {
         },
       });
 
-      const bay = facility?.bays.find(b => b.number === bayNumber);
+      const bay = facility?.bays.find(b => b.trackmanUnitId === trackmanUnitId);
       if (!bay) {
-        console.warn(`Bay ${bayNumber} not found for facility ${facilityId}`);
+        console.warn(`Bay with TrackMan unit ID "${trackmanUnitId}" not found for facility ${facilityId}. Make sure to configure unit IDs in TrackMan Settings.`);
         return;
       }
 
@@ -297,7 +297,7 @@ export class TrackmanWebSocketService {
    */
   private async handleShot(facilityId: string, data: TrackmanShotData): Promise<void> {
     try {
-      // Find the bay for this shot
+      // Find the bay for this shot by TrackMan unit ID
       const facility = await db.query.facilities.findFirst({
         where: eq(facilities.id, facilityId),
         with: {
@@ -305,9 +305,9 @@ export class TrackmanWebSocketService {
         },
       });
 
-      const bay = facility?.bays.find(b => b.number === data.bayNumber);
+      const bay = facility?.bays.find(b => b.trackmanUnitId === data.bayId);
       if (!bay) {
-        console.warn(`Bay ${data.bayNumber} not found for facility ${facilityId}`);
+        console.warn(`Bay with TrackMan unit ID "${data.bayId}" not found for facility ${facilityId}. Make sure to configure unit IDs in TrackMan Settings.`);
         return;
       }
 
@@ -330,7 +330,7 @@ export class TrackmanWebSocketService {
       } else {
         // Create a new walk-in session
         // Use a synthetic trackman session ID that can be referenced later
-        const trackmanSessionId = `auto-${Date.now()}-${data.bayNumber}`;
+        const trackmanSessionId = `auto-${Date.now()}-${data.bayId}`;
         
         const [newSession] = await db
           .insert(trackmanSessions)
@@ -415,8 +415,8 @@ export class TrackmanWebSocketService {
       const wearScore = bayWearCalculator.calculateShotWear({
         ballSpeed: shot.ballSpeed,
         clubSpeed: shot.clubSpeed,
-        impactOffsetX: shot.impactOffsetX,
-        impactOffsetY: shot.impactOffsetY,
+        impactOffsetX: shot.impactOffset, // Use single offset value for both X and Y
+        impactOffsetY: shot.impactOffset,
         clubType: shot.club,
         attackAngle: shot.attackAngle,
       });

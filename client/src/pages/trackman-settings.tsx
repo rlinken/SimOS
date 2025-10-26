@@ -29,10 +29,17 @@ export default function TrackmanSettings() {
   // Update bay mutation
   const updateBayMutation = useMutation({
     mutationFn: async ({ bayId, trackmanUnitId }: { bayId: string; trackmanUnitId: string }) => {
-      return apiRequest(`/api/bays/${bayId}`, {
+      const response = await fetch(`/api/bays/${bayId}`, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trackmanUnitId: trackmanUnitId || null }),
       });
+      
+      if (!response.ok) {
+        throw new Error("Failed to update bay");
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bays"] });
