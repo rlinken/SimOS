@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -62,6 +62,7 @@ export default function WidgetRental() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [showBookingForm, setShowBookingForm] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "at_desk">("at_desk");
 
   // Get query params for display mode
   const searchParams = new URLSearchParams(window.location.search);
@@ -76,6 +77,21 @@ export default function WidgetRental() {
     queryKey: [`/api/widget-config/${facilityId}/rental`],
     enabled: !!facilityId,
   });
+
+  // Fetch facility payment settings to determine which payment options to show
+  const { data: paymentSettings } = useQuery<any>({
+    queryKey: [`/api/facilities/${facilityId}/payment-settings`],
+    queryFn: async () => {
+      if (!facility) return null;
+      return {
+        allowPayOnline: facility.allowPayOnline ?? true,
+        allowPayAtDesk: facility.allowPayAtDesk ?? true,
+        defaultPaymentMethod: facility.defaultPaymentMethod || "online",
+      };
+    },
+    enabled: !!facility,
+  });
+
 
   const { data: availability, isLoading: availabilityLoading, error: availabilityError } = useQuery<TimeSlot[]>({
     queryKey: [
@@ -93,6 +109,13 @@ export default function WidgetRental() {
   });
 
   const isLoading = facilityLoading || configLoading || availabilityLoading;
+
+  // Set default payment method based on facility settings
+  useEffect(() => {
+    if (paymentSettings?.defaultPaymentMethod) {
+      setPaymentMethod(paymentSettings.defaultPaymentMethod);
+    }
+  }, [paymentSettings]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -148,6 +171,7 @@ export default function WidgetRental() {
       customerName,
       customerEmail,
       customerPhone: customerPhone || undefined,
+      paymentMethod,
     });
   };
 
@@ -453,6 +477,37 @@ export default function WidgetRental() {
                   </Select>
                 </div>
               </div>
+
+              {/* Payment Method Selection */}
+              {paymentSettings && (paymentSettings.allowPayOnline || paymentSettings.allowPayAtDesk) && (
+                <div>
+                  <Label htmlFor="payment-method" className="text-base">
+                    Payment Method
+                  </Label>
+                  <Select value={paymentMethod} onValueChange={(value: "online" | "at_desk") => setPaymentMethod(value)}>
+                    <SelectTrigger
+                      id="payment-method"
+                      className="mt-1.5 h-11"
+                      data-testid="select-payment-method"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentSettings.allowPayOnline && (
+                        <SelectItem value="online">Pay Online</SelectItem>
+                      )}
+                      {paymentSettings.allowPayAtDesk && (
+                        <SelectItem value="at_desk">Pay at Desk</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    {paymentMethod === "online" 
+                      ? "You'll be redirected to complete payment after booking"
+                      : "Pay when you arrive at our facility"}
+                  </p>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
