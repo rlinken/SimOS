@@ -264,105 +264,118 @@ export default function WidgetRental() {
           </div>
         )}
 
-        {/* Main Content */}
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
-          {/* Date Selection */}
-          <Card className="p-6 shadow-lg">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5" style={{ color: primaryColor }} />
-              Select Date
-            </h2>
-            <div className="grid grid-cols-7 gap-2">
-              {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
-                const date = addDays(new Date(), offset);
-                const isSelected =
-                  format(date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
-                return (
-                  <button
-                    key={offset}
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSelectedDate(date);
-                    }}
-                    className={`flex flex-col items-center justify-center h-20 rounded-lg border-2 transition-all ${
-                      isSelected
-                        ? "widget-rental-btn-primary border-transparent shadow-md"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
-                    }`}
-                    data-testid={`button-date-${offset}`}
-                  >
-                    <span
-                      className={`text-xs font-medium ${
-                        isSelected ? "text-white" : "text-gray-500"
+        {/* Main Content - Step 1: Date & Time Selection */}
+        {!showBookingForm && (
+          <div className="grid gap-6 md:grid-cols-2 mb-6">
+            {/* Date Selection */}
+            <Card className="p-6 shadow-lg">
+              <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5" style={{ color: primaryColor }} />
+                Select Date
+              </h2>
+              <div className="grid grid-cols-7 gap-2">
+                {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
+                  const date = addDays(new Date(), offset);
+                  const isSelected =
+                    format(date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
+                  return (
+                    <button
+                      key={offset}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setSelectedDate(date);
+                      }}
+                      className={`flex flex-col items-center justify-center h-20 rounded-lg border-2 transition-all ${
+                        isSelected
+                          ? "widget-rental-btn-primary border-transparent shadow-md"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
                       }`}
+                      data-testid={`button-date-${offset}`}
                     >
-                      {format(date, "EEE")}
-                    </span>
-                    <span
-                      className={`text-2xl font-bold ${
-                        isSelected ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      {format(date, "d")}
-                    </span>
-                    <span
-                      className={`text-xs ${
-                        isSelected ? "text-white" : "text-gray-500"
-                      }`}
-                    >
-                      {format(date, "MMM")}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
+                      <span
+                        className={`text-xs font-medium ${
+                          isSelected ? "text-white" : "text-gray-500"
+                        }`}
+                      >
+                        {format(date, "EEE")}
+                      </span>
+                      <span
+                        className={`text-2xl font-bold ${
+                          isSelected ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {format(date, "d")}
+                      </span>
+                      <span
+                        className={`text-xs ${
+                          isSelected ? "text-white" : "text-gray-500"
+                        }`}
+                      >
+                        {format(date, "MMM")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
 
-          {/* Time Selection */}
-          <Card className="p-6 shadow-lg">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <Clock className="w-5 h-5" style={{ color: primaryColor }} />
-              Select Time
-            </h2>
-            <div className="grid grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-2">
-              {generateTimeSlots().map((time) => {
-                const available = getAvailabilityForTime(time);
-                const isSelected = selectedTime === time;
-                return (
-                  <button
-                    key={time}
-                    type="button"
-                    disabled={!available}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSelectedTime(time);
-                      setShowBookingForm(true);
-                    }}
-                    className={`h-12 rounded-lg font-medium transition-all ${
-                      isSelected
-                        ? "widget-rental-btn-primary shadow-md"
-                        : available
-                          ? "border-2 border-gray-200 hover:border-gray-300 bg-white"
-                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    }`}
-                    data-testid={`button-time-${time.replace(":", "-")}`}
-                  >
-                    {formatTime12Hour(time)}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
+            {/* Time Selection */}
+            <Card className="p-6 shadow-lg">
+              <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <Clock className="w-5 h-5" style={{ color: primaryColor }} />
+                Select Time
+              </h2>
+              <div className="grid grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-2">
+                {generateTimeSlots().map((time) => {
+                  const available = getAvailabilityForTime(time);
+                  const isSelected = selectedTime === time;
+                  return (
+                    <button
+                      key={time}
+                      type="button"
+                      disabled={!available}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setSelectedTime(time);
+                        setShowBookingForm(true);
+                      }}
+                      className={`h-12 rounded-lg font-medium transition-all ${
+                        isSelected
+                          ? "widget-rental-btn-primary shadow-md"
+                          : available
+                            ? "border-2 border-gray-200 hover:border-gray-300 bg-white"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      }`}
+                      data-testid={`button-time-${time.replace(":", "-")}`}
+                    >
+                      {formatTime12Hour(time)}
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+        )}
 
-        {/* Booking Form */}
+        {/* Booking Form - Step 2 */}
         {showBookingForm && selectedTime && (
           <Card className="p-6 md:p-8 shadow-lg">
-            <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
-              <User className="w-6 h-6" style={{ color: primaryColor }} />
-              Complete Your Booking
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold flex items-center gap-2">
+                <User className="w-6 h-6" style={{ color: primaryColor }} />
+                Complete Your Booking
+              </h2>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowBookingForm(false)}
+                className="text-sm"
+                data-testid="button-change-time"
+              >
+                ← Change Time
+              </Button>
+            </div>
 
             {/* Booking Summary */}
             <div
@@ -466,36 +479,78 @@ export default function WidgetRental() {
               {/* Payment Method Selection */}
               {facility && (facility.allowPayOnline || facility.allowPayAtDesk) && (
                 <div>
-                  <Label htmlFor="payment-method" className="text-base">
+                  <Label className="text-base mb-3 block">
                     Payment Method
                   </Label>
-                  <Select value={paymentMethod} onValueChange={(value: "online" | "at_desk") => setPaymentMethod(value)}>
-                    <SelectTrigger
-                      id="payment-method"
-                      className="mt-1.5 h-11"
-                      data-testid="select-payment-method"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {facility.allowPayOnline && (
-                        <SelectItem value="online">Pay Online</SelectItem>
-                      )}
-                      {facility.allowPayAtDesk && (
-                        <SelectItem value="at_desk">Pay at Desk</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1.5">
-                    {paymentMethod === "online" 
-                      ? "You'll be redirected to complete payment after booking"
-                      : "Pay when you arrive at our facility"}
-                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {facility.allowPayOnline && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("online")}
+                        className={`relative p-4 rounded-lg border-2 transition-all text-left ${
+                          paymentMethod === "online"
+                            ? "border-green-600 bg-green-50"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        }`}
+                        data-testid="button-payment-online"
+                      >
+                        {paymentMethod === "online" && (
+                          <div className="absolute top-2 right-2">
+                            <Check className="w-5 h-5 text-green-600" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="font-semibold">Pay Online</div>
+                            <div className="text-xs text-muted-foreground">Secure card payment</div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Complete payment after booking confirmation
+                        </p>
+                      </button>
+                    )}
+                    {facility.allowPayAtDesk && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("at_desk")}
+                        className={`relative p-4 rounded-lg border-2 transition-all text-left ${
+                          paymentMethod === "at_desk"
+                            ? "border-green-600 bg-green-50"
+                            : "border-gray-200 hover:border-gray-300 bg-white"
+                        }`}
+                        data-testid="button-payment-at-desk"
+                      >
+                        {paymentMethod === "at_desk" && (
+                          <div className="absolute top-2 right-2">
+                            <Check className="w-5 h-5 text-green-600" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <MapPin className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="font-semibold">Pay at Desk</div>
+                            <div className="text-xs text-muted-foreground">Pay when you arrive</div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Pay upon arrival at our facility
+                        </p>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              {/* Action Button */}
+              <div className="pt-4">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -503,7 +558,7 @@ export default function WidgetRental() {
                     handleBooking();
                   }}
                   disabled={createBookingMutation.isPending}
-                  className="widget-rental-btn-primary flex-1 h-12 rounded-lg font-semibold flex items-center justify-center gap-2 transition-opacity"
+                  className="widget-rental-btn-primary w-full h-14 rounded-lg text-lg font-semibold flex items-center justify-center gap-2 transition-opacity"
                   data-testid="button-confirm-booking"
                 >
                   {createBookingMutation.isPending ? (
@@ -515,14 +570,6 @@ export default function WidgetRental() {
                     </>
                   )}
                 </button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowBookingForm(false)}
-                  className="flex-1 h-12"
-                  data-testid="button-cancel-booking"
-                >
-                  Cancel
-                </Button>
               </div>
             </div>
           </Card>
