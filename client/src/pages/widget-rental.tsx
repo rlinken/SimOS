@@ -98,19 +98,17 @@ export default function WidgetRental() {
     mutationFn: async (data: any) => {
       return apiRequest("POST", `/api/widget/bookings/${facilityId}`, data);
     },
-    onSuccess: () => {
-      toast({
-        title: "Booking confirmed!",
-        description: "You'll receive a confirmation email shortly.",
+    onSuccess: (data: any) => {
+      // Redirect to thank you page with booking details
+      const params = new URLSearchParams({
+        type: "booking",
+        name: "Bay Rental",
+        date: selectedDate.toISOString(),
+        time: selectedTime ? formatTime12Hour(selectedTime) : "",
+        customerName: customerName,
+        email: customerEmail,
       });
-      setShowBookingForm(false);
-      setCustomerName("");
-      setCustomerEmail("");
-      setCustomerPhone("");
-      setSelectedTime(null);
-      queryClient.invalidateQueries({
-        queryKey: [`/api/widget/availability/${facilityId}`],
-      });
+      setLocation(`/thank-you?${params.toString()}`);
     },
     onError: (error: any) => {
       toast({
