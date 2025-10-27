@@ -215,6 +215,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get product details for QR code purchase page
+  app.get("/api/public/product/:id", async (req, res) => {
+    try {
+      const product = await storage.getProduct(req.params.id);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      // Also fetch facility info for branding
+      const facility = await storage.getFacility(product.facilityId);
+      res.json({ product, facility });
+    } catch (error: any) {
+      console.error("Error fetching product:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Create Stripe checkout session for product purchase
+  app.post("/api/public/create-product-checkout", async (req, res) => {
+    try {
+      const { productId, facilityId, firstName, lastName, email, phone, quantity } = req.body;
+
+      if (!productId || !facilityId || !firstName || !lastName || !email || !quantity) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const product = await storage.getProduct(productId);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // Check stock availability
+      if (product.stockQuantity !== null && product.stockQuantity < quantity) {
+        return res.status(400).json({ message: "Insufficient stock available" });
+      }
+
+      const facility = await storage.getFacility(facilityId);
+      if (!facility) {
+        return res.status(404).json({ message: "Facility not found" });
+      }
+
+      // Check if facility has Stripe configured
+      if (!facility.stripeSecretKey) {
+        return res.status(400).json({ message: "Payment processing not configured for this facility" });
+      }
+
+      // Initialize Stripe with facility's secret key
+      const stripe = new Stripe(facility.stripeSecretKey, {
+        apiVersion: "2024-12-18.acacia",
+      });
+
+      // Find or create customer user
+      let customer = await storage.getUserByEmail(email);
+      if (!customer) {
+        customer = await storage.upsertUser({
+          email,
+          firstName,
+          lastName,
+          phone: phone || undefined,
+          facilityId,
+          role: "customer",
+        });
+      }
+
+      // Calculate total amount
+      const unitPrice = parseFloat(product.price);
+      const totalAmount = unitPrice * quantity;
+
+      // Create Stripe Checkout Session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: product.name,
+                description: product.description || `${product.category} - ${facility.name}`,
+                images: product.imageUrl ? [product.imageUrl] : undefined,
+              },
+              unit_amount: Math.round(unitPrice * 100), // Convert to cents
+            },
+            quantity: quantity,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${req.protocol}://${req.get('host')}/thank-you?type=product&name=${encodeURIComponent(product.name)}&quantity=${quantity}&amount=${totalAmount.toFixed(2)}&customerName=${encodeURIComponent(`${firstName} ${lastName}`)}&email=${encodeURIComponent(email)}&facilityId=${facilityId}&productId=${productId}`,
+        cancel_url: `${req.protocol}://${req.get('host')}/buy/product/${productId}`,
+        customer_email: email,
+        metadata: {
+          productId,
+          facilityId,
+          customerId: customer.id,
+          quantity: quantity.toString(),
+        },
+      });
+
+      res.json({ checkoutUrl: session.url });
+    } catch (error: any) {
+      console.error("Error creating product checkout session:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Register customer from public purchase pages
   app.post("/api/auth/register-customer", async (req, res) => {
     try {

@@ -33,6 +33,7 @@ import SalesPage from "@/pages/sales";
 import TransformationPackagesPage from "@/pages/transformation-packages";
 import BuyMembership from "@/pages/buy-membership";
 import BuyTransformationPackage from "@/pages/buy-transformation-package";
+import BuyProduct from "@/pages/buy-product";
 import TrackmanSettings from "@/pages/trackman-settings";
 import OrdersPage from "@/pages/orders";
 import ThankYouPage from "@/pages/thank-you";
@@ -103,6 +104,7 @@ function AppContent() {
         <Route path="/widget/fitting/:facilityId" component={WidgetFitting} />
         <Route path="/buy/membership/:id" component={BuyMembership} />
         <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
+        <Route path="/buy/product/:id" component={BuyProduct} />
         <Route path="/thank-you" component={ThankYouPage} />
         <UnauthenticatedRoutes />
       </Switch>
@@ -123,6 +125,7 @@ function AppContent() {
         <Route path="/widget/fitting/:facilityId" component={WidgetFitting} />
         <Route path="/buy/membership/:id" component={BuyMembership} />
         <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
+        <Route path="/buy/product/:id" component={BuyProduct} />
         <Route path="/thank-you" component={ThankYouPage} />
       </Switch>
     );
