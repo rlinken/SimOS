@@ -185,7 +185,18 @@ export default function EventsPage() {
 
   const handleEdit = (event: Event) => {
     setEditingEvent(event);
-    const periods = event.timePeriods && Array.isArray(event.timePeriods) ? event.timePeriods : [];
+    // Safely handle timePeriods - it comes from DB as Json type
+    let periods: TimePeriod[] = [];
+    if (event.timePeriods) {
+      try {
+        const parsed = typeof event.timePeriods === 'string' 
+          ? JSON.parse(event.timePeriods) 
+          : event.timePeriods;
+        periods = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        periods = [];
+      }
+    }
     setTimePeriods(periods);
     editForm.reset({
       name: event.name,
@@ -274,7 +285,7 @@ export default function EventsPage() {
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea {...field} placeholder="Event details..." data-testid="input-event-description" />
+                <Textarea {...field} value={field.value || ""} placeholder="Event details..." data-testid="input-event-description" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -565,14 +576,29 @@ export default function EventsPage() {
                         </span>
                       </div>
 
-                      {event.timePeriods && event.timePeriods.length > 0 && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span data-testid={`text-time-periods-${event.id}`}>
-                            {event.timePeriods.map((p: any) => `${p.startTime}-${p.endTime}`).join(", ")}
-                          </span>
-                        </div>
-                      )}
+                      {(() => {
+                        // Safely parse timePeriods from Json type
+                        let periods: TimePeriod[] = [];
+                        if (event.timePeriods) {
+                          try {
+                            const parsed = typeof event.timePeriods === 'string'
+                              ? JSON.parse(event.timePeriods)
+                              : event.timePeriods;
+                            periods = Array.isArray(parsed) ? parsed : [];
+                          } catch {
+                            periods = [];
+                          }
+                        }
+                        
+                        return periods.length > 0 ? (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            <span data-testid={`text-time-periods-${event.id}`}>
+                              {periods.map((p: any) => `${p.startTime}-${p.endTime}`).join(", ")}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
 
                       {event.maxCapacity && (
                         <div className="flex items-center gap-2 text-muted-foreground">
