@@ -5,6 +5,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { bayWearCalculator } from "./services/bay-wear-calculator";
+import Stripe from "stripe";
 
 // Helper function to check if user has admin privileges
 function isAdmin(role: string): boolean {
@@ -2647,6 +2648,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ success: true, booking });
     } catch (error: any) {
       console.error("Error creating widget booking:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Widget Stripe Checkout Session - Referenced from blueprint:javascript_stripe
+  app.post("/api/widget/create-checkout-session/:facilityId", async (req, res) => {
+    try {
+      const { facilityId } = req.params;
+      const { startTime, duration, customerName, customerEmail, customerPhone, amount } = req.body;
+      
+      if (!startTime || !customerName || !customerEmail || !amount) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const facility = await storage.getFacility(facilityId);
+      if (!facility) {
+        return res.status(404).json({ message: "Facility not found" });
+      }
+      
+      // Check if facility has Stripe configured
+      if (!facility.stripeSecretKey) {
+        return res.status(400).json({ message: "Payment processing not configured for this facility" });
+      }
+      
+      // Initialize Stripe with facility's secret key
+      const stripe = new Stripe(facility.stripeSecretKey, {
+        apiVersion: "2024-12-18.acacia",
+      });
+      
+      // Create booking first (with pending payment status)
+      const bookingStart = new Date(startTime);
+      const bookingDuration = duration || 60;
+      const bookingEnd = new Date(bookingStart.getTime() + bookingDuration * 60000);
+      
+      const bays = await storage.getBays(facilityId);
+      const activeBays = bays.filter(b => b.status === "active");
+      
+      if (activeBays.length === 0) {
+        return res.status(400).json({ message: "No bays available at this facility" });
+      }
+      
+      const dayStart = new Date(bookingStart);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      
+      const existingBookings = await storage.getBookingsByDateRange(facilityId, dayStart, dayEnd);
+      
+      let assignedBay = null;
+      for (const bay of activeBays) {
+        const conflictingBookings = existingBookings.filter(b => {
+          if (b.bayId !== bay.id) return false;
+          const existingStart = new Date(b.startTime);
+          const existingEnd = new Date(existingStart.getTime() + (b.duration || 60) * 60000);
+          return (bookingStart < existingEnd && bookingEnd > existingStart);
+        });
+        
+        if (conflictingBookings.length === 0) {
+          assignedBay = bay;
+          break;
+        }
+      }
+      
+      if (!assignedBay) {
+        return res.status(400).json({ message: "No bays available at this time. Please select another time slot." });
+      }
+      
+      // Find or create customer user
+      let customer = await storage.getUserByEmail(customerEmail);
+      if (!customer) {
+        const [firstName, ...lastNameParts] = customerName.split(" ");
+        const lastName = lastNameParts.join(" ") || "";
+        
+        customer = await storage.upsertUser({
+          email: customerEmail,
+          firstName,
+          lastName: lastName || undefined,
+          phone: customerPhone || undefined,
+          facilityId,
+          role: "customer",
+        });
+      }
+      
+      // Create booking with pending payment status
+      const validatedData = insertBookingSchema.parse({
+        facilityId,
+        bayIds: [assignedBay.id],
+        customerId: customer.id,
+        userId: customer.id,
+        startTime: bookingStart,
+        endTime: bookingEnd,
+        duration: bookingDuration,
+        type: "rental",
+        paymentMethod: "new_card",
+        paymentStatus: "pending",
+      });
+      
+      const booking = await storage.createBooking(validatedData);
+      
+      // Create Stripe Checkout Session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: 'Bay Rental',
+                description: `${bookingDuration} minute bay rental at ${facility.name}`,
+              },
+              unit_amount: Math.round(amount * 100), // Convert to cents
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${req.protocol}://${req.get('host')}/thank-you?type=booking&name=Bay+Rental&date=${encodeURIComponent(startTime)}&time=${encodeURIComponent(new Date(startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))}&customerName=${encodeURIComponent(customerName)}&email=${encodeURIComponent(customerEmail)}&facilityId=${facilityId}&bookingId=${booking.id}`,
+        cancel_url: `${req.protocol}://${req.get('host')}/widget/rental/${facilityId}`,
+        customer_email: customerEmail,
+        metadata: {
+          bookingId: booking.id,
+          facilityId,
+        },
+      });
+      
+      res.json({ url: session.url, bookingId: booking.id });
+    } catch (error: any) {
+      console.error("Error creating checkout session:", error);
       res.status(500).json({ message: error.message });
     }
   });

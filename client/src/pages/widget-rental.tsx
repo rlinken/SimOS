@@ -104,19 +104,34 @@ export default function WidgetRental() {
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", `/api/widget/bookings/${facilityId}`, data);
+      // If paying online, create Stripe Checkout session
+      if (data.paymentMethod === "online") {
+        return apiRequest("POST", `/api/widget/create-checkout-session/${facilityId}`, {
+          ...data,
+          amount: 50, // Default amount - could be calculated based on duration/bay pricing
+        });
+      } else {
+        // For "at desk" payment, create booking normally
+        return apiRequest("POST", `/api/widget/bookings/${facilityId}`, data);
+      }
     },
     onSuccess: (data: any) => {
-      // Redirect to thank you page with booking details
-      const params = new URLSearchParams({
-        type: "booking",
-        name: "Bay Rental",
-        date: selectedDate.toISOString(),
-        time: selectedTime ? formatTime12Hour(selectedTime) : "",
-        customerName: customerName,
-        email: customerEmail,
-      });
-      setLocation(`/thank-you?${params.toString()}`);
+      // If we got a Stripe checkout URL, redirect to Stripe
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        // For "at desk" bookings, redirect to thank you page
+        const params = new URLSearchParams({
+          type: "booking",
+          name: "Bay Rental",
+          date: selectedDate.toISOString(),
+          time: selectedTime ? formatTime12Hour(selectedTime) : "",
+          customerName: customerName,
+          email: customerEmail,
+          facilityId: facilityId || "",
+        });
+        setLocation(`/thank-you?${params.toString()}`);
+      }
     },
     onError: (error: any) => {
       toast({

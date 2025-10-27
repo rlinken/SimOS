@@ -10,10 +10,12 @@ import type { Facility } from "@shared/schema";
 export default function ThankYouPage() {
   const [, setLocation] = useLocation();
   const [purchaseData, setPurchaseData] = useState<any>(null);
+  const [facilityId, setFacilityId] = useState<string | null>(null);
   
-  // Get facility data
+  // Get facility data (only if facilityId is provided, e.g., from widget bookings)
   const { data: facility } = useQuery<Facility>({
-    queryKey: ["/api/facility/current"],
+    queryKey: facilityId ? [`/api/facilities/${facilityId}`] : ["/api/facility/current"],
+    enabled: !!facilityId || !purchaseData, // Only fetch if we have facilityId or if purchaseData hasn't been set yet
   });
 
   // Parse URL parameters
@@ -25,6 +27,7 @@ export default function ThankYouPage() {
     const time = params.get("time");
     const customerName = params.get("customerName");
     const email = params.get("email");
+    const fid = params.get("facilityId");
 
     if (type) {
       setPurchaseData({
@@ -35,6 +38,9 @@ export default function ThankYouPage() {
         customerName,
         email,
       });
+      if (fid) {
+        setFacilityId(fid);
+      }
     }
   }, []);
 
@@ -45,7 +51,7 @@ export default function ThankYouPage() {
     }
   }, [facility]);
 
-  if (!purchaseData || !facility) {
+  if (!purchaseData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -79,7 +85,7 @@ export default function ThankYouPage() {
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: `${facility.primaryColor || "#16a34a"}10` }}
+      style={{ backgroundColor: `${facility?.primaryColor || "#16a34a"}10` }}
     >
       <Card className="max-w-2xl w-full p-8 md:p-12">
         <div className="text-center space-y-6">
@@ -87,11 +93,11 @@ export default function ThankYouPage() {
           <div className="flex justify-center">
             <div 
               className="rounded-full p-4"
-              style={{ backgroundColor: `${facility.primaryColor || "#16a34a"}20` }}
+              style={{ backgroundColor: `${facility?.primaryColor || "#16a34a"}20` }}
             >
               <CheckCircle2 
                 className="w-16 h-16" 
-                style={{ color: facility.primaryColor || "#16a34a" }}
+                style={{ color: facility?.primaryColor || "#16a34a" }}
               />
             </div>
           </div>
@@ -105,7 +111,7 @@ export default function ThankYouPage() {
           </div>
 
           {/* Custom Message */}
-          {facility.thankYouPageMessage && (
+          {facility?.thankYouPageMessage && (
             <div className="bg-muted p-4 rounded-lg">
               <p className="text-sm whitespace-pre-wrap">{facility.thankYouPageMessage}</p>
             </div>
@@ -140,7 +146,7 @@ export default function ThankYouPage() {
           )}
 
           {/* Facility Information */}
-          {(facility.address || facility.phone || facility.email) && (
+          {facility && (facility.address || facility.phone || facility.email) && (
             <div className="border-t pt-6 space-y-4">
               <h3 className="font-semibold">Visit Us At</h3>
               <div className="grid gap-3 text-left text-sm">
@@ -189,7 +195,7 @@ export default function ThankYouPage() {
             <Button
               size="lg"
               style={{ 
-                backgroundColor: facility.primaryColor || "#16a34a",
+                backgroundColor: facility?.primaryColor || "#16a34a",
                 color: "white"
               }}
               onClick={() => setLocation("/")}
