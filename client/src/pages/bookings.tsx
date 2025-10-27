@@ -29,9 +29,11 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar, Plus, Clock, MapPin, DollarSign, CheckCircle2, X, CreditCard, User as UserIcon, Timer } from "lucide-react";
+import { Calendar, Plus, Clock, MapPin, DollarSign, CheckCircle2, X, CreditCard, User as UserIcon, Timer, ChevronsUpDown, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import type { Booking, Bay, User } from "@shared/schema";
 import { insertBookingSchema } from "@shared/schema";
@@ -50,6 +52,10 @@ const bookingFormSchema = insertBookingSchema
     date: z.string(),
     startTime: z.string(),
     endTime: z.string(),
+    customerId: z.string().optional(),
+    guestName: z.string().optional(),
+    guestEmail: z.string().optional(),
+    guestPhone: z.string().optional(),
   });
 
 type BookingFormData = z.infer<typeof bookingFormSchema>;
@@ -80,6 +86,9 @@ export default function BookingsPage() {
   const [topOffMinutes, setTopOffMinutes] = useState(30);
   const [topOffPrice, setTopOffPrice] = useState("32.50");
   const [showArchivedBookings, setShowArchivedBookings] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<User | null>(null);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
   const { toast } = useToast();
 
   // Auto-calculate price when time changes ($32.50 per 30 minutes)
@@ -98,6 +107,10 @@ export default function BookingsPage() {
 
   const { data: staffMembers = [] } = useQuery<User[]>({
     queryKey: ["/api/staff"],
+  });
+
+  const { data: customers = [] } = useQuery<User[]>({
+    queryKey: ["/api/members"],
   });
 
   // Categorize bookings
@@ -151,6 +164,15 @@ export default function BookingsPage() {
         bookingData.referredBy = data.referredBy;
       }
       
+      // Add customer data
+      if (data.customerId) {
+        bookingData.customerId = data.customerId;
+      } else if (data.guestName) {
+        bookingData.guestName = data.guestName;
+        bookingData.guestEmail = data.guestEmail;
+        bookingData.guestPhone = data.guestPhone;
+      }
+      
       return apiRequest("POST", "/api/bookings", bookingData);
     },
     onSuccess: () => {
@@ -161,6 +183,8 @@ export default function BookingsPage() {
       });
       setIsDialogOpen(false);
       form.reset();
+      setSelectedCustomer(null);
+      setCustomerSearch("");
     },
     onError: (error: Error) => {
       toast({
@@ -387,6 +411,152 @@ export default function BookingsPage() {
                       </FormItem>
                     )}
                   />
+                </div>
+
+                {/* Customer Selection */}
+                <div className="space-y-4 border-t pt-4">
+                  <div className="space-y-2">
+                    <Label>Select Customer</Label>
+                    <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={customerSearchOpen}
+                          className="w-full justify-between"
+                          data-testid="button-customer-search"
+                        >
+                          {selectedCustomer 
+                            ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` 
+                            : "Search existing customer..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput 
+                            placeholder="Search customers..." 
+                            value={customerSearch}
+                            onValueChange={setCustomerSearch}
+                          />
+                          <CommandList>
+                            <CommandEmpty>No customer found.</CommandEmpty>
+                            <CommandGroup>
+                              {customers
+                                .filter(c => {
+                                  const searchLower = customerSearch.toLowerCase();
+                                  const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+                                  return fullName.includes(searchLower) || c.email?.toLowerCase().includes(searchLower);
+                                })
+                                .map((customer) => (
+                                  <CommandItem
+                                    key={customer.id}
+                                    value={customer.id}
+                                    onSelect={() => {
+                                      setSelectedCustomer(customer);
+                                      form.setValue('customerId', customer.id);
+                                      setCustomerSearchOpen(false);
+                                    }}
+                                    data-testid={`customer-option-${customer.id}`}
+                                  >
+                                    <Check
+                                      className={`mr-2 h-4 w-4 ${
+                                        selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
+                                      }`}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{customer.firstName} {customer.lastName}</span>
+                                      <span className="text-xs text-muted-foreground">{customer.email}</span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    {selectedCustomer && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedCustomer(null);
+                            form.setValue('customerId', undefined);
+                          }}
+                          className="h-6 px-2"
+                          data-testid="button-clear-customer"
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {!selectedCustomer && (
+                    <>
+                      <div className="border-t pt-4">
+                        <p className="text-sm text-muted-foreground mb-3">Or create new customer:</p>
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="guestName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Customer Name</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Enter customer name"
+                                {...field}
+                                data-testid="input-guest-name"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="guestEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Customer Email (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                placeholder="customer@example.com"
+                                {...field}
+                                data-testid="input-guest-email"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="guestPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="tel"
+                                placeholder="(555) 123-4567"
+                                {...field}
+                                data-testid="input-guest-phone"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
                 </div>
 
                 <FormField
