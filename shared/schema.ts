@@ -890,6 +890,84 @@ export type InsertBayRentalOffer = z.infer<typeof insertBayRentalOfferSchema>;
 export type UpdateBayRentalOffer = z.infer<typeof updateBayRentalOfferSchema>;
 
 // ============================================================================
+// EVENTS TABLE (Golf Schools, Clinics, etc.)
+// ============================================================================
+
+export const events = pgTable("events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  name: text("name").notNull(),
+  type: varchar("type").notNull(), // "golf_school", "clinic", "tournament", "other"
+  description: text("description"),
+  
+  // Date range for the event
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  
+  // Bay assignments (array of bay IDs)
+  bayIds: varchar("bay_ids").array().notNull(),
+  
+  // Time periods within each day (JSON array of {startTime: "HH:MM", endTime: "HH:MM"})
+  // e.g., [{"startTime": "08:00", "endTime": "12:00"}, {"startTime": "15:00", "endTime": "17:00"}]
+  // Empty array means all day
+  timePeriods: jsonb("time_periods").notNull().default('[]'),
+  
+  // Recurrence pattern
+  recurrenceType: varchar("recurrence_type").notNull().default("none"), // "none", "weekly", "monthly"
+  recurrenceEndDate: timestamp("recurrence_end_date"), // When recurring event ends
+  
+  // Capacity and enrollment
+  maxCapacity: integer("max_capacity"),
+  currentEnrollment: integer("current_enrollment").notNull().default(0),
+  
+  // Pricing
+  price: varchar("price"), // Decimal stored as string
+  
+  // Contact/instructor
+  instructorId: varchar("instructor_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Tags for automation
+  tags: varchar("tags").array().notNull().default(sql`ARRAY[]::varchar[]`),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const eventsRelations = relations(events, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [events.facilityId],
+    references: [facilities.id],
+  }),
+  instructor: one(users, {
+    fields: [events.instructorId],
+    references: [users.id],
+  }),
+}));
+
+export const insertEventSchema = createInsertSchema(events).omit({
+  id: true,
+  currentEnrollment: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateEventSchema = createInsertSchema(events)
+  .omit({
+    id: true,
+    facilityId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .partial();
+
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = z.infer<typeof insertEventSchema>;
+export type UpdateEvent = z.infer<typeof updateEventSchema>;
+
+// ============================================================================
 // BAY BLOCKS TABLE (For maintenance, events, etc.)
 // ============================================================================
 
@@ -901,6 +979,7 @@ export const bayBlocks = pgTable("bay_blocks", {
   bayId: varchar("bay_id")
     .references(() => bays.id, { onDelete: "cascade" })
     .notNull(),
+  eventId: varchar("event_id").references(() => events.id, { onDelete: "cascade" }), // Link to event if this block was created by an event
   
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
