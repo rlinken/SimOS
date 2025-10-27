@@ -1161,12 +1161,12 @@ export default function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {allowPayOnline && <SelectItem value="online">Pay Online (Pre-selected)</SelectItem>}
-                        {allowPayAtDesk && <SelectItem value="at_desk">Pay at Desk (Pre-selected)</SelectItem>}
+                        {allowPayOnline && <SelectItem value="online">Pay Online (Preferred)</SelectItem>}
+                        {allowPayAtDesk && <SelectItem value="at_desk">Pay at Desk (Preferred)</SelectItem>}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      This option will be pre-selected by default in your booking widget
+                      This option will be preferred by default in your booking widget
                     </p>
                   </div>
                 )}
