@@ -1029,8 +1029,36 @@ export const insertBookingSchema = createInsertSchema(bookings)
     guestPhone: z.string().optional(),
   });
 
+// Widget booking schema for anonymous bookings (no userId/customerId required)
+export const insertWidgetBookingSchema = createInsertSchema(bookings)
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+    checkedInAt: true,
+    customerId: true, // Not required for anonymous bookings
+    userId: true, // Not required for anonymous bookings
+  })
+  .extend({
+    startTime: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val),
+    // endTime is optional - will be calculated from startTime + duration if not provided
+    endTime: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val).optional(),
+    duration: z.number().optional(), // Duration in minutes
+    bayId: z.string().optional(), // Optional - will be auto-assigned if not provided
+    
+    // Customer info fields (required for widget bookings)
+    customerName: z.string().min(1),
+    customerEmail: z.string().email(),
+    customerPhone: z.string().optional(),
+    
+    // Payment fields
+    paymentMethod: z.enum(["online", "at_desk"]).optional().default("at_desk"),
+    paymentStatus: z.enum(["pending", "paid", "failed"]).optional().default("pending"),
+  });
+
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type InsertWidgetBooking = z.infer<typeof insertWidgetBookingSchema>;
 
 // ============================================================================
 // LESSONS TABLE
