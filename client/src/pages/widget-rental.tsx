@@ -106,10 +106,7 @@ export default function WidgetRental() {
     mutationFn: async (data: any) => {
       // If paying online, create Stripe Checkout session
       if (data.paymentMethod === "online") {
-        return apiRequest("POST", `/api/widget/create-checkout-session/${facilityId}`, {
-          ...data,
-          amount: 50, // Default amount - could be calculated based on duration/bay pricing
-        });
+        return apiRequest("POST", `/api/widget/create-checkout-session/${facilityId}`, data);
       } else {
         // For "at desk" payment, create booking normally
         return apiRequest("POST", `/api/widget/bookings/${facilityId}`, data);
@@ -165,13 +162,20 @@ export default function WidgetRental() {
     const bookingDateTime = new Date(selectedDate);
     bookingDateTime.setHours(hours, minutes, 0, 0);
 
+    // Calculate booking amount based on duration and facility pricing
+    const durationMinutes = parseInt(selectedDuration);
+    const durationHours = durationMinutes / 60;
+    const hourlyRate = parseFloat(facility?.nonMemberBayRate || "50.00");
+    const amount = durationHours * hourlyRate;
+
     createBookingMutation.mutate({
       startTime: bookingDateTime.toISOString(),
-      duration: parseInt(selectedDuration),
+      duration: durationMinutes,
       customerName,
       customerEmail,
       customerPhone: customerPhone || undefined,
       paymentMethod,
+      amount, // Pass calculated amount for Stripe
     });
   };
 
