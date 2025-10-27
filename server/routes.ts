@@ -1567,19 +1567,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle walk-in customers (guest with no existing account)
       if (!customerId && req.body.guestEmail) {
         // Try to find existing customer by email
-        const existingCustomers = await storage.getUsers();
-        const existingCustomer = existingCustomers.find(
-          u => u.email.toLowerCase() === req.body.guestEmail.toLowerCase() && u.facilityId === user.facilityId
-        );
+        const existingCustomer = await storage.getUserByEmail(req.body.guestEmail.toLowerCase());
         
-        if (existingCustomer) {
+        // Verify customer belongs to this facility
+        if (existingCustomer && existingCustomer.facilityId === user.facilityId) {
           customerId = existingCustomer.id;
-        } else {
+        } else if (!existingCustomer) {
           // Create a minimal customer record for walk-in
           const [firstName, ...lastNameParts] = (req.body.guestName || 'Guest').split(' ');
           const lastName = lastNameParts.join(' ') || '';
           
-          const newCustomer = await storage.createUser({
+          const newCustomer = await storage.upsertUser({
             email: req.body.guestEmail,
             firstName,
             lastName,
