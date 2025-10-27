@@ -26,6 +26,7 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 *   **Shareable Purchase URLs:** Public URLs for memberships, lesson packages, transformation packages, and offers, with facility branding and signup forms.
 *   **Widget Payment Configuration:** Facility owners configure "Pay Online" (Stripe) and "Pay at Desk" options, and a default payment method, stored in `facilities` table. Anonymous bookings auto-create customer accounts.
 *   **Automated Tag Management:** Tags stored as text arrays in various tables (memberships, bays, bookings, lessons, fittings, offerings, transformation packages) for webhook and Zapier integration.
+*   **Stripe Webhook Integration:** POST endpoint at `/api/webhooks/stripe` handles `checkout.session.completed` events from Stripe. When a customer pays online, the webhook automatically updates booking `paymentStatus` to `paid_online`, creates product sales records, activates memberships, and updates transformation package enrollments. Webhook always returns 200 to prevent retry storms, includes comprehensive error handling and logging for all scenarios (success, missing metadata, validation errors). Metadata validation ensures numeric values are finite and required fields exist before processing. Future enhancement: signature verification for production security.
 
 **Feature Specifications:**
 *   **Facility Signup & Onboarding:** Guided 4-step workflow after Replit Auth: Basic Info, Bay Setup, Services, Membership Tiers.
