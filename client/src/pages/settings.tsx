@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio, Sparkles, Upload, Link as LinkIcon } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio, Sparkles, Upload, Link as LinkIcon, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { Textarea } from "@/components/ui/textarea";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -138,7 +138,7 @@ export default function SettingsPage() {
   const facilityId = user?.facilityId || "";
 
   const { data: facility, isLoading } = useQuery<any>({
-    queryKey: ["/api/facility"],
+    queryKey: [`/api/facilities/${facilityId}`],
     enabled: !!facilityId,
   });
 
