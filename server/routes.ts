@@ -3165,6 +3165,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe Webhook Handler
+  app.post("/api/webhooks/stripe", async (req, res) => {
+    // Always return 200 to prevent Stripe retry storms, even on errors
+    let responseData: any = { received: true };
+    
+    try {
+      // Note: For production, you should verify the webhook signature
+      // using stripe.webhooks.constructEvent() with a webhook secret
+      
+      const event = req.body;
+
+      // Validate event structure
+      if (!event || !event.type || !event.data || !event.data.object) {
+        console.log(`⚠️  Invalid webhook event structure`);
+        return res.json(responseData);
+      }
+
+      // Handle checkout.session.completed events
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const metadata = session.metadata || {};
+        const sessionId = session.id || 'unknown';
+
+        // Handle booking payments
+        if (metadata.bookingId) {
+          try {
+            const booking = await storage.getBooking(metadata.bookingId);
+            if (booking) {
+              await storage.updateBooking(metadata.bookingId, {
+                paymentStatus: 'paid_online',
+                paymentMethod: 'new_card',
+              });
+              console.log(`✅ Booking ${metadata.bookingId} marked as paid_online`);
+            } else {
+              console.log(`⚠️  Booking ${metadata.bookingId} not found, skipping update`);
+            }
+          } catch (error) {
+            console.error(`❌ Error updating booking ${metadata.bookingId}:`, error);
+          }
+        } else if (metadata.productId || metadata.membershipTierId || metadata.transformationPackageId) {
+          // Not a booking, expected
+        } else if (Object.keys(metadata).length === 0) {
+          console.log(`ℹ️  Webhook received with no metadata, session ID: ${sessionId}`);
+        } else {
+          console.log(`ℹ️  Webhook received without bookingId, session ID: ${sessionId}`);
+        }
+
+        // Handle product purchases
+        if (metadata.productId && metadata.facilityId && metadata.customerId) {
+          try {
+            const product = await storage.getProduct(metadata.productId);
+            if (product) {
+              const quantity = Number(metadata.quantity);
+              const finalQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+              
+              const priceNum = Number(product.price);
+              if (!Number.isFinite(priceNum)) {
+                console.error(`❌ Invalid product price for ${metadata.productId}: ${product.price}`);
+                return res.json(responseData);
+              }
+              
+              const totalAmount = priceNum * finalQuantity;
+              
+              await storage.createProductSale({
+                facilityId: metadata.facilityId,
+                productId: metadata.productId,
+                customerId: metadata.customerId,
+                quantity: finalQuantity,
+                totalAmount: totalAmount.toString(),
+                paymentStatus: 'paid_online',
+                paymentMethod: 'new_card',
+              });
+              
+              // Update stock if applicable
+              if (product.stockQuantity !== null) {
+                await storage.updateProduct(metadata.productId, {
+                  stockQuantity: Math.max(0, product.stockQuantity - finalQuantity),
+                });
+              }
+              console.log(`✅ Product sale created for product ${metadata.productId}`);
+            } else {
+              console.log(`⚠️  Product ${metadata.productId} not found, skipping sale creation`);
+            }
+          } catch (error) {
+            console.error(`❌ Error creating product sale for ${metadata.productId}:`, error);
+          }
+        } else if (metadata.productId) {
+          console.log(`ℹ️  Product purchase missing required metadata (facilityId or customerId), session ID: ${sessionId}`);
+        }
+
+        // Handle membership purchases
+        if (metadata.membershipTierId && metadata.facilityId && metadata.customerId) {
+          try {
+            await storage.createMembership({
+              facilityId: metadata.facilityId,
+              tierId: metadata.membershipTierId,
+              userId: metadata.customerId,
+              status: 'active',
+              startDate: new Date(),
+              paymentStatus: 'paid_online',
+            });
+            console.log(`✅ Membership created for tier ${metadata.membershipTierId}`);
+          } catch (error) {
+            console.error(`❌ Error creating membership for tier ${metadata.membershipTierId}:`, error);
+          }
+        } else if (metadata.membershipTierId) {
+          console.log(`ℹ️  Membership purchase missing required metadata (facilityId or customerId), session ID: ${sessionId}`);
+        }
+
+        // Handle lesson package purchases
+        if (metadata.lessonPackageId) {
+          console.log(`✅ Lesson package ${metadata.lessonPackageId} purchased`);
+        }
+
+        // Handle transformation package purchases
+        if (metadata.transformationPackageId) {
+          try {
+            const pkg = await storage.getTransformationPackage(metadata.transformationPackageId);
+            if (pkg) {
+              await storage.updateTransformationPackage(metadata.transformationPackageId, {
+                currentEnrollments: (pkg.currentEnrollments || 0) + 1,
+              });
+              console.log(`✅ Transformation package ${metadata.transformationPackageId} enrollment updated`);
+            } else {
+              console.log(`⚠️  Transformation package ${metadata.transformationPackageId} not found, skipping update`);
+            }
+          } catch (error) {
+            console.error(`❌ Error updating transformation package ${metadata.transformationPackageId}:`, error);
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("❌ Critical error processing webhook:", error);
+      responseData.error = error.message;
+    }
+    
+    // Always return 200 to prevent Stripe retry storms
+    return res.json(responseData);
+  });
+
   // Widget Configuration Routes
   app.get("/api/widget-config/:facilityId/:widgetType", async (req, res) => {
     try {
