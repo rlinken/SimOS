@@ -39,6 +39,9 @@ export default function Dashboard() {
   const [selectedSlot, setSelectedSlot] = useState<{ bay: Bay; hour: number } | null>(null);
   const [draggedBooking, setDraggedBooking] = useState<(Booking & { bays: Bay[]; user: any }) | null>(null);
   const [dropTarget, setDropTarget] = useState<{ bayId: string; hour: number } | null>(null);
+  const [resizingBooking, setResizingBooking] = useState<{ booking: Booking & { bays: Bay[]; user: any }; edge: 'start' | 'end' } | null>(null);
+  const [resizeStartX, setResizeStartX] = useState<number>(0);
+  const [resizePreview, setResizePreview] = useState<{ left: number; width: number } | null>(null);
   const { toast } = useToast();
   const scheduleRef = useRef<HTMLDivElement>(null);
   const currentTimeRef = useRef<HTMLDivElement>(null);
@@ -148,13 +151,10 @@ export default function Dashboard() {
       newStartTime: string;
       newEndTime: string;
     }) => {
-      return apiRequest(`/api/bookings/${bookingId}/reschedule`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          bayIds: [newBayId],
-          startTime: newStartTime,
-          endTime: newEndTime,
-        }),
+      return apiRequest('PATCH', `/api/bookings/${bookingId}/reschedule`, {
+        bayIds: [newBayId],
+        startTime: newStartTime,
+        endTime: newEndTime,
       });
     },
     onSuccess: () => {
@@ -240,6 +240,113 @@ export default function Dashboard() {
     setDraggedBooking(null);
     setDropTarget(null);
   };
+
+  // Resize handlers
+  const handleResizeStart = (e: React.MouseEvent, booking: Booking & { bays: Bay[]; user: any }, edge: 'start' | 'end') => {
+    e.stopPropagation();
+    e.preventDefault();
+    setResizingBooking({ booking, edge });
+    setResizeStartX(e.clientX);
+    
+    const { left, width } = getBookingPosition(booking);
+    setResizePreview({ left, width });
+  };
+
+  useEffect(() => {
+    if (!resizingBooking) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizePreview) return;
+      
+      const deltaX = e.clientX - resizeStartX;
+      const PIXELS_PER_MINUTE = 150 / 60; // 150px per hour = 2.5px per minute
+      const deltaMinutes = Math.round(deltaX / PIXELS_PER_MINUTE / 15) * 15; // Snap to 15 minutes
+      
+      let newLeft = resizePreview.left;
+      let newWidth = resizePreview.width;
+      
+      if (resizingBooking.edge === 'start') {
+        // Resizing start time (left edge)
+        newLeft = resizePreview.left + (deltaMinutes * PIXELS_PER_MINUTE);
+        newWidth = resizePreview.width - (deltaMinutes * PIXELS_PER_MINUTE);
+        
+        // Minimum 15 minutes
+        if (newWidth < 15 * PIXELS_PER_MINUTE) {
+          newWidth = 15 * PIXELS_PER_MINUTE;
+          newLeft = resizePreview.left + resizePreview.width - newWidth;
+        }
+      } else {
+        // Resizing end time (right edge)
+        newWidth = resizePreview.width + (deltaMinutes * PIXELS_PER_MINUTE);
+        
+        // Minimum 15 minutes
+        if (newWidth < 15 * PIXELS_PER_MINUTE) {
+          newWidth = 15 * PIXELS_PER_MINUTE;
+        }
+      }
+      
+      setResizePreview({ left: newLeft, width: newWidth });
+    };
+
+    const handleMouseUp = () => {
+      if (!resizingBooking || !resizePreview) {
+        setResizingBooking(null);
+        setResizePreview(null);
+        return;
+      }
+
+      const PIXELS_PER_MINUTE = 150 / 60;
+      const deltaX = resizePreview.left - getBookingPosition(resizingBooking.booking).left;
+      const deltaWidth = resizePreview.width - getBookingPosition(resizingBooking.booking).width;
+      
+      const originalStart = parseISO(resizingBooking.booking.startTime);
+      const originalEnd = parseISO(resizingBooking.booking.endTime);
+      
+      let newStart = originalStart;
+      let newEnd = originalEnd;
+      
+      if (resizingBooking.edge === 'start') {
+        const deltaMinutes = Math.round(deltaX / PIXELS_PER_MINUTE / 15) * 15;
+        newStart = addMinutes(originalStart, deltaMinutes);
+      } else {
+        const deltaMinutes = Math.round(deltaWidth / PIXELS_PER_MINUTE / 15) * 15;
+        newEnd = addMinutes(originalEnd, deltaMinutes);
+      }
+      
+      // Ensure minimum 15 minutes
+      if ((newEnd.getTime() - newStart.getTime()) < 15 * 60 * 1000) {
+        toast({
+          title: "Invalid Duration",
+          description: "Booking must be at least 15 minutes long.",
+          variant: "destructive",
+        });
+        setResizingBooking(null);
+        setResizePreview(null);
+        return;
+      }
+      
+      // Only update if there's an actual change
+      if (newStart.getTime() !== originalStart.getTime() || newEnd.getTime() !== originalEnd.getTime()) {
+        rescheduleBookingMutation.mutate({
+          bookingId: resizingBooking.booking.id,
+          newBayId: resizingBooking.booking.bayIds?.[0] || resizingBooking.booking.bays[0].id,
+          newStartTime: newStart.toISOString(),
+          newEndTime: newEnd.toISOString(),
+        });
+      }
+      
+      setResizingBooking(null);
+      setResizePreview(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingBooking, resizePreview, resizeStartX, rescheduleBookingMutation, toast]);
 
   const handleSlotClick = (bay: Bay, hour: number) => {
     const hasBooking = hasBookingInHour(bay.id, hour);
@@ -560,9 +667,10 @@ export default function Dashboard() {
 
                     {/* Bookings Layer (Absolutely Positioned) */}
                     {bayBookings.map(booking => {
-                      const { left, width } = getBookingPosition(booking);
+                      const isResizing = resizingBooking?.booking.id === booking.id;
+                      const { left, width } = isResizing && resizePreview ? resizePreview : getBookingPosition(booking);
                       const isDragging = draggedBooking?.id === booking.id;
-                      const canDrag = booking.paymentStatus !== 'cancelled';
+                      const canDrag = booking.paymentStatus !== 'cancelled' && !isResizing;
                       
                       return (
                         <div
@@ -571,14 +679,23 @@ export default function Dashboard() {
                           onDragStart={(e) => canDrag && handleDragStart(e, booking)}
                           onDragEnd={handleDragEnd}
                           onClick={() => !isDragging && handleBookingClick}
-                          className={`absolute top-0 h-full flex items-center z-20 group ${canDrag ? 'cursor-move' : 'cursor-not-allowed'} ${isDragging ? 'opacity-50' : ''}`}
+                          className={`absolute top-0 h-full flex items-center z-20 group ${canDrag ? 'cursor-move' : 'cursor-default'} ${isDragging ? 'opacity-50' : ''} ${isResizing ? 'z-30' : ''}`}
                           style={{ 
                             left: `${80 + left}px`,
                             width: `${width}px`,
                           }}
                         >
-                          <div className="relative w-full h-16 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg p-2 transition-colors">
-                            <div className="text-center space-y-1 h-full flex flex-col items-center justify-center">
+                          <div className={`relative w-full h-16 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg p-2 transition-colors ${isResizing ? 'ring-2 ring-blue-500' : ''}`}>
+                            {/* Left resize handle */}
+                            {canDrag && (
+                              <div
+                                onMouseDown={(e) => handleResizeStart(e, booking, 'start')}
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-primary/30 transition-colors z-10 rounded-l-lg"
+                                data-testid={`resize-start-${booking.id}`}
+                              />
+                            )}
+                            
+                            <div className="text-center space-y-1 h-full flex flex-col items-center justify-center pointer-events-none">
                               <div className="w-6 h-6 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
                                 <User className="w-3 h-3 text-primary" />
                               </div>
@@ -590,6 +707,16 @@ export default function Dashboard() {
                                 <span className="truncate">{format(parseISO(booking.startTime), "h:mm")} - {format(parseISO(booking.endTime), "h:mm a")}</span>
                               </div>
                             </div>
+                            
+                            {/* Right resize handle */}
+                            {canDrag && (
+                              <div
+                                onMouseDown={(e) => handleResizeStart(e, booking, 'end')}
+                                className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-primary/30 transition-colors z-10 rounded-r-lg"
+                                data-testid={`resize-end-${booking.id}`}
+                              />
+                            )}
+                            
                             <div className={`absolute inset-0 border-2 rounded-lg transition-colors pointer-events-none ${
                               booking.paymentStatus === 'pending' 
                                 ? 'border-amber-500 group-hover:border-amber-600' 
