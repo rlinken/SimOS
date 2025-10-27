@@ -108,6 +108,11 @@ export default function SettingsPage() {
   const [stripePublishableKey, setStripePublishableKey] = useState("");
   const [stripeSecretKey, setStripeSecretKey] = useState("");
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  
+  // Widget payment configuration
+  const [allowPayOnline, setAllowPayOnline] = useState(true);
+  const [allowPayAtDesk, setAllowPayAtDesk] = useState(true);
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState("online");
 
   const facilityId = user?.facilityId || "";
 
@@ -172,6 +177,11 @@ export default function SettingsPage() {
       // User must enter a new key to update it
       setStripeSecretKey("");
       setPaymentsEnabled(paymentSettings.paymentsEnabled || false);
+      
+      // Widget payment settings
+      setAllowPayOnline(paymentSettings.allowPayOnline ?? true);
+      setAllowPayAtDesk(paymentSettings.allowPayAtDesk ?? true);
+      setDefaultPaymentMethod(paymentSettings.defaultPaymentMethod || "online");
     }
   }, [paymentSettings]);
 
@@ -1059,6 +1069,69 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              <div className="border-t pt-6 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Widget Payment Options</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Configure which payment methods customers can use when booking through your widget
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="allow-pay-online">Allow Pay Online</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Customers can pay immediately via Stripe
+                    </p>
+                  </div>
+                  <Switch
+                    id="allow-pay-online"
+                    checked={allowPayOnline}
+                    onCheckedChange={setAllowPayOnline}
+                    disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
+                    data-testid="switch-allow-pay-online"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="allow-pay-at-desk">Allow Pay at Desk</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Customers can book and pay later at your facility
+                    </p>
+                  </div>
+                  <Switch
+                    id="allow-pay-at-desk"
+                    checked={allowPayAtDesk}
+                    onCheckedChange={setAllowPayAtDesk}
+                    disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
+                    data-testid="switch-allow-pay-at-desk"
+                  />
+                </div>
+
+                {(allowPayOnline || allowPayAtDesk) && (
+                  <div className="space-y-2">
+                    <Label htmlFor="default-payment-method">Default Payment Method</Label>
+                    <Select
+                      value={defaultPaymentMethod}
+                      onValueChange={setDefaultPaymentMethod}
+                      disabled={isLoadingPaymentSettings || updatePaymentSettingsMutation.isPending}
+                    >
+                      <SelectTrigger id="default-payment-method" data-testid="select-default-payment">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allowPayOnline && <SelectItem value="online">Pay Online (Pre-selected)</SelectItem>}
+                        {allowPayAtDesk && <SelectItem value="at_desk">Pay at Desk (Pre-selected)</SelectItem>}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      This option will be pre-selected by default in your booking widget
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div className="border-t pt-6">
                 <Button
                   onClick={() => {
@@ -1066,6 +1139,9 @@ export default function SettingsPage() {
                       paymentProvider,
                       stripePublishableKey,
                       paymentsEnabled,
+                      allowPayOnline,
+                      allowPayAtDesk,
+                      defaultPaymentMethod,
                     };
                     // Only include secret key if user entered a new value
                     if (stripeSecretKey.trim()) {
