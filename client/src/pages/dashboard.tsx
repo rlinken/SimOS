@@ -682,14 +682,20 @@ export default function Dashboard() {
                           draggable={canDrag}
                           onDragStart={(e) => canDrag && handleDragStart(e, booking)}
                           onDragEnd={handleDragEnd}
-                          onClick={() => !isDragging && handleBookingClick}
                           className={`absolute top-0 h-full flex items-center z-20 group ${canDrag ? 'cursor-move' : 'cursor-default'} ${isDragging ? 'opacity-50' : ''} ${isResizing ? 'z-30' : ''}`}
                           style={{ 
                             left: `${80 + left}px`,
                             width: `${width}px`,
                           }}
                         >
-                          <div className={`relative w-full h-16 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg p-2 transition-colors ${isResizing ? 'ring-2 ring-blue-500' : ''}`}>
+                          <div 
+                            className={`relative w-full h-16 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg p-2 transition-colors ${isResizing ? 'ring-2 ring-blue-500' : ''}`}
+                            onClick={(e) => {
+                              if (!isDragging && !isResizing) {
+                                handleBookingClick(e);
+                              }
+                            }}
+                          >
                             {/* Left resize handle */}
                             {canDrag && (
                               <div
