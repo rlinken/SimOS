@@ -211,6 +211,7 @@ export default function SettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-settings"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/facilities/${facilityId}`] });
       toast({
         title: "Payment Settings Updated",
         description: "Your payment settings have been saved.",

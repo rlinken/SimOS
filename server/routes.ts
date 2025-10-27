@@ -24,6 +24,7 @@ import {
   insertBayBlockSchema,
   updateBayBlockSchema,
   insertBookingSchema,
+  insertWidgetBookingSchema,
   insertMembershipTierSchema,
   updateMembershipTierSchema,
   insertLeadSchema,
@@ -2452,19 +2453,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No bays available at this time. Please select another time slot." });
       }
       
-      // Use widget booking schema which doesn't require userId/customerId
-      const validatedData = insertWidgetBookingSchema.parse({
+      // Find or create customer user for anonymous widget bookings
+      let customer = await storage.getUserByEmail(customerEmail);
+      if (!customer) {
+        // Create new customer account
+        const [firstName, ...lastNameParts] = customerName.split(" ");
+        const lastName = lastNameParts.join(" ") || "";
+        
+        customer = await storage.upsertUser({
+          email: customerEmail,
+          firstName,
+          lastName: lastName || undefined,
+          phone: customerPhone || undefined,
+          facilityId,
+          role: "customer",
+        });
+      }
+      
+      // Transform frontend payment method values to database enum values
+      const dbPaymentMethod = paymentMethod === "online" ? "new_card" : "pay_at_desk";
+      
+      // Create booking with customer ID (regular booking schema)
+      const validatedData = insertBookingSchema.parse({
         facilityId,
-        bayId: assignedBay.id,
+        bayIds: [assignedBay.id],
+        customerId: customer.id,
+        userId: customer.id, // DEPRECATED but required for backward compatibility
         startTime: bookingStart,
-        endTime: bookingEnd, // Calculate endTime from startTime + duration
+        endTime: bookingEnd,
         duration: bookingDuration,
         type: "rental",
-        customerName,
-        customerEmail,
-        customerPhone: customerPhone || null,
-        paymentMethod: paymentMethod || "at_desk",
-        paymentStatus: paymentMethod === "online" ? "pending" : "pending", // Will be updated after Stripe payment
+        paymentMethod: dbPaymentMethod,
+        paymentStatus: "pending",
       });
       
       const booking = await storage.createBooking(validatedData);

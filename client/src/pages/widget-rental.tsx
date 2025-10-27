@@ -78,22 +78,7 @@ export default function WidgetRental() {
     enabled: !!facilityId,
   });
 
-  // Fetch facility payment settings to determine which payment options to show
-  const { data: paymentSettings } = useQuery<any>({
-    queryKey: [`/api/facilities/${facilityId}/payment-settings`],
-    queryFn: async () => {
-      if (!facility) return null;
-      return {
-        allowPayOnline: facility.allowPayOnline ?? true,
-        allowPayAtDesk: facility.allowPayAtDesk ?? true,
-        defaultPaymentMethod: facility.defaultPaymentMethod || "online",
-      };
-    },
-    enabled: !!facility,
-  });
-
-
-  const { data: availability, isLoading: availabilityLoading, error: availabilityError } = useQuery<TimeSlot[]>({
+  const { data: availability, isLoading: availabilityLoading, error: availabilityError} = useQuery<TimeSlot[]>({
     queryKey: [
       `/api/widget/availability/${facilityId}`,
       selectedDate.toISOString(),
@@ -112,10 +97,10 @@ export default function WidgetRental() {
 
   // Set default payment method based on facility settings
   useEffect(() => {
-    if (paymentSettings?.defaultPaymentMethod) {
-      setPaymentMethod(paymentSettings.defaultPaymentMethod);
+    if (facility?.defaultPaymentMethod) {
+      setPaymentMethod(facility.defaultPaymentMethod);
     }
-  }, [paymentSettings]);
+  }, [facility]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -479,7 +464,7 @@ export default function WidgetRental() {
               </div>
 
               {/* Payment Method Selection */}
-              {paymentSettings && (paymentSettings.allowPayOnline || paymentSettings.allowPayAtDesk) && (
+              {facility && (facility.allowPayOnline || facility.allowPayAtDesk) && (
                 <div>
                   <Label htmlFor="payment-method" className="text-base">
                     Payment Method
@@ -493,10 +478,10 @@ export default function WidgetRental() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {paymentSettings.allowPayOnline && (
+                      {facility.allowPayOnline && (
                         <SelectItem value="online">Pay Online</SelectItem>
                       )}
-                      {paymentSettings.allowPayAtDesk && (
+                      {facility.allowPayAtDesk && (
                         <SelectItem value="at_desk">Pay at Desk</SelectItem>
                       )}
                     </SelectContent>

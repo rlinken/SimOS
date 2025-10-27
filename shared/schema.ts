@@ -1049,7 +1049,7 @@ export const insertWidgetBookingSchema = createInsertSchema(bookings)
     // endTime is optional - will be calculated from startTime + duration if not provided
     endTime: z.union([z.string(), z.date()]).transform(val => typeof val === 'string' ? new Date(val) : val).optional(),
     duration: z.number().optional(), // Duration in minutes
-    bayId: z.string().optional(), // Optional - will be auto-assigned if not provided
+    bayIds: z.array(z.string()).optional(), // Optional - will be auto-assigned if not provided
     
     // Customer info fields (required for widget bookings)
     customerName: z.string().min(1),
@@ -1057,8 +1057,9 @@ export const insertWidgetBookingSchema = createInsertSchema(bookings)
     customerPhone: z.string().optional(),
     
     // Payment fields
-    paymentMethod: z.enum(["online", "at_desk"]).optional().default("at_desk"),
-    paymentStatus: z.enum(["pending", "paid", "failed"]).optional().default("pending"),
+    // Note: Frontend uses "online"/"at_desk", backend transforms to DB enum values
+    paymentMethod: z.enum(["new_card", "pay_at_desk"]).optional().default("pay_at_desk"),
+    paymentStatus: z.enum(["pending", "paid", "cancelled", "refunded"]).optional().default("pending"),
   });
 
 export type Booking = typeof bookings.$inferSelect;
