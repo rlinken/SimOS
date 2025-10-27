@@ -315,6 +315,11 @@ export const facilities = pgTable("facilities", {
   thankYouPageExternalUrl: text("thank_you_page_external_url"), // External redirect URL
   useExternalThankYouPage: boolean("use_external_thank_you_page").default(false), // Use external URL instead of built-in page
   
+  // Widget payment configuration
+  allowPayOnline: boolean("allow_pay_online").default(true), // Allow online payment via Stripe
+  allowPayAtDesk: boolean("allow_pay_at_desk").default(true), // Allow pay at desk option
+  defaultPaymentMethod: varchar("default_payment_method").default("online"), // "online" or "at_desk" - which is pre-selected
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
