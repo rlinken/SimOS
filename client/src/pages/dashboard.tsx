@@ -38,7 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Booking, Bay, User } from "@shared/schema";
 
 const quickBookingSchema = insertBookingSchema
-  .omit({ facilityId: true, userId: true })
+  .omit({ facilityId: true, userId: true, customerId: true })
   .extend({
     date: z.string(),
     startTime: z.string(),
@@ -46,7 +46,14 @@ const quickBookingSchema = insertBookingSchema
     customerId: z.string().optional(),
     guestName: z.string().optional(),
     numberOfBays: z.number().min(1).default(1),
-  });
+  })
+  .refine(
+    (data) => data.customerId || data.guestName,
+    {
+      message: "Either select a customer or enter a guest name",
+      path: ["customerId"],
+    }
+  );
 
 type QuickBookingFormData = z.infer<typeof quickBookingSchema>;
 
@@ -94,7 +101,7 @@ export default function Dashboard() {
       date: format(new Date(), "yyyy-MM-dd"),
       startTime: format(new Date(), "HH:00"),
       endTime: format(addHours(new Date(), 1), "HH:00"),
-      type: "bay_rental",
+      type: "rental",
       paymentStatus: "pending",
       paymentMethod: "pay_at_desk",
       numberOfBays: 1,
