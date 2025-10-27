@@ -18,6 +18,7 @@ import {
   Sparkles,
   Radio,
   ShoppingCart,
+  ShoppingBag,
   CalendarRange,
   ChevronDown,
 } from "lucide-react";
@@ -158,6 +159,11 @@ function getMenuItems(user: User | undefined) {
         title: "Offers",
         url: "/offerings",
         icon: Package,
+      },
+      {
+        title: "Products",
+        url: "/products",
+        icon: ShoppingBag,
       },
       {
         title: "Staff",
