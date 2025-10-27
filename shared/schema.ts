@@ -779,6 +779,11 @@ export const bays = pgTable("bays", {
   tier: bayTierEnum("tier").notNull().default("standard"),
   status: bayStatusEnum("status").notNull().default("active"),
   
+  // Pricing
+  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }), // Price per hour
+  halfDayRate: numeric("half_day_rate", { precision: 10, scale: 2 }), // Price for 4 hours
+  fullDayRate: numeric("full_day_rate", { precision: 10, scale: 2 }), // Price for 8 hours
+  
   // Usage tracking
   usageHours: integer("usage_hours").default(0).notNull(),
   lastRotation: timestamp("last_rotation"),
