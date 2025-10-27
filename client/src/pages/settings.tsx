@@ -554,6 +554,10 @@ export default function SettingsPage() {
             <Sparkles className="w-4 h-4 mr-2" />
             Brand
           </TabsTrigger>
+          <TabsTrigger value="billing" data-testid="tab-billing">
+            <CreditCard className="w-4 h-4 mr-2" />
+            Billing
+          </TabsTrigger>
           <TabsTrigger value="general" data-testid="tab-general">
             <SettingsIcon className="w-4 h-4 mr-2" />
             General
@@ -1717,6 +1721,126 @@ export default function SettingsPage() {
                 <li>Thank you pages</li>
                 <li>Public booking and purchase pages</li>
               </ul>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="billing" className="space-y-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Subscription & Billing</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Manage your GolfSimOS subscription
+            </p>
+
+            <div className="space-y-6">
+              <div className="flex items-start justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="space-y-1">
+                  <Label className="text-base">Subscription Status</Label>
+                  <p className="text-2xl font-bold capitalize" data-testid="text-subscription-status">
+                    {facility?.subscriptionStatus || "unknown"}
+                  </p>
+                </div>
+                <div className="text-right space-y-1">
+                  <Label className="text-base">Monthly Rate</Label>
+                  <p className="text-2xl font-bold" data-testid="text-subscription-rate">
+                    $199
+                  </p>
+                </div>
+              </div>
+
+              {facility?.subscriptionStatus === "trialing" && facility?.trialEndAt && (() => {
+                const trialEnd = new Date(facility.trialEndAt);
+                const now = new Date();
+                const daysRemaining = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                const isUrgent = daysRemaining <= 3;
+                const isWarning = daysRemaining <= 7 && daysRemaining > 3;
+                
+                return (
+                  <div 
+                    className={`p-4 border rounded-lg ${
+                      isUrgent 
+                        ? 'bg-destructive/10 border-destructive/20' 
+                        : 'bg-amber-500/10 border-amber-500/20'
+                    }`}
+                    data-testid="container-trial-info"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Clock className={`w-5 h-5 mt-0.5 ${
+                        isUrgent ? 'text-destructive' : 'text-amber-600'
+                      }`} />
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-start justify-between gap-4">
+                          <Label className={`text-base ${
+                            isUrgent 
+                              ? 'text-destructive dark:text-destructive' 
+                              : 'text-amber-900 dark:text-amber-100'
+                          }`}>Free Trial Active</Label>
+                          <div className="text-right">
+                            <p className={`text-2xl font-bold ${
+                              isUrgent ? 'text-destructive' : 'text-amber-600'
+                            }`} data-testid="text-days-remaining">
+                              {daysRemaining}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {daysRemaining === 1 ? 'day left' : 'days left'}
+                            </p>
+                          </div>
+                        </div>
+                        <p className={`text-sm ${
+                          isUrgent 
+                            ? 'text-destructive/90 dark:text-destructive/90' 
+                            : 'text-amber-800 dark:text-amber-200'
+                        }`} data-testid="text-trial-end-date">
+                          {daysRemaining === 0 
+                            ? "Your trial ends today" 
+                            : daysRemaining === 1
+                            ? "Your trial ends tomorrow"
+                            : `Your trial ends on ${trialEnd.toLocaleDateString()}`}. 
+                          {' '}Add a payment method to continue using GolfSimOS.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {facility?.stripeCustomerId && (
+                <div className="space-y-2">
+                  <Label>Stripe Customer ID</Label>
+                  <Input
+                    value={facility.stripeCustomerId}
+                    readOnly
+                    className="font-mono text-sm"
+                    data-testid="input-stripe-customer-id"
+                  />
+                </div>
+              )}
+
+              {facility?.stripeSubscriptionId && (
+                <div className="space-y-2">
+                  <Label>Stripe Subscription ID</Label>
+                  <Input
+                    value={facility.stripeSubscriptionId}
+                    readOnly
+                    className="font-mono text-sm"
+                    data-testid="input-stripe-subscription-id"
+                  />
+                </div>
+              )}
+
+              <div className="pt-4 border-t">
+                <Button 
+                  size="lg" 
+                  className="w-full"
+                  data-testid="button-manage-billing"
+                >
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  {facility?.subscriptionStatus === "trialing" ? "Add Payment Method" : "Manage Billing"}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Billing is powered by Stripe
+                </p>
+              </div>
             </div>
           </Card>
         </TabsContent>

@@ -1,4 +1,3 @@
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Clock, CreditCard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,11 +19,7 @@ export function TrialBanner() {
     return null;
   }
 
-  const getBannerVariant = () => {
-    if (daysRemaining <= 3) return "destructive";
-    if (daysRemaining <= 7) return "default";
-    return "default";
-  };
+  const isUrgent = daysRemaining <= 3;
 
   const getMessage = () => {
     if (daysRemaining === 0) {
@@ -37,26 +32,37 @@ export function TrialBanner() {
   };
 
   return (
-    <Alert 
-      variant={getBannerVariant()} 
-      className="rounded-none border-x-0 border-t-0"
+    <div 
+      className={`border-b px-6 py-3 ${
+        isUrgent 
+          ? 'bg-destructive/10 border-destructive/20' 
+          : 'bg-amber-500/10 border-amber-500/20'
+      }`}
       data-testid="banner-trial"
     >
-      <Clock className="h-4 w-4" />
-      <AlertDescription className="flex items-center justify-between">
-        <span data-testid="text-trial-message">
-          {getMessage()}. Upgrade to continue using GolfSimOS after your trial.
-        </span>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Clock className={`h-4 w-4 ${
+            isUrgent ? 'text-destructive' : 'text-amber-600'
+          }`} />
+          <span className={`text-sm ${
+            isUrgent 
+              ? 'text-destructive dark:text-destructive' 
+              : 'text-amber-900 dark:text-amber-100'
+          }`} data-testid="text-trial-message">
+            {getMessage()}. Upgrade to continue using GolfSimOS after your trial.
+          </span>
+        </div>
         <Button 
           variant="outline" 
           size="sm"
-          className="ml-4 flex-shrink-0"
+          className="flex-shrink-0"
           data-testid="button-upgrade-trial"
         >
           <CreditCard className="w-4 h-4 mr-2" />
           Upgrade Now
         </Button>
-      </AlertDescription>
-    </Alert>
+      </div>
+    </div>
   );
 }

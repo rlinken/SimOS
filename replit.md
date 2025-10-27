@@ -12,6 +12,7 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 **Technical Implementations:**
 *   **Database:** PostgreSQL with multi-tenant schema (`facilityId` filtering) and `varchar` UUIDs, UTC timestamps.
 *   **Authentication:** Replit Auth (OIDC) with role-based access control (super_admin, owner, administrator, instructor, club_fitter, support, customer, member).
+*   **Subscription & Billing:** SaaS pricing at $199/month with 14-day free trial. Trial starts automatically during onboarding (`subscriptionStatus="trialing"`, `trialStartAt`, `trialEndAt` set). Subscription fields include `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionStatus` (enum: trialing, active, past_due, canceled, grace_period), and `monthlyRecurringRevenue`. Trial countdown banner displays days remaining with urgency-based styling (destructive for ≤3 days). Billing page in Settings shows subscription status, trial information, and Stripe IDs.
 *   **Custom Roles System:** Facility-specific custom roles with 50 granular permissions; protected system roles.
 *   **Staff Payment Structures:** Hourly, commission, salary, and tips with corresponding database fields.
 *   **Commission & Referral System:** `commissionStructures` (flat/percentage, recurring), `commissionPayments`, and `referredBy` fields on sales tables.
