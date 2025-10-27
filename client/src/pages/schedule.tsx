@@ -493,10 +493,19 @@ export default function Schedule() {
                               </div>
                             </div>
                             <div className={`absolute inset-0 border-2 rounded-lg transition-colors pointer-events-none ${
-                              booking.paymentStatus === 'pending' 
+                              booking.paymentStatus === 'cancelled'
+                                ? 'border-red-500 group-hover:border-red-600'
+                                : booking.paymentStatus === 'pending' 
                                 ? 'border-amber-500 group-hover:border-amber-600' 
                                 : 'border-transparent group-hover:border-primary/50'
                             }`} />
+                            {booking.paymentStatus === 'cancelled' && (
+                              <div className="absolute inset-0 bg-red-500/20 rounded-lg flex items-center justify-center pointer-events-none">
+                                <Badge variant="destructive" className="text-[9px] px-1 py-0">
+                                  CANCELLED
+                                </Badge>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -1196,6 +1205,35 @@ function BookingDetailsDialog({
     markAsPaidMutation.mutate();
   };
 
+  const cancelBookingMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/bookings/${booking!.id}/cancel`, {
+        method: 'PATCH',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({
+        title: "Booking Cancelled",
+        description: "The booking has been successfully cancelled.",
+      });
+      onClose();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to cancel booking.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCancelBooking = () => {
+    if (confirm("Are you sure you want to cancel this booking? This action cannot be undone.")) {
+      cancelBookingMutation.mutate();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -1266,7 +1304,14 @@ function BookingDetailsDialog({
             {booking.paymentStatus && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Payment Status</span>
-                <Badge variant={booking.paymentStatus === 'paid' ? 'default' : 'secondary'} className="capitalize">
+                <Badge 
+                  variant={
+                    booking.paymentStatus === 'cancelled' ? 'destructive' :
+                    booking.paymentStatus === 'paid' ? 'default' : 'secondary'
+                  } 
+                  className="capitalize"
+                >
+                  {booking.paymentStatus === 'cancelled' && <X className="w-3 h-3 mr-1" />}
                   {booking.paymentStatus}
                 </Badge>
               </div>
@@ -1305,7 +1350,17 @@ function BookingDetailsDialog({
           <Button variant="outline" onClick={onClose} className="flex-1" data-testid="button-close">
             Close
           </Button>
-          {booking.checkInStatus === 'pending' && (
+          {booking.paymentStatus !== 'cancelled' && (
+            <Button 
+              variant="destructive" 
+              onClick={handleCancelBooking}
+              disabled={cancelBookingMutation.isPending}
+              data-testid="button-cancel-booking"
+            >
+              {cancelBookingMutation.isPending ? "Cancelling..." : "Cancel Booking"}
+            </Button>
+          )}
+          {booking.checkInStatus === 'pending' && booking.paymentStatus !== 'cancelled' && (
             <Button 
               variant="default" 
               className="flex-1 bg-green-600 hover:bg-green-700" 

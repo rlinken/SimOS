@@ -1778,6 +1778,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cancel booking endpoint
+  app.patch("/api/bookings/:id/cancel", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking || booking.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Check if booking is already cancelled
+      if (booking.paymentStatus === 'cancelled') {
+        return res.status(400).json({ message: "Booking is already cancelled" });
+      }
+
+      // Update booking to cancelled status
+      const updated = await storage.updateBooking(req.params.id, {
+        paymentStatus: 'cancelled',
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error cancelling booking:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // Top off endpoint - extend booking time and add charge
   app.patch("/api/bookings/:id/top-off", isAuthenticated, async (req: any, res) => {
     try {
