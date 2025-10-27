@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TagsInput } from "@/components/ui/tags-input";
 import {
   Select,
   SelectContent,
@@ -163,6 +164,7 @@ export default function LessonsPage() {
       price: "0",
       lessonsIncluded: 1,
       active: true,
+      tags: [],
     },
   });
 
@@ -207,6 +209,7 @@ export default function LessonsPage() {
       validityDays: pkg.validityDays || undefined,
       billingInterval: pkg.billingInterval || undefined,
       active: pkg.active,
+      tags: pkg.tags || [],
     });
   };
 
@@ -519,6 +522,24 @@ export default function LessonsPage() {
                       />
                     )}
 
+                    <FormField
+                      control={form.control}
+                      name="tags"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Automation Tags</FormLabel>
+                          <FormControl>
+                            <TagsInput
+                              value={field.value || []}
+                              onChange={field.onChange}
+                              placeholder="Add tags for webhooks/Zapier..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
                     <div className="flex justify-end gap-2 pt-4">
                       <Button
                         type="button"
@@ -811,6 +832,24 @@ export default function LessonsPage() {
                   )}
                 />
               )}
+
+              <FormField
+                control={editForm.control}
+                name="tags"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Automation Tags</FormLabel>
+                    <FormControl>
+                      <TagsInput
+                        value={field.value || []}
+                        onChange={field.onChange}
+                        placeholder="Add tags for webhooks/Zapier..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="flex justify-end gap-2 pt-4">
                 <Button

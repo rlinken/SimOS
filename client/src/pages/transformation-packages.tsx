@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TagsInput } from "@/components/ui/tags-input";
 import {
   Select,
   SelectContent,
@@ -71,6 +72,7 @@ export default function TransformationPackagesPage() {
       features: [],
       isActive: true,
       maxEnrollments: null,
+      tags: [],
     },
   });
 
@@ -145,6 +147,7 @@ export default function TransformationPackagesPage() {
         features: editingPackage.features || [],
         isActive: editingPackage.isActive,
         maxEnrollments: editingPackage.maxEnrollments,
+        tags: editingPackage.tags || [],
       });
     } else if (!isDialogOpen) {
       form.reset({
@@ -169,6 +172,7 @@ export default function TransformationPackagesPage() {
         features: [],
         isActive: true,
         maxEnrollments: null,
+        tags: [],
       });
     }
   }, [editingPackage, isDialogOpen, form]);
@@ -632,6 +636,28 @@ export default function TransformationPackagesPage() {
                         <FormDescription>
                           Leave empty for unlimited enrollments
                         </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Automation Tags */}
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="font-semibold text-lg">Automation & Integration</h3>
+                  <FormField
+                    control={form.control}
+                    name="tags"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Automation Tags</FormLabel>
+                        <FormControl>
+                          <TagsInput
+                            value={field.value || []}
+                            onChange={field.onChange}
+                            placeholder="Add tags for webhooks/Zapier..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

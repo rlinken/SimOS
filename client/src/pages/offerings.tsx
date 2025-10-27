@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { TagsInput } from "@/components/ui/tags-input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Package, Plus, Clock, DollarSign } from "lucide-react";
@@ -67,6 +68,7 @@ export default function OfferingsPage() {
       durationMinutes: undefined,
       assignedStaffId: undefined,
       isActive: true,
+      tags: [],
     },
   });
 
@@ -149,6 +151,7 @@ export default function OfferingsPage() {
         durationMinutes: editingOffering.durationMinutes || undefined,
         assignedStaffId: editingOffering.assignedStaffId || undefined,
         isActive: editingOffering.isActive,
+        tags: editingOffering.tags || [],
       });
     } else if (!isDialogOpen) {
       form.reset({
@@ -159,6 +162,7 @@ export default function OfferingsPage() {
         durationMinutes: undefined,
         assignedStaffId: undefined,
         isActive: true,
+        tags: [],
       });
     }
   }, [editingOffering, isDialogOpen, form]);
@@ -388,6 +392,23 @@ export default function OfferingsPage() {
                     )}
                   />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Automation Tags</FormLabel>
+                      <FormControl>
+                        <TagsInput
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Add tags for webhooks/Zapier..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter>
                   <Button
                     type="button"

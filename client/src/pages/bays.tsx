@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { TagsInput } from "@/components/ui/tags-input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MapPin, Plus, Activity, AlertCircle, Pencil, Trash2 } from "lucide-react";
@@ -55,6 +56,7 @@ export default function BaysPage() {
       status: "active",
       usageHours: 0,
       maintenanceNotes: "",
+      tags: [],
     },
   });
 
@@ -66,6 +68,7 @@ export default function BaysPage() {
       tier: "standard",
       status: "active",
       maintenanceNotes: "",
+      tags: [],
     },
   });
 
@@ -142,6 +145,7 @@ export default function BaysPage() {
       tier: bay.tier,
       status: bay.status,
       maintenanceNotes: bay.maintenanceNotes || "",
+      tags: bay.tags || [],
     });
     setIsEditDialogOpen(true);
   };
@@ -305,6 +309,23 @@ export default function BaysPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Automation Tags</FormLabel>
+                      <FormControl>
+                        <TagsInput
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Add tags for webhooks/Zapier..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter>
                   <Button
                     type="button"
@@ -446,6 +467,23 @@ export default function BaysPage() {
                           value={field.value || ""}
                           placeholder="Any maintenance notes or special instructions"
                           data-testid="textarea-edit-maintenance"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Automation Tags</FormLabel>
+                      <FormControl>
+                        <TagsInput
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Add tags for webhooks/Zapier..."
                         />
                       </FormControl>
                       <FormMessage />
