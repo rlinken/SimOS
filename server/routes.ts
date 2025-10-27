@@ -6,6 +6,9 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { bayWearCalculator } from "./services/bay-wear-calculator";
 import Stripe from "stripe";
+// Referenced from javascript_object_storage blueprint
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
 
 // Helper function to check if user has admin privileges
 function isAdmin(role: string): boolean {
@@ -45,6 +48,8 @@ import {
   insertTaskSchema,
   insertCommissionSchema,
   insertTipSchema,
+  insertProductSchema,
+  updateProductSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -67,6 +72,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // ============================================================================
+  // Object Storage Routes
+  // ============================================================================
+  // Reference: javascript_object_storage blueprint - protected file uploading
+
+  // Endpoint for serving uploaded logo files (public visibility)
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error checking object access:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  // Endpoint for getting presigned upload URL
+  app.post("/api/objects/upload", isAuthenticated, async (req: any, res) => {
+    const objectStorageService = new ObjectStorageService();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    res.json({ uploadURL });
+  });
+
+  // Endpoint for setting facility logo after upload
+  app.put("/api/facility-logo", isAuthenticated, async (req: any, res) => {
+    if (!req.body.logoUrl) {
+      return res.status(400).json({ error: "logoUrl is required" });
+    }
+
+    const userId = req.user.claims.sub;
+    const user = await storage.getUser(userId);
+
+    if (!user || !user.facilityId) {
+      return res.status(403).json({ error: "No facility associated with user" });
+    }
+
+    // Only owners and administrators can update facility logo
+    if (!isAdmin(user.role)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.logoUrl,
+        {
+          owner: userId,
+          visibility: "public", // Logo is public so it can be displayed in widgets
+        },
+      );
+
+      // Update facility with the logo path
+      await storage.updateFacility(user.facilityId, { logoUrl: objectPath });
+
+      res.status(200).json({ objectPath });
+    } catch (error) {
+      console.error("Error setting facility logo:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

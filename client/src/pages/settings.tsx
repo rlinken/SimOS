@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio, Sparkles } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio, Sparkles, Upload, Link as LinkIcon } from "lucide-react";
 import { Link } from "wouter";
 import { Textarea } from "@/components/ui/textarea";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
 
 type TimeUnit = "minutes" | "hours" | "days";
 
@@ -129,6 +131,9 @@ export default function SettingsPage() {
     privacyPolicyUrl: "",
     termsOfServiceUrl: "",
   });
+
+  // Logo upload mode (url or upload)
+  const [logoUploadMode, setLogoUploadMode] = useState<"url" | "upload">("url");
 
   const facilityId = user?.facilityId || "";
 
@@ -1361,25 +1366,111 @@ export default function SettingsPage() {
                 </p>
               </div>
 
-              {/* Logo URL */}
-              <div className="space-y-2">
-                <Label htmlFor="logo-url">Logo URL</Label>
-                <Input
-                  id="logo-url"
-                  type="url"
-                  value={brandSettings.logo}
-                  onChange={(e) =>
-                    setBrandSettings({ ...brandSettings, logo: e.target.value })
-                  }
-                  onBlur={() =>
-                    updateSettingsMutation.mutate({ logo: brandSettings.logo })
-                  }
-                  placeholder="https://example.com/logo.png"
-                  data-testid="input-logo-url"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Enter a URL to your logo image. Recommended: 200x200px PNG or SVG
-                </p>
+              {/* Logo */}
+              <div className="space-y-3">
+                <Label>Logo</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={logoUploadMode === "url" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLogoUploadMode("url")}
+                    data-testid="button-logo-url-mode"
+                  >
+                    <LinkIcon className="w-4 h-4 mr-2" />
+                    URL
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={logoUploadMode === "upload" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLogoUploadMode("upload")}
+                    data-testid="button-logo-upload-mode"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload
+                  </Button>
+                </div>
+
+                {logoUploadMode === "url" ? (
+                  <div className="space-y-2">
+                    <Input
+                      id="logo-url"
+                      type="url"
+                      value={brandSettings.logo}
+                      onChange={(e) =>
+                        setBrandSettings({ ...brandSettings, logo: e.target.value })
+                      }
+                      onBlur={() =>
+                        updateSettingsMutation.mutate({ logoUrl: brandSettings.logo })
+                      }
+                      placeholder="https://example.com/logo.png"
+                      data-testid="input-logo-url"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter a URL to your logo image. Recommended: 200x200px PNG or SVG
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <ObjectUploader
+                      maxNumberOfFiles={1}
+                      maxFileSize={5242880}
+                      onGetUploadParameters={async () => {
+                        const response = await apiRequest("/api/objects/upload", {
+                          method: "POST",
+                        });
+                        return {
+                          method: "PUT" as const,
+                          url: response.uploadURL,
+                        };
+                      }}
+                      onComplete={async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+                        if (result.successful.length > 0) {
+                          const uploadURL = result.successful[0].uploadURL;
+                          try {
+                            const response = await apiRequest("/api/facility-logo", {
+                              method: "PUT",
+                              body: JSON.stringify({ logoUrl: uploadURL }),
+                              headers: { "Content-Type": "application/json" },
+                            });
+                            setBrandSettings({ ...brandSettings, logo: response.objectPath });
+                            queryClient.invalidateQueries({ queryKey: ["/api/facility"] });
+                            toast({
+                              title: "Success",
+                              description: "Logo uploaded successfully",
+                            });
+                          } catch (error) {
+                            console.error("Error setting logo:", error);
+                            toast({
+                              title: "Error",
+                              description: "Failed to save logo",
+                              variant: "destructive",
+                            });
+                          }
+                        }
+                      }}
+                      variant="outline"
+                      size="default"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Logo
+                    </ObjectUploader>
+                    <p className="text-xs text-muted-foreground">
+                      Upload an image file. Max size: 5MB. Recommended: 200x200px PNG or SVG
+                    </p>
+                    {brandSettings.logo && brandSettings.logo.startsWith("/objects/") && (
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground mb-2">Current uploaded logo:</p>
+                        <img 
+                          src={brandSettings.logo} 
+                          alt="Logo preview" 
+                          className="w-20 h-20 object-contain border rounded"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </Card>

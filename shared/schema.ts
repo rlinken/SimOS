@@ -2777,6 +2777,74 @@ export const marketingBannerAnnouncementsRelations = relations(marketingBannerAn
 export type MarketingBannerAnnouncement = typeof marketingBannerAnnouncements.$inferSelect;
 
 // ============================================================================
+// PRODUCTS TABLE (Physical Merchandise)
+// ============================================================================
+
+export const productCategoryEnum = pgEnum("product_category", [
+  "clubs", // Golf clubs
+  "balls", // Golf balls
+  "gloves", // Golf gloves
+  "apparel", // Clothing and apparel
+  "accessories", // Accessories (tees, towels, etc.)
+  "training_aids", // Training equipment
+  "gift_cards", // Gift cards
+  "other", // Other products
+]);
+
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  // Basic information
+  name: text("name").notNull(),
+  description: text("description"),
+  category: productCategoryEnum("category").notNull(),
+  
+  // Pricing
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  costPrice: numeric("cost_price", { precision: 10, scale: 2 }), // For profit tracking
+  
+  // Inventory
+  sku: varchar("sku"),
+  barcode: varchar("barcode"),
+  stockQuantity: integer("stock_quantity").default(0).notNull(),
+  lowStockThreshold: integer("low_stock_threshold").default(5).notNull(),
+  
+  // Media
+  imageUrl: text("image_url"),
+  
+  // Automation tags
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`),
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const productsRelations = relations(products, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [products.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const insertProductSchema = createInsertSchema(products).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateProductSchema = insertProductSchema.partial();
+
+export type Product = typeof products.$inferSelect;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type UpdateProduct = z.infer<typeof updateProductSchema>;
+
+// ============================================================================
 // WIDGET CONFIGURATIONS
 // ============================================================================
 
