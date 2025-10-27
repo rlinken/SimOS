@@ -949,6 +949,7 @@ export const eventsRelations = relations(events, ({ one }) => ({
 
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,
+  facilityId: true,
   currentEnrollment: true,
   createdAt: true,
   updatedAt: true,

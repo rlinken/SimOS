@@ -302,7 +302,7 @@ export default function EventsPage() {
                 <FormControl>
                   <Input
                     type="date"
-                    value={field.value instanceof Date ? format(field.value, "yyyy-MM-dd") : ""}
+                    value={field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "yyyy-MM-dd") : ""}
                     onChange={(e) => field.onChange(new Date(e.target.value))}
                     data-testid="input-event-start-date"
                   />
@@ -321,7 +321,7 @@ export default function EventsPage() {
                 <FormControl>
                   <Input
                     type="date"
-                    value={field.value instanceof Date ? format(field.value, "yyyy-MM-dd") : ""}
+                    value={field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "yyyy-MM-dd") : ""}
                     onChange={(e) => field.onChange(new Date(e.target.value))}
                     data-testid="input-event-end-date"
                   />
@@ -564,8 +564,23 @@ export default function EventsPage() {
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <CalendarIcon className="h-4 w-4" />
                         <span data-testid={`text-dates-${event.id}`}>
-                          {format(new Date(event.startDate), "MMM dd, yyyy")} - {format(new Date(event.endDate), "MMM dd, yyyy")}
-                          {durationDays > 1 && <span className="ml-1">({durationDays} days)</span>}
+                          {(() => {
+                            try {
+                              const start = new Date(event.startDate);
+                              const end = new Date(event.endDate);
+                              if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                                return "Invalid dates";
+                              }
+                              return (
+                                <>
+                                  {format(start, "MMM dd, yyyy")} - {format(end, "MMM dd, yyyy")}
+                                  {durationDays > 1 && <span className="ml-1">({durationDays} days)</span>}
+                                </>
+                              );
+                            } catch {
+                              return "Invalid dates";
+                            }
+                          })()}
                         </span>
                       </div>
 
