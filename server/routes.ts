@@ -2712,7 +2712,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "At least one membership tier is required" });
       }
 
-      // Create facility
+      // Calculate trial end date (14 days from now)
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 14);
+      
+      // Create facility with trial settings
       const facility = await storage.createFacility({
         name,
         subdomain,
@@ -2722,6 +2726,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         lessonsEnabled,
         fittingsEnabled,
+        subscriptionStatus: "trialing",
+        trialEndAt: trialEndDate,
       });
 
       // Update user to be facility admin
