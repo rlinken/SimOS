@@ -369,7 +369,10 @@ export default function WidgetRental() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setShowBookingForm(false)}
+                onClick={() => {
+                  setShowBookingForm(false);
+                  setSelectedTime(null);
+                }}
                 className="text-sm"
                 data-testid="button-change-time"
               >
