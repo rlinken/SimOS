@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TagsInput } from "@/components/ui/tags-input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreditCard, Plus, Check, Link as LinkIcon } from "lucide-react";
@@ -48,6 +49,7 @@ export default function MembershipsPage() {
       hourlyRate: "0",
       monthlyHours: 0,
       allowedBayTiers: ["standard"],
+      tags: [],
     },
   });
 
@@ -108,6 +110,7 @@ export default function MembershipsPage() {
         hourlyRate: editingTier.hourlyRate || "0",
         monthlyHours: editingTier.monthlyHours,
         allowedBayTiers: editingTier.allowedBayTiers || ["standard"],
+        tags: editingTier.tags || [],
       });
     } else if (!isDialogOpen) {
       form.reset({
@@ -118,6 +121,7 @@ export default function MembershipsPage() {
         hourlyRate: "0",
         monthlyHours: 0,
         allowedBayTiers: ["standard"],
+        tags: [],
       });
     }
   }, [editingTier, isDialogOpen, form]);
@@ -308,6 +312,23 @@ export default function MembershipsPage() {
                     )}
                   />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Automation Tags</FormLabel>
+                      <FormControl>
+                        <TagsInput
+                          value={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Add tags for webhooks/Zapier..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter>
                   <Button
                     type="button"
