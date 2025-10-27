@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Calendar,
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   Radio,
   ShoppingCart,
   CalendarRange,
+  ChevronDown,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -32,13 +34,18 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
 
 function getMenuItems(user: User | undefined) {
-  if (!user) return { main: [], business: [], operations: [] };
+  if (!user) return { main: [], business: [], operations: [], settings: [] };
 
   const isSuperAdmin = user.role === "super_admin";
   const isAdmin = user.role === "owner" || user.role === "administrator";
@@ -48,6 +55,7 @@ function getMenuItems(user: User | undefined) {
   const main = [];
   const business = [];
   const operations = [];
+  const settings = [];
 
   // Main Navigation
   main.push({
@@ -117,19 +125,9 @@ function getMenuItems(user: User | undefined) {
   if (isSuperAdmin || isAdmin) {
     business.push(
       {
-        title: "Bays",
-        url: "/bays",
-        icon: MapPin,
-      },
-      {
         title: "Events",
         url: "/events",
         icon: CalendarRange,
-      },
-      {
-        title: "TrackMan",
-        url: "/trackman-settings",
-        icon: Radio,
       },
       {
         title: "Memberships",
@@ -169,21 +167,23 @@ function getMenuItems(user: User | undefined) {
     );
   }
 
-  // Settings
-  main.push({
+  // Settings - available to all users
+  settings.push({
     title: "Settings",
     url: "/settings",
     icon: Settings,
   });
 
-  return { main, business, operations };
+  return { main, business, operations, settings };
 }
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const [operationsOpen, setOperationsOpen] = useState(false);
+  const [businessOpen, setBusinessOpen] = useState(false);
 
-  const { main, business, operations } = getMenuItems(user);
+  const { main, business, operations, settings } = getMenuItems(user);
 
   return (
     <Sidebar>
@@ -195,9 +195,8 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Main Navigation */}
+        {/* Dashboard (Main Navigation) */}
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {main.map((item) => (
@@ -218,38 +217,106 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Operations - Daily Activities */}
+        {/* Operations - Daily Activities (Collapsible) */}
         {operations.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Operations</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {operations.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location === item.url}
-                      data-testid={`nav-${item.title.toLowerCase()}`}
-                    >
-                      <Link href={item.url}>
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
+            <Collapsible
+              open={operationsOpen}
+              onOpenChange={setOperationsOpen}
+              className="group/collapsible"
+            >
+              <div
+                onMouseEnter={() => setOperationsOpen(true)}
+                onMouseLeave={() => setOperationsOpen(false)}
+              >
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between hover-elevate active-elevate-2 rounded-md px-2 py-1.5 cursor-pointer">
+                    <span>Operations</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        operationsOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {operations.map((item) => (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={location === item.url}
+                            data-testid={`nav-${item.title.toLowerCase()}`}
+                          >
+                            <Link href={item.url}>
+                              <item.icon className="w-4 h-4" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
           </SidebarGroup>
         )}
 
-        {/* Business - Configuration & Setup */}
+        {/* Business - Configuration & Setup (Collapsible) */}
         {business.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Business</SidebarGroupLabel>
+            <Collapsible
+              open={businessOpen}
+              onOpenChange={setBusinessOpen}
+              className="group/collapsible"
+            >
+              <div
+                onMouseEnter={() => setBusinessOpen(true)}
+                onMouseLeave={() => setBusinessOpen(false)}
+              >
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between hover-elevate active-elevate-2 rounded-md px-2 py-1.5 cursor-pointer">
+                    <span>Business</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${
+                        businessOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {business.map((item) => (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={location === item.url}
+                            data-testid={`nav-${item.title.toLowerCase()}`}
+                          >
+                            <Link href={item.url}>
+                              <item.icon className="w-4 h-4" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {/* Settings */}
+        {settings.length > 0 && (
+          <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                {business.map((item) => (
+                {settings.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild

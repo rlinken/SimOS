@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2 } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio } from "lucide-react";
+import { Link } from "wouter";
 import { Textarea } from "@/components/ui/textarea";
 
 type TimeUnit = "minutes" | "hours" | "days";
@@ -1295,13 +1296,41 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="general" className="space-y-6">
-          <Card className="p-12 text-center">
-            <SettingsIcon className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">General Settings</h3>
-            <p className="text-muted-foreground">
-              General facility settings will be available here
-            </p>
-          </Card>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="p-6 hover-elevate cursor-pointer" asChild>
+              <Link href="/bays">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <MapPin className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold mb-1">Bays</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Manage your simulator bays, pricing, and availability
+                    </p>
+                  </div>
+                  <ExternalLink className="w-5 h-5 text-muted-foreground" />
+                </div>
+              </Link>
+            </Card>
+            
+            <Card className="p-6 hover-elevate cursor-pointer" asChild>
+              <Link href="/trackman-settings">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Radio className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold mb-1">TrackMan Integration</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Configure TrackMan OAuth and bay mappings
+                    </p>
+                  </div>
+                  <ExternalLink className="w-5 h-5 text-muted-foreground" />
+                </div>
+              </Link>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -31,13 +31,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { TagsInput } from "@/components/ui/tags-input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Package, Plus, Clock, DollarSign } from "lucide-react";
+import { Package, Plus, Clock, DollarSign, CalendarRange, CreditCard, Sparkles, GraduationCap, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Offering, User } from "@shared/schema";
 import { insertOfferingSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
 
 const offeringFormSchema = insertOfferingSchema.omit({ facilityId: true });
 
@@ -200,7 +201,7 @@ export default function OfferingsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Products & Services</h1>
+        <h1 className="text-3xl font-bold">Offer Creation</h1>
         <Card className="p-6">
           <div className="animate-pulse space-y-3">
             <div className="h-12 bg-muted rounded" />
@@ -213,13 +214,47 @@ export default function OfferingsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Navigation buttons to other sections */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" asChild data-testid="nav-events">
+          <Link href="/events">
+            <CalendarRange className="w-4 h-4 mr-2" />
+            Events
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild data-testid="nav-memberships">
+          <Link href="/memberships">
+            <CreditCard className="w-4 h-4 mr-2" />
+            Memberships
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild data-testid="nav-packages">
+          <Link href="/transformation-packages">
+            <Sparkles className="w-4 h-4 mr-2" />
+            Packages
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild data-testid="nav-lessons">
+          <Link href="/lessons">
+            <GraduationCap className="w-4 h-4 mr-2" />
+            Lessons
+          </Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild data-testid="nav-fittings">
+          <Link href="/fittings">
+            <Target className="w-4 h-4 mr-2" />
+            Fittings
+          </Link>
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-page-title">
-            Products & Services
+            Offer Creation
           </h1>
           <p className="text-muted-foreground">
-            Manage lessons, fittings, products, and memberships
+            Create and manage custom products and services
           </p>
         </div>
         <Dialog
