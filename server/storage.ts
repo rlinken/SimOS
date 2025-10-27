@@ -4,6 +4,7 @@ import {
   facilities,
   bays,
   bayRentalOffers,
+  events,
   bayBlocks,
   bookings,
   membershipTiers,
@@ -33,6 +34,8 @@ import {
   type InsertBay,
   type BayRentalOffer,
   type InsertBayRentalOffer,
+  type Event,
+  type InsertEvent,
   type BayBlock,
   type InsertBayBlock,
   type Booking,
@@ -115,6 +118,14 @@ export interface IStorage {
   createBayRentalOffer(offer: InsertBayRentalOffer): Promise<BayRentalOffer>;
   updateBayRentalOffer(id: string, offer: Partial<InsertBayRentalOffer>): Promise<BayRentalOffer>;
   deleteBayRentalOffer(id: string): Promise<void>;
+  
+  // Events (Golf Schools, Clinics, etc.)
+  getEvents(facilityId?: string): Promise<Event[]>;
+  getEvent(id: string): Promise<Event | undefined>;
+  getEventsByDateRange(facilityId: string, start: Date, end: Date): Promise<Event[]>;
+  createEvent(event: InsertEvent): Promise<Event>;
+  updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event>;
+  deleteEvent(id: string): Promise<void>;
   
   // Bay Blocks
   getBayBlocks(facilityId?: string): Promise<BayBlock[]>;
@@ -407,6 +418,63 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBayRentalOffer(id: string): Promise<void> {
     await db.delete(bayRentalOffers).where(eq(bayRentalOffers.id, id));
+  }
+
+  // Events (Golf Schools, Clinics, etc.)
+  async getEvents(facilityId?: string): Promise<Event[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(events)
+        .where(eq(events.facilityId, facilityId))
+        .orderBy(asc(events.startDate));
+    }
+    return await db.select().from(events).orderBy(asc(events.startDate));
+  }
+
+  async getEvent(id: string): Promise<Event | undefined> {
+    const [event] = await db.select().from(events).where(eq(events.id, id));
+    return event;
+  }
+
+  async getEventsByDateRange(
+    facilityId: string,
+    start: Date,
+    end: Date
+  ): Promise<Event[]> {
+    return await db
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.facilityId, facilityId),
+          lte(events.startDate, end),
+          gte(events.endDate, start)
+        )
+      )
+      .orderBy(asc(events.startDate));
+  }
+
+  async createEvent(eventData: InsertEvent): Promise<Event> {
+    const [event] = await db
+      .insert(events)
+      .values(eventData)
+      .returning();
+    return event;
+  }
+
+  async updateEvent(id: string, eventData: Partial<InsertEvent>): Promise<Event> {
+    const [event] = await db
+      .update(events)
+      .set({ ...eventData, updatedAt: new Date() })
+      .where(eq(events.id, id))
+      .returning();
+    return event;
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    // Bay blocks with eventId will be automatically deleted due to cascade
+    await db.delete(events).where(eq(events.id, id));
   }
 
   // Bay Blocks
