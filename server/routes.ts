@@ -1064,6 +1064,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // Events Routes (Golf Schools, Clinics, etc.)
+  // ============================================================================
+
+  app.get("/api/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const events = await storage.getEvents(user?.facilityId || undefined);
+      res.json(events);
+    } catch (error: any) {
+      console.error("Error fetching events:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/events/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const event = await storage.getEvent(req.params.id);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      res.json(event);
+    } catch (error: any) {
+      console.error("Error fetching event:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const eventData = {
+        ...req.body,
+        facilityId: user.facilityId,
+      };
+
+      const event = await storage.createEvent(eventData);
+
+      // Generate bay blocks for this event
+      await generateBayBlocksForEvent(event);
+
+      res.status(201).json(event);
+    } catch (error: any) {
+      console.error("Error creating event:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/events/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const existingEvent = await storage.getEvent(req.params.id);
+      if (!existingEvent || existingEvent.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      const updatedEvent = await storage.updateEvent(req.params.id, req.body);
+
+      // Delete existing bay blocks for this event
+      const existingBlocks = await storage.getBayBlocks(user.facilityId);
+      for (const block of existingBlocks) {
+        if (block.eventId === existingEvent.id) {
+          await storage.deleteBayBlock(block.id);
+        }
+      }
+
+      // Regenerate bay blocks with new event data
+      await generateBayBlocksForEvent(updatedEvent);
+
+      res.json(updatedEvent);
+    } catch (error: any) {
+      console.error("Error updating event:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/events/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const event = await storage.getEvent(req.params.id);
+      if (!event || event.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Bay blocks will be automatically deleted due to cascade on delete
+      await storage.deleteEvent(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Helper function to generate bay blocks for an event
+  async function generateBayBlocksForEvent(event: any) {
+    const { startDate, endDate, bayIds, timePeriods, facilityId } = event;
+    
+    // Parse time periods (empty array means all day)
+    const periods = timePeriods && Array.isArray(timePeriods) && timePeriods.length > 0 
+      ? timePeriods 
+      : [{ startTime: "00:00", endTime: "23:59" }];
+
+    // Generate blocks for each day in the date range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+      // For each bay assigned to this event
+      for (const bayId of bayIds) {
+        // For each time period in the day
+        for (const period of periods) {
+          const [startHour, startMinute] = period.startTime.split(':').map(Number);
+          const [endHour, endMinute] = period.endTime.split(':').map(Number);
+          
+          const blockStart = new Date(date);
+          blockStart.setHours(startHour, startMinute, 0, 0);
+          
+          const blockEnd = new Date(date);
+          blockEnd.setHours(endHour, endMinute, 0, 0);
+
+          await storage.createBayBlock({
+            facilityId,
+            bayId,
+            eventId: event.id,
+            startTime: blockStart,
+            endTime: blockEnd,
+            reason: `Event: ${event.name}`,
+            notes: event.description || null,
+          });
+        }
+      }
+    }
+  }
+
+  // ============================================================================
   // Bay Blocks Routes
   // ============================================================================
 
