@@ -1,19 +1,24 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { insertBookingSchema } from "@shared/schema";
 import {
   Calendar,
   Users,
   MapPin,
   Clock,
   Plus,
-  User,
+  User as UserIcon,
   Target,
   X,
   Check,
@@ -30,7 +35,20 @@ import { format, startOfDay, addHours, addMinutes, isSameDay, parseISO, isAfter,
 import { useState, useEffect, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Booking, Bay } from "@shared/schema";
+import type { Booking, Bay, User } from "@shared/schema";
+
+const quickBookingSchema = insertBookingSchema
+  .omit({ facilityId: true, userId: true })
+  .extend({
+    date: z.string(),
+    startTime: z.string(),
+    endTime: z.string(),
+    customerId: z.string().optional(),
+    guestName: z.string().optional(),
+    numberOfBays: z.number().min(1).default(1),
+  });
+
+type QuickBookingFormData = z.infer<typeof quickBookingSchema>;
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -43,7 +61,11 @@ export default function Dashboard() {
   const [resizeStartX, setResizeStartX] = useState<number>(0);
   const [resizeOriginalPosition, setResizeOriginalPosition] = useState<{ left: number; width: number } | null>(null);
   const [resizePreview, setResizePreview] = useState<{ left: number; width: number } | null>(null);
-  const { toast } = useToast();
+  const [isQuickBookDialogOpen, setIsQuickBookDialogOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<User | null>(null);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const { toast} = useToast();
   const scheduleRef = useRef<HTMLDivElement>(null);
   const currentTimeRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +79,72 @@ export default function Dashboard() {
   const { data: bays = [] } = useQuery<Bay[]>({
     queryKey: ["/api/bays"],
     enabled: !!user,
+  });
+
+  // Fetch customers for quick booking
+  const { data: customers = [] } = useQuery<User[]>({
+    queryKey: ["/api/members"],
+    enabled: !!user && isQuickBookDialogOpen,
+  });
+
+  // Form for quick booking
+  const quickBookForm = useForm<QuickBookingFormData>({
+    resolver: zodResolver(quickBookingSchema),
+    defaultValues: {
+      date: format(new Date(), "yyyy-MM-dd"),
+      startTime: format(new Date(), "HH:00"),
+      endTime: format(addHours(new Date(), 1), "HH:00"),
+      type: "bay_rental",
+      paymentStatus: "pending",
+      paymentMethod: "pay_at_desk",
+      numberOfBays: 1,
+    },
+  });
+
+  // Quick booking mutation
+  const quickBookMutation = useMutation({
+    mutationFn: async (data: QuickBookingFormData) => {
+      const startTime = new Date(`${data.date}T${data.startTime}:00`);
+      const endTime = new Date(`${data.date}T${data.endTime}:00`);
+      
+      const bookingData: any = {
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        type: data.type,
+        paymentStatus: data.paymentStatus,
+        paymentMethod: data.paymentMethod,
+        numberOfBays: data.numberOfBays, // Auto-assign will pick the best bay
+      };
+      
+      // Add customer data
+      if (data.customerId) {
+        bookingData.customerId = data.customerId;
+      } else if (data.guestName) {
+        bookingData.guestName = data.guestName;
+        bookingData.guestEmail = data.guestEmail;
+        bookingData.guestPhone = data.guestPhone;
+      }
+      
+      return apiRequest("POST", "/api/bookings", bookingData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Success",
+        description: "Booking created and bay auto-assigned!",
+      });
+      setIsQuickBookDialogOpen(false);
+      quickBookForm.reset();
+      setSelectedCustomer(null);
+      setCustomerSearch("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Get next 3 upcoming bookings
@@ -434,12 +522,22 @@ export default function Dashboard() {
             Welcome back, {user?.firstName}
           </p>
         </div>
-        <Link href="/schedule">
-          <Button variant="outline" data-testid="button-view-full-schedule">
-            <Calendar className="w-4 h-4 mr-2" />
-            Full Schedule
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => setIsQuickBookDialogOpen(true)}
+            className="bg-primary hover:bg-primary/90"
+            data-testid="button-add-booking"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Booking
           </Button>
-        </Link>
+          <Link href="/schedule">
+            <Button variant="outline" data-testid="button-view-full-schedule">
+              <Calendar className="w-4 h-4 mr-2" />
+              Full Schedule
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Two Column Layout: Next Bookings + Quick Actions */}
@@ -707,7 +805,7 @@ export default function Dashboard() {
                             
                             <div className="text-center space-y-1 h-full flex flex-col items-center justify-center pointer-events-none">
                               <div className="w-6 h-6 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
-                                <User className="w-3 h-3 text-primary" />
+                                <UserIcon className="w-3 h-3 text-primary" />
                               </div>
                               <div className="font-semibold text-foreground text-[10px] leading-tight truncate max-w-full px-1">
                                 {booking.user?.firstName} {booking.user?.lastName}
@@ -770,6 +868,190 @@ export default function Dashboard() {
         hour={selectedSlot?.hour}
         selectedDate={selectedDate}
       />
+
+      {/* Quick Add Booking Dialog */}
+      <Dialog open={isQuickBookDialogOpen} onOpenChange={setIsQuickBookDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-primary" />
+              Quick Add Booking
+            </DialogTitle>
+            <DialogDescription>
+              Create a booking and the system will auto-assign the best available bay
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...quickBookForm}>
+            <form onSubmit={quickBookForm.handleSubmit((data) => quickBookMutation.mutate(data))} className="space-y-4">
+              {/* Date and Time */}
+              <div className="grid grid-cols-3 gap-3">
+                <FormField
+                  control={quickBookForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-booking-date" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={quickBookForm.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid="input-start-time" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={quickBookForm.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid="input-end-time" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Customer Selection */}
+              <div className="space-y-3 border-t pt-4">
+                <Label>Customer</Label>
+                <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerSearchOpen}
+                      className="w-full justify-between"
+                      data-testid="button-customer-search"
+                    >
+                      {selectedCustomer 
+                        ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` 
+                        : "Search existing customer..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search customers..." 
+                        value={customerSearch}
+                        onValueChange={setCustomerSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>No customer found.</CommandEmpty>
+                        <CommandGroup>
+                          {customers
+                            .filter(c => {
+                              const searchLower = customerSearch.toLowerCase();
+                              const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+                              return fullName.includes(searchLower) || c.email?.toLowerCase().includes(searchLower);
+                            })
+                            .map((customer) => (
+                              <CommandItem
+                                key={customer.id}
+                                value={customer.id}
+                                onSelect={() => {
+                                  setSelectedCustomer(customer);
+                                  quickBookForm.setValue('customerId', customer.id);
+                                  quickBookForm.setValue('guestName', undefined);
+                                  setCustomerSearchOpen(false);
+                                }}
+                                data-testid={`customer-option-${customer.id}`}
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${
+                                    selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
+                                  }`}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{customer.firstName} {customer.lastName}</span>
+                                  <span className="text-xs text-muted-foreground">{customer.email}</span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedCustomer && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      quickBookForm.setValue('customerId', undefined);
+                    }}
+                    className="h-6 px-2"
+                    data-testid="button-clear-customer"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+
+              {/* Manual Customer Entry */}
+              {!selectedCustomer && (
+                <div className="space-y-3 border-t pt-3">
+                  <p className="text-sm text-muted-foreground">Or create new customer:</p>
+                  <FormField
+                    control={quickBookForm.control}
+                    name="guestName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter customer name"
+                            {...field}
+                            data-testid="input-guest-name"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsQuickBookDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={quickBookMutation.isPending}
+                  data-testid="button-create-booking"
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {quickBookMutation.isPending ? "Creating..." : "Create Booking"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1067,7 +1349,7 @@ function QuickBookDialog({
             {selectedCustomer && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="flex items-center gap-1 text-muted-foreground">
-                  <User className="w-3 h-3" />
+                  <UserIcon className="w-3 h-3" />
                   {selectedCustomer.email}
                 </span>
                 <Button
