@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [dropTarget, setDropTarget] = useState<{ bayId: string; hour: number } | null>(null);
   const [resizingBooking, setResizingBooking] = useState<{ booking: Booking & { bays: Bay[]; user: any }; edge: 'start' | 'end' } | null>(null);
   const [resizeStartX, setResizeStartX] = useState<number>(0);
+  const [resizeOriginalPosition, setResizeOriginalPosition] = useState<{ left: number; width: number } | null>(null);
   const [resizePreview, setResizePreview] = useState<{ left: number; width: number } | null>(null);
   const { toast } = useToast();
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -249,6 +250,7 @@ export default function Dashboard() {
     setResizeStartX(e.clientX);
     
     const { left, width } = getBookingPosition(booking);
+    setResizeOriginalPosition({ left, width });
     setResizePreview({ left, width });
   };
 
@@ -256,28 +258,28 @@ export default function Dashboard() {
     if (!resizingBooking) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!resizePreview) return;
+      if (!resizeOriginalPosition) return;
       
       const deltaX = e.clientX - resizeStartX;
       const PIXELS_PER_MINUTE = 150 / 60; // 150px per hour = 2.5px per minute
       const deltaMinutes = Math.round(deltaX / PIXELS_PER_MINUTE / 15) * 15; // Snap to 15 minutes
       
-      let newLeft = resizePreview.left;
-      let newWidth = resizePreview.width;
+      let newLeft = resizeOriginalPosition.left;
+      let newWidth = resizeOriginalPosition.width;
       
       if (resizingBooking.edge === 'start') {
-        // Resizing start time (left edge)
-        newLeft = resizePreview.left + (deltaMinutes * PIXELS_PER_MINUTE);
-        newWidth = resizePreview.width - (deltaMinutes * PIXELS_PER_MINUTE);
+        // Resizing start time (left edge) - always calculate from original position
+        newLeft = resizeOriginalPosition.left + (deltaMinutes * PIXELS_PER_MINUTE);
+        newWidth = resizeOriginalPosition.width - (deltaMinutes * PIXELS_PER_MINUTE);
         
         // Minimum 15 minutes
         if (newWidth < 15 * PIXELS_PER_MINUTE) {
           newWidth = 15 * PIXELS_PER_MINUTE;
-          newLeft = resizePreview.left + resizePreview.width - newWidth;
+          newLeft = resizeOriginalPosition.left + resizeOriginalPosition.width - newWidth;
         }
       } else {
-        // Resizing end time (right edge)
-        newWidth = resizePreview.width + (deltaMinutes * PIXELS_PER_MINUTE);
+        // Resizing end time (right edge) - always calculate from original position
+        newWidth = resizeOriginalPosition.width + (deltaMinutes * PIXELS_PER_MINUTE);
         
         // Minimum 15 minutes
         if (newWidth < 15 * PIXELS_PER_MINUTE) {
@@ -289,15 +291,16 @@ export default function Dashboard() {
     };
 
     const handleMouseUp = () => {
-      if (!resizingBooking || !resizePreview) {
+      if (!resizingBooking || !resizePreview || !resizeOriginalPosition) {
         setResizingBooking(null);
         setResizePreview(null);
+        setResizeOriginalPosition(null);
         return;
       }
 
       const PIXELS_PER_MINUTE = 150 / 60;
-      const deltaX = resizePreview.left - getBookingPosition(resizingBooking.booking).left;
-      const deltaWidth = resizePreview.width - getBookingPosition(resizingBooking.booking).width;
+      const deltaX = resizePreview.left - resizeOriginalPosition.left;
+      const deltaWidth = resizePreview.width - resizeOriginalPosition.width;
       
       const originalStart = parseISO(resizingBooking.booking.startTime);
       const originalEnd = parseISO(resizingBooking.booking.endTime);
@@ -337,6 +340,7 @@ export default function Dashboard() {
       
       setResizingBooking(null);
       setResizePreview(null);
+      setResizeOriginalPosition(null);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -346,7 +350,7 @@ export default function Dashboard() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [resizingBooking, resizePreview, resizeStartX, rescheduleBookingMutation, toast]);
+  }, [resizingBooking, resizePreview, resizeOriginalPosition, resizeStartX, rescheduleBookingMutation, toast]);
 
   const handleSlotClick = (bay: Bay, hour: number) => {
     const hasBooking = hasBookingInHour(bay.id, hour);
