@@ -1778,6 +1778,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reschedule booking endpoint
+  app.patch("/api/bookings/:id/reschedule", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const booking = await storage.getBooking(req.params.id);
+      if (!booking || booking.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Check if booking is cancelled
+      if (booking.paymentStatus === 'cancelled') {
+        return res.status(400).json({ message: "Cannot reschedule a cancelled booking" });
+      }
+
+      const { bayIds, startTime, endTime } = req.body;
+
+      if (!bayIds || !startTime || !endTime) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Check for conflicts with existing bookings (excluding this one)
+      const newStart = new Date(startTime);
+      const newEnd = new Date(endTime);
+      
+      // Get all bookings for the new bay(s) on the new date
+      const dayStart = new Date(newStart);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(newStart);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const existingBookings = await storage.getBookingsByDateRange(
+        user.facilityId,
+        dayStart,
+        dayEnd
+      );
+
+      // Check for conflicts
+      const hasConflict = existingBookings.some(existingBooking => {
+        // Skip the booking being rescheduled
+        if (existingBooking.id === booking.id) return false;
+        
+        // Skip cancelled bookings
+        if (existingBooking.paymentStatus === 'cancelled') return false;
+
+        // Check if this booking overlaps with any of the new bays
+        const overlapsWithBay = bayIds.some((bayId: string) => 
+          existingBooking.bayIds?.includes(bayId)
+        );
+
+        if (!overlapsWithBay) return false;
+
+        // Check time overlap
+        const existingStart = new Date(existingBooking.startTime);
+        const existingEnd = new Date(existingBooking.endTime);
+
+        return newStart < existingEnd && newEnd > existingStart;
+      });
+
+      if (hasConflict) {
+        return res.status(409).json({ message: "Time slot is already booked" });
+      }
+
+      // Update the booking
+      const updated = await storage.updateBooking(req.params.id, {
+        bayIds,
+        startTime: newStart,
+        endTime: newEnd,
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error rescheduling booking:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // Cancel booking endpoint
   app.patch("/api/bookings/:id/cancel", isAuthenticated, async (req: any, res) => {
     try {

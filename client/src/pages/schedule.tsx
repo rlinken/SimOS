@@ -65,6 +65,8 @@ export default function Schedule() {
   const [selectedDate, setSelectedDate] = useState(urlDate ? new Date(urlDate) : new Date());
   const [selectedSlot, setSelectedSlot] = useState<{ bay: Bay; hour: number } | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [draggedBooking, setDraggedBooking] = useState<Booking | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ bayId: string; hour: number } | null>(null);
   const { toast } = useToast();
   const scheduleRef = useRef<HTMLDivElement>(null);
   const currentTimeRef = useRef<HTMLDivElement>(null);
@@ -204,6 +206,124 @@ export default function Schedule() {
 
   const handleBookingClick = (booking: Booking) => {
     setSelectedBooking(booking);
+  };
+
+  // Drag-and-drop handlers
+  const handleDragStart = (e: React.DragEvent, booking: Booking) => {
+    e.stopPropagation();
+    setDraggedBooking(booking);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, bayId: string, hour: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    setDropTarget({ bayId, hour });
+  };
+
+  const handleDragLeave = () => {
+    setDropTarget(null);
+  };
+
+  const rescheduleBookingMutation = useMutation({
+    mutationFn: async ({ bookingId, newBayId, newStartTime, newEndTime }: {
+      bookingId: string;
+      newBayId: string;
+      newStartTime: string;
+      newEndTime: string;
+    }) => {
+      return apiRequest(`/api/bookings/${bookingId}/reschedule`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          bayIds: [newBayId],
+          startTime: newStartTime,
+          endTime: newEndTime,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      toast({
+        title: "Booking Rescheduled",
+        description: "The booking has been moved successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to reschedule booking. There may be a conflict.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDrop = (e: React.DragEvent, bayId: string, hour: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedBooking) return;
+
+    // Find the target bay
+    const targetBay = bays.find(b => b.id === bayId);
+    if (!targetBay) return;
+
+    // Check if target slot is valid (not past and bay is active)
+    if (isPastHour(hour)) {
+      toast({
+        title: "Invalid Drop",
+        description: "Cannot reschedule to a past time slot.",
+        variant: "destructive",
+      });
+      setDraggedBooking(null);
+      setDropTarget(null);
+      return;
+    }
+
+    if (targetBay.status !== 'active') {
+      toast({
+        title: "Invalid Drop",
+        description: "Cannot reschedule to an inactive bay.",
+        variant: "destructive",
+      });
+      setDraggedBooking(null);
+      setDropTarget(null);
+      return;
+    }
+
+    // Calculate new start and end times while preserving the original minute offset
+    const oldStart = new Date(draggedBooking.startTime);
+    const oldEnd = new Date(draggedBooking.endTime);
+    const duration = oldEnd.getTime() - oldStart.getTime();
+    const originalMinutes = oldStart.getMinutes();
+
+    // New start time at the dropped hour, preserving the minute offset
+    const newStart = setMinutes(setHours(startOfDay(selectedDate), hour), originalMinutes);
+    const newEnd = new Date(newStart.getTime() + duration);
+
+    // Check if rescheduling to same bay and same time
+    if (draggedBooking.bayIds?.includes(bayId) && 
+        oldStart.getTime() === newStart.getTime()) {
+      setDraggedBooking(null);
+      setDropTarget(null);
+      return;
+    }
+
+    // Reschedule the booking
+    rescheduleBookingMutation.mutate({
+      bookingId: draggedBooking.id,
+      newBayId: bayId,
+      newStartTime: newStart.toISOString(),
+      newEndTime: newEnd.toISOString(),
+    });
+
+    setDraggedBooking(null);
+    setDropTarget(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedBooking(null);
+    setDropTarget(null);
   };
 
   // Navigation handlers for different views
@@ -432,6 +552,9 @@ export default function Schedule() {
                         <div
                           key={hour}
                           onClick={() => handleSlotClick(bay, hour)}
+                          onDragOver={(e) => handleDragOver(e, bay.id, hour)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, bay.id, hour)}
                           className={`
                             p-2 border-r-2 last:border-r-0 min-h-[80px] 
                             flex flex-col items-center justify-center text-xs 
@@ -442,6 +565,7 @@ export default function Schedule() {
                             ${isAvailable && !isEvenHour ? 'bg-background' : ''}
                             ${isAvailable ? 'hover:bg-green-50 dark:hover:bg-green-950/20' : ''}
                             ${isPast ? 'opacity-40' : ''}
+                            ${dropTarget?.bayId === bay.id && dropTarget?.hour === hour ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500' : ''}
                           `}
                           data-testid={`slot-${bay.id}-${hour}`}
                         >
@@ -468,12 +592,17 @@ export default function Schedule() {
                     {/* Bookings Layer (Absolutely Positioned) */}
                     {bayBookings.map(booking => {
                       const { left, width } = getBookingPosition(booking);
+                      const isDragging = draggedBooking?.id === booking.id;
+                      const canDrag = booking.paymentStatus !== 'cancelled';
                       
                       return (
                         <div
                           key={booking.id}
-                          onClick={() => handleBookingClick(booking)}
-                          className="absolute top-0 h-full flex items-center z-20 cursor-pointer group"
+                          draggable={canDrag}
+                          onDragStart={(e) => canDrag && handleDragStart(e, booking)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => !isDragging && handleBookingClick(booking)}
+                          className={`absolute top-0 h-full flex items-center z-20 group ${canDrag ? 'cursor-move' : 'cursor-not-allowed'} ${isDragging ? 'opacity-50' : ''}`}
                           style={{ 
                             left: `${BAY_COLUMN_WIDTH + left}px`,
                             width: `${width}px`,
