@@ -664,6 +664,9 @@ export const membershipTiers = pgTable("membership_tiers", {
   allowedBayIds: integer("allowed_bay_ids").array().default(sql`ARRAY[]::integer[]`), // Array of bay IDs this tier has access to
   canSelectBays: boolean("can_select_bays").default(false), // Override: allow bay selection for this tier even if facility doesn't
   
+  // Automation integration
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Tags for webhook/Zapier automation
+  
   // Stripe (for later)
   stripePriceId: varchar("stripe_price_id"),
   
@@ -774,6 +777,9 @@ export const bays = pgTable("bays", {
   usageHours: integer("usage_hours").default(0).notNull(),
   lastRotation: timestamp("last_rotation"),
   maintenanceNotes: text("maintenance_notes"),
+  
+  // Automation integration
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Tags for webhook/Zapier automation
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -907,6 +913,9 @@ export const bookings = pgTable("bookings", {
   // Referral tracking
   referredBy: varchar("referred_by").references(() => users.id),
   
+  // Automation integration
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Tags for webhook/Zapier automation
+  
   notes: text("notes"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -977,6 +986,9 @@ export const lessons = pgTable("lessons", {
   
   // Referral tracking
   referredBy: varchar("referred_by").references(() => users.id),
+  
+  // Automation integration
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Tags for webhook/Zapier automation
   
   notes: text("notes"),
   completed: boolean("completed").default(false).notNull(),
@@ -1116,6 +1128,9 @@ export const fittings = pgTable("fittings", {
   // Referral tracking
   referredBy: varchar("referred_by").references(() => users.id),
   
+  // Automation integration
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Tags for webhook/Zapier automation
+  
   // Intake form data
   intakeData: json("intake_data"),
   notes: text("notes"),
@@ -1182,6 +1197,9 @@ export const offerings = pgTable("offerings", {
   
   // Availability
   isActive: boolean("is_active").default(true).notNull(),
+  
+  // Automation integration
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Tags for webhook/Zapier automation
   
   // Stripe (for later)
   stripePriceId: varchar("stripe_price_id"),
@@ -1273,6 +1291,9 @@ export const transformationPackages = pgTable("transformation_packages", {
   isActive: boolean("is_active").default(true).notNull(),
   maxEnrollments: integer("max_enrollments"), // null = unlimited
   currentEnrollments: integer("current_enrollments").default(0).notNull(),
+  
+  // Automation integration
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Tags for webhook/Zapier automation
   
   // Stripe (for later)
   stripePriceId: varchar("stripe_price_id"),
