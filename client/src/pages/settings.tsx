@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 type TimeUnit = "minutes" | "hours" | "days";
@@ -494,6 +494,10 @@ export default function SettingsPage() {
           <TabsTrigger value="payments" data-testid="tab-payments">
             <CreditCard className="w-4 h-4 mr-2" />
             Payments
+          </TabsTrigger>
+          <TabsTrigger value="thankyou" data-testid="tab-thankyou">
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            Thank You Page
           </TabsTrigger>
           <TabsTrigger value="general" data-testid="tab-general">
             <SettingsIcon className="w-4 h-4 mr-2" />
@@ -1102,6 +1106,115 @@ export default function SettingsPage() {
               <strong>Note:</strong> For testing, use your test mode keys. For production, use your live mode keys.
             </p>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="thankyou" className="space-y-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Thank You Page Settings</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Customize the thank you page customers see after purchasing memberships, bookings, lessons, or fittings
+            </p>
+
+            <div className="space-y-6">
+              {/* Enable Thank You Page */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="thank-you-enabled">Enable Thank You Page</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Show a confirmation page after successful purchases
+                  </p>
+                </div>
+                <Switch
+                  id="thank-you-enabled"
+                  checked={facility?.thankYouPageEnabled !== false}
+                  onCheckedChange={(checked) =>
+                    updateSettingsMutation.mutate({ thankYouPageEnabled: checked })
+                  }
+                  data-testid="switch-thank-you-enabled"
+                />
+              </div>
+
+              {/* Use External URL */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="use-external-thank-you">Use External Thank You Page</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Redirect to an external URL instead of the built-in page
+                  </p>
+                </div>
+                <Switch
+                  id="use-external-thank-you"
+                  checked={facility?.useExternalThankYouPage || false}
+                  onCheckedChange={(checked) =>
+                    updateSettingsMutation.mutate({ useExternalThankYouPage: checked })
+                  }
+                  disabled={!facility?.thankYouPageEnabled}
+                  data-testid="switch-use-external-thank-you"
+                />
+              </div>
+
+              {/* External URL Input */}
+              {facility?.useExternalThankYouPage && (
+                <div className="space-y-2">
+                  <Label htmlFor="external-thank-you-url">External Thank You Page URL</Label>
+                  <Input
+                    id="external-thank-you-url"
+                    type="url"
+                    value={facility?.thankYouPageExternalUrl || ""}
+                    onChange={(e) =>
+                      updateSettingsMutation.mutate({ thankYouPageExternalUrl: e.target.value })
+                    }
+                    placeholder="https://yourwebsite.com/thank-you"
+                    data-testid="input-external-thank-you-url"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Customers will be redirected to this URL after completing a purchase
+                  </p>
+                </div>
+              )}
+
+              {/* Custom Welcome Message */}
+              {!facility?.useExternalThankYouPage && facility?.thankYouPageEnabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="thank-you-message">Custom Welcome Message (Optional)</Label>
+                  <Textarea
+                    id="thank-you-message"
+                    value={facility?.thankYouPageMessage || ""}
+                    onChange={(e) =>
+                      updateSettingsMutation.mutate({ thankYouPageMessage: e.target.value })
+                    }
+                    placeholder="Enter a custom message to welcome your customers..."
+                    rows={4}
+                    data-testid="input-thank-you-message"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This message will appear on the thank you page below the confirmation details
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Preview Card */}
+          {!facility?.useExternalThankYouPage && facility?.thankYouPageEnabled && (
+            <Card className="p-6 bg-muted/50">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-primary" />
+                Preview
+              </h3>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>Your thank you page will include:</p>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li>Confirmation message with customer's name</li>
+                  <li>Purchase details (booking date/time for appointments)</li>
+                  {facility?.thankYouPageMessage && <li>Your custom welcome message</li>}
+                  <li>Facility address and contact information</li>
+                  <li>Confirmation email notice</li>
+                  <li>Return to homepage button</li>
+                </ul>
+              </div>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="general" className="space-y-6">
