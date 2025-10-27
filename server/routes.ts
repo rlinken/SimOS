@@ -19,6 +19,8 @@ import {
   insertFacilitySchema,
   insertBaySchema,
   updateBaySchema,
+  insertBayRentalOfferSchema,
+  updateBayRentalOfferSchema,
   insertBayBlockSchema,
   updateBayBlockSchema,
   insertBookingSchema,
@@ -972,6 +974,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error: any) {
       console.error("Error deleting bay:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
+  // Bay Rental Offers Routes
+  // ============================================================================
+
+  app.get("/api/bay-rental-offers", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      const offers = await storage.getBayRentalOffers(user?.facilityId || undefined);
+      res.json(offers);
+    } catch (error: any) {
+      console.error("Error fetching bay rental offers:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/bay-rental-offers", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertBayRentalOfferSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+      const offer = await storage.createBayRentalOffer(validatedData);
+      res.status(201).json(offer);
+    } catch (error: any) {
+      console.error("Error creating bay rental offer:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/bay-rental-offers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const offer = await storage.getBayRentalOffer(req.params.id);
+      if (!offer || offer.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Offer not found" });
+      }
+
+      const validatedData = updateBayRentalOfferSchema.parse(req.body);
+      const updatedOffer = await storage.updateBayRentalOffer(req.params.id, validatedData);
+      res.json(updatedOffer);
+    } catch (error: any) {
+      console.error("Error updating bay rental offer:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/bay-rental-offers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const offer = await storage.getBayRentalOffer(req.params.id);
+      if (!offer || offer.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Offer not found" });
+      }
+
+      await storage.deleteBayRentalOffer(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting bay rental offer:", error);
       res.status(400).json({ message: error.message });
     }
   });

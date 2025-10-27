@@ -55,6 +55,9 @@ export default function BaysPage() {
       tier: "standard",
       status: "active",
       usageHours: 0,
+      hourlyRate: undefined,
+      halfDayRate: undefined,
+      fullDayRate: undefined,
       maintenanceNotes: "",
       tags: [],
     },
@@ -67,6 +70,9 @@ export default function BaysPage() {
       description: "",
       tier: "standard",
       status: "active",
+      hourlyRate: undefined,
+      halfDayRate: undefined,
+      fullDayRate: undefined,
       maintenanceNotes: "",
       tags: [],
     },
@@ -144,6 +150,9 @@ export default function BaysPage() {
       description: bay.description || "",
       tier: bay.tier,
       status: bay.status,
+      hourlyRate: bay.hourlyRate || undefined,
+      halfDayRate: bay.halfDayRate || undefined,
+      fullDayRate: bay.fullDayRate || undefined,
       maintenanceNotes: bay.maintenanceNotes || "",
       tags: bay.tags || [],
     });
@@ -291,6 +300,77 @@ export default function BaysPage() {
                     </FormItem>
                   )}
                 />
+                
+                {/* Pricing Section */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium">Bay Rental Pricing</h3>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <FormField
+                      control={form.control}
+                      name="hourlyRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Hourly Rate</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              step="0.01"
+                              value={field.value || ""}
+                              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                              placeholder="0.00"
+                              data-testid="input-hourly-rate"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="halfDayRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Half Day (4 hrs)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              step="0.01"
+                              value={field.value || ""}
+                              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                              placeholder="0.00"
+                              data-testid="input-half-day-rate"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="fullDayRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Day (8 hrs)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              step="0.01"
+                              value={field.value || ""}
+                              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                              placeholder="0.00"
+                              data-testid="input-full-day-rate"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
                 <FormField
                   control={form.control}
                   name="maintenanceNotes"
@@ -455,6 +535,77 @@ export default function BaysPage() {
                     </FormItem>
                   )}
                 />
+                
+                {/* Pricing Section */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium">Bay Rental Pricing</h3>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <FormField
+                      control={editForm.control}
+                      name="hourlyRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Hourly Rate</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              step="0.01"
+                              value={field.value || ""}
+                              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                              placeholder="0.00"
+                              data-testid="input-edit-hourly-rate"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="halfDayRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Half Day (4 hrs)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              step="0.01"
+                              value={field.value || ""}
+                              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                              placeholder="0.00"
+                              data-testid="input-edit-half-day-rate"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name="fullDayRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Day (8 hrs)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              step="0.01"
+                              value={field.value || ""}
+                              onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                              placeholder="0.00"
+                              data-testid="input-edit-full-day-rate"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
                 <FormField
                   control={editForm.control}
                   name="maintenanceNotes"
@@ -561,6 +712,39 @@ export default function BaysPage() {
                   {bay.usageHours}h used
                 </div>
               </div>
+
+              {/* Pricing Information */}
+              {(bay.hourlyRate || bay.halfDayRate || bay.fullDayRate) && (
+                <div className="pt-2 border-t space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Rental Pricing</p>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    {bay.hourlyRate && (
+                      <div>
+                        <span className="text-muted-foreground">Hourly:</span>{" "}
+                        <span className="font-medium">
+                          ${Number(bay.hourlyRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                    {bay.halfDayRate && (
+                      <div>
+                        <span className="text-muted-foreground">Half Day:</span>{" "}
+                        <span className="font-medium">
+                          ${Number(bay.halfDayRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                    {bay.fullDayRate && (
+                      <div>
+                        <span className="text-muted-foreground">Full Day:</span>{" "}
+                        <span className="font-medium">
+                          ${Number(bay.fullDayRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {bay.maintenanceNotes && (
                 <div className="pt-2 border-t">

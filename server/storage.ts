@@ -3,6 +3,7 @@ import {
   users,
   facilities,
   bays,
+  bayRentalOffers,
   bayBlocks,
   bookings,
   membershipTiers,
@@ -30,6 +31,8 @@ import {
   type InsertFacility,
   type Bay,
   type InsertBay,
+  type BayRentalOffer,
+  type InsertBayRentalOffer,
   type BayBlock,
   type InsertBayBlock,
   type Booking,
@@ -104,6 +107,13 @@ export interface IStorage {
   updateBay(id: string, bay: Partial<InsertBay>): Promise<Bay>;
   updateBayUsage(id: string, hours: number): Promise<void>;
   deleteBay(id: string): Promise<void>;
+  
+  // Bay Rental Offers
+  getBayRentalOffers(facilityId?: string): Promise<BayRentalOffer[]>;
+  getBayRentalOffer(id: string): Promise<BayRentalOffer | undefined>;
+  createBayRentalOffer(offer: InsertBayRentalOffer): Promise<BayRentalOffer>;
+  updateBayRentalOffer(id: string, offer: Partial<InsertBayRentalOffer>): Promise<BayRentalOffer>;
+  deleteBayRentalOffer(id: string): Promise<void>;
   
   // Bay Blocks
   getBayBlocks(facilityId?: string): Promise<BayBlock[]>;
@@ -350,6 +360,47 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBay(id: string): Promise<void> {
     await db.delete(bays).where(eq(bays.id, id));
+  }
+
+  // Bay Rental Offers
+  async getBayRentalOffers(facilityId?: string): Promise<BayRentalOffer[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(bayRentalOffers)
+        .where(eq(bayRentalOffers.facilityId, facilityId))
+        .orderBy(desc(bayRentalOffers.createdAt));
+    }
+    return await db.select().from(bayRentalOffers).orderBy(desc(bayRentalOffers.createdAt));
+  }
+
+  async getBayRentalOffer(id: string): Promise<BayRentalOffer | undefined> {
+    const [offer] = await db
+      .select()
+      .from(bayRentalOffers)
+      .where(eq(bayRentalOffers.id, id));
+    return offer;
+  }
+
+  async createBayRentalOffer(offerData: InsertBayRentalOffer): Promise<BayRentalOffer> {
+    const [offer] = await db
+      .insert(bayRentalOffers)
+      .values(offerData)
+      .returning();
+    return offer;
+  }
+
+  async updateBayRentalOffer(id: string, offerData: Partial<InsertBayRentalOffer>): Promise<BayRentalOffer> {
+    const [offer] = await db
+      .update(bayRentalOffers)
+      .set({ ...offerData, updatedAt: new Date() })
+      .where(eq(bayRentalOffers.id, id))
+      .returning();
+    return offer;
+  }
+
+  async deleteBayRentalOffer(id: string): Promise<void> {
+    await db.delete(bayRentalOffers).where(eq(bayRentalOffers.id, id));
   }
 
   // Bay Blocks

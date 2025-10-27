@@ -825,6 +825,66 @@ export type InsertBay = z.infer<typeof insertBaySchema>;
 export type UpdateBay = z.infer<typeof updateBaySchema>;
 
 // ============================================================================
+// BAY RENTAL OFFERS TABLE
+// ============================================================================
+
+export const bayRentalOffers = pgTable("bay_rental_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  
+  name: text("name").notNull(), // "Early Bird Special", "Weekend Deal", etc.
+  description: text("description"),
+  
+  // Which bay tier this offer applies to
+  bayTier: bayTierEnum("bay_tier"), // null means applies to all tiers
+  
+  // Promotional pricing
+  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }),
+  halfDayRate: numeric("half_day_rate", { precision: 10, scale: 2 }),
+  fullDayRate: numeric("full_day_rate", { precision: 10, scale: 2 }),
+  
+  // Validity period
+  validFrom: timestamp("valid_from"),
+  validUntil: timestamp("valid_until"),
+  
+  active: boolean("active").default(true).notNull(),
+  
+  // Automation integration
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const bayRentalOffersRelations = relations(bayRentalOffers, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [bayRentalOffers.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const insertBayRentalOfferSchema = createInsertSchema(bayRentalOffers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateBayRentalOfferSchema = createInsertSchema(bayRentalOffers)
+  .omit({
+    id: true,
+    facilityId: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .partial();
+
+export type BayRentalOffer = typeof bayRentalOffers.$inferSelect;
+export type InsertBayRentalOffer = z.infer<typeof insertBayRentalOfferSchema>;
+export type UpdateBayRentalOffer = z.infer<typeof updateBayRentalOfferSchema>;
+
+// ============================================================================
 // BAY BLOCKS TABLE (For maintenance, events, etc.)
 // ============================================================================
 
