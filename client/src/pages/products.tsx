@@ -197,39 +197,54 @@ export default function ProductsPage() {
     return colors[category] || colors.other;
   };
 
-  const calculateProfitMargin = (price: number | undefined, costPrice: number | null | undefined) => {
+  const calculateProfitMargin = (price: string | number | undefined, costPrice: string | number | null | undefined) => {
     if (!price || !costPrice) return null;
-    if (price === 0) return null;
-    return ((price - costPrice) / price * 100).toFixed(1);
+    const priceNum = typeof price === 'string' ? parseFloat(price) : price;
+    const costNum = typeof costPrice === 'string' ? parseFloat(costPrice) : costPrice;
+    if (isNaN(priceNum) || isNaN(costNum) || priceNum === 0) return null;
+    return ((priceNum - costNum) / priceNum * 100).toFixed(1);
   };
 
   // Generate QR code when product is selected
   useEffect(() => {
-    if (qrCodeProduct && canvasRef.current) {
-      const purchaseUrl = `${window.location.origin}/buy/product/${qrCodeProduct.id}`;
-      QRCodeLib.toCanvas(canvasRef.current, purchaseUrl, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: "#000000",
-          light: "#FFFFFF",
-        },
-      })
-        .then(() => {
-          // Also generate data URL for download
-          QRCodeLib.toDataURL(purchaseUrl, { width: 300, margin: 2 })
-            .then((url) => setQrCodeDataUrl(url))
-            .catch((err) => console.error("Error generating QR data URL:", err));
-        })
-        .catch((err) => {
-          console.error("Error generating QR code:", err);
-          toast({
-            title: "Error",
-            description: "Failed to generate QR code",
-            variant: "destructive",
-          });
-        });
+    if (!qrCodeProduct) {
+      setQrCodeDataUrl("");
+      return;
     }
+
+    // Small delay to ensure canvas is mounted
+    const timer = setTimeout(() => {
+      if (canvasRef.current) {
+        const purchaseUrl = `${window.location.origin}/buy/product/${qrCodeProduct.id}`;
+        
+        // Generate canvas QR code
+        QRCodeLib.toCanvas(canvasRef.current, purchaseUrl, {
+          width: 300,
+          margin: 2,
+          color: {
+            dark: "#000000",
+            light: "#FFFFFF",
+          },
+        })
+          .then(() => {
+            // Also generate data URL for download
+            return QRCodeLib.toDataURL(purchaseUrl, { width: 300, margin: 2 });
+          })
+          .then((url) => {
+            setQrCodeDataUrl(url);
+          })
+          .catch((err) => {
+            console.error("Error generating QR code:", err);
+            toast({
+              title: "Error",
+              description: "Failed to generate QR code",
+              variant: "destructive",
+            });
+          });
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [qrCodeProduct, toast]);
 
   const handleDownloadQR = () => {
@@ -365,7 +380,7 @@ export default function ProductsPage() {
                               placeholder="0.00"
                               data-testid="input-price"
                               value={field.value ?? ""}
-                              onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.valueAsNumber)}
+                              onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.value)}
                               onBlur={field.onBlur}
                               name={field.name}
                             />
@@ -388,7 +403,7 @@ export default function ProductsPage() {
                               placeholder="0.00"
                               data-testid="input-cost-price"
                               value={field.value ?? ""}
-                              onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.valueAsNumber)}
+                              onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.value)}
                               onBlur={field.onBlur}
                               name={field.name}
                             />
