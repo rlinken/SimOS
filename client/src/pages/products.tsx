@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,16 +36,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProductSchema, type Product, type InsertProduct } from "@shared/schema";
-import { Plus, Package, DollarSign, BarChart, AlertTriangle, Trash2, ImagePlus } from "lucide-react";
+import { Plus, Package, DollarSign, BarChart, AlertTriangle, Trash2, ImagePlus, QrCode, Download } from "lucide-react";
 import { TagsInput } from "@/components/ui/tags-input";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import type { UploadResult } from "@uppy/core";
+import QRCodeLib from "qrcode";
 
 export default function ProductsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [qrCodeProduct, setQrCodeProduct] = useState<Product | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -197,6 +201,48 @@ export default function ProductsPage() {
     if (!price || !costPrice) return null;
     if (price === 0) return null;
     return ((price - costPrice) / price * 100).toFixed(1);
+  };
+
+  // Generate QR code when product is selected
+  useEffect(() => {
+    if (qrCodeProduct && canvasRef.current) {
+      const purchaseUrl = `${window.location.origin}/buy/product/${qrCodeProduct.id}`;
+      QRCodeLib.toCanvas(canvasRef.current, purchaseUrl, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+      })
+        .then(() => {
+          // Also generate data URL for download
+          QRCodeLib.toDataURL(purchaseUrl, { width: 300, margin: 2 })
+            .then((url) => setQrCodeDataUrl(url))
+            .catch((err) => console.error("Error generating QR data URL:", err));
+        })
+        .catch((err) => {
+          console.error("Error generating QR code:", err);
+          toast({
+            title: "Error",
+            description: "Failed to generate QR code",
+            variant: "destructive",
+          });
+        });
+    }
+  }, [qrCodeProduct, toast]);
+
+  const handleDownloadQR = () => {
+    if (qrCodeDataUrl && qrCodeProduct) {
+      const link = document.createElement("a");
+      link.href = qrCodeDataUrl;
+      link.download = `${qrCodeProduct.name.replace(/\s+/g, "-").toLowerCase()}-qr-code.png`;
+      link.click();
+      toast({
+        title: "QR Code Downloaded",
+        description: "QR code has been saved to your device",
+      });
+    }
   };
 
   return (
@@ -551,6 +597,46 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {/* QR Code Dialog */}
+      <Dialog open={!!qrCodeProduct} onOpenChange={(open) => !open && setQrCodeProduct(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Product QR Code</DialogTitle>
+            <DialogDescription>
+              Scan this QR code to purchase {qrCodeProduct?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <canvas ref={canvasRef} className="border rounded p-2" />
+            <div className="text-center space-y-2">
+              <p className="text-sm font-medium">{qrCodeProduct?.name}</p>
+              <p className="text-2xl font-bold text-primary">
+                ${qrCodeProduct?.price}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Place this QR code on menus or product displays
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setQrCodeProduct(null)}
+              data-testid="button-qr-close"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={handleDownloadQR}
+              data-testid="button-qr-download"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download QR Code
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-muted-foreground">Loading products...</div>
@@ -656,6 +742,17 @@ export default function ProductsPage() {
                         data-testid={`button-edit-${product.id}`}
                       >
                         Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setQrCodeProduct(product);
+                        }}
+                        data-testid={`button-qr-${product.id}`}
+                      >
+                        <QrCode className="w-4 h-4" />
                       </Button>
                       <Button
                         size="sm"
