@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -115,6 +115,21 @@ export default function SettingsPage() {
   const [allowPayAtDesk, setAllowPayAtDesk] = useState(true);
   const [defaultPaymentMethod, setDefaultPaymentMethod] = useState("online");
 
+  // Brand settings local state
+  const [brandSettings, setBrandSettings] = useState({
+    name: "",
+    logo: "",
+    address: "",
+    phone: "",
+    email: "",
+    supportEmail: "",
+    primaryColor: "#16a34a",
+    accentColor: "#22c55e",
+    footerText: "",
+    privacyPolicyUrl: "",
+    termsOfServiceUrl: "",
+  });
+
   const facilityId = user?.facilityId || "";
 
   const { data: facility, isLoading } = useQuery<any>({
@@ -185,6 +200,25 @@ export default function SettingsPage() {
       setDefaultPaymentMethod(paymentSettings.defaultPaymentMethod || "online");
     }
   }, [paymentSettings]);
+
+  // Initialize brand settings from facility data
+  useEffect(() => {
+    if (facility) {
+      setBrandSettings({
+        name: facility.name || "",
+        logo: facility.logo || "",
+        address: facility.address || "",
+        phone: facility.phone || "",
+        email: facility.email || "",
+        supportEmail: facility.supportEmail || "",
+        primaryColor: facility.primaryColor || "#16a34a",
+        accentColor: facility.accentColor || "#22c55e",
+        footerText: facility.footerText || "",
+        privacyPolicyUrl: facility.privacyPolicyUrl || "",
+        termsOfServiceUrl: facility.termsOfServiceUrl || "",
+      });
+    }
+  }, [facility]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (updates: any) => {
@@ -510,6 +544,10 @@ export default function SettingsPage() {
           <TabsTrigger value="thankyou" data-testid="tab-thankyou">
             <CheckCircle2 className="w-4 h-4 mr-2" />
             Thank You Page
+          </TabsTrigger>
+          <TabsTrigger value="brand" data-testid="tab-brand">
+            <Sparkles className="w-4 h-4 mr-2" />
+            Brand
           </TabsTrigger>
           <TabsTrigger value="general" data-testid="tab-general">
             <SettingsIcon className="w-4 h-4 mr-2" />
@@ -1293,6 +1331,303 @@ export default function SettingsPage() {
               </div>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="brand" className="space-y-6">
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Brand Identity</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Configure your facility's branding to be used across the platform, widgets, and customer-facing pages
+            </p>
+
+            <div className="space-y-6">
+              {/* Facility Name */}
+              <div className="space-y-2">
+                <Label htmlFor="facility-name">Facility Name</Label>
+                <Input
+                  id="facility-name"
+                  value={brandSettings.name}
+                  onChange={(e) =>
+                    setBrandSettings({ ...brandSettings, name: e.target.value })
+                  }
+                  onBlur={() =>
+                    updateSettingsMutation.mutate({ name: brandSettings.name })
+                  }
+                  placeholder="Your Facility Name"
+                  data-testid="input-facility-name"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your facility name appears on receipts, emails, and public pages
+                </p>
+              </div>
+
+              {/* Logo URL */}
+              <div className="space-y-2">
+                <Label htmlFor="logo-url">Logo URL</Label>
+                <Input
+                  id="logo-url"
+                  type="url"
+                  value={brandSettings.logo}
+                  onChange={(e) =>
+                    setBrandSettings({ ...brandSettings, logo: e.target.value })
+                  }
+                  onBlur={() =>
+                    updateSettingsMutation.mutate({ logo: brandSettings.logo })
+                  }
+                  placeholder="https://example.com/logo.png"
+                  data-testid="input-logo-url"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter a URL to your logo image. Recommended: 200x200px PNG or SVG
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Contact Information</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Your contact details will be displayed on receipts, emails, and customer-facing pages
+            </p>
+
+            <div className="space-y-6">
+              {/* Address */}
+              <div className="space-y-2">
+                <Label htmlFor="facility-address">Address</Label>
+                <Textarea
+                  id="facility-address"
+                  value={brandSettings.address}
+                  onChange={(e) =>
+                    setBrandSettings({ ...brandSettings, address: e.target.value })
+                  }
+                  onBlur={() =>
+                    updateSettingsMutation.mutate({ address: brandSettings.address })
+                  }
+                  placeholder="123 Main Street, City, State 12345"
+                  rows={3}
+                  data-testid="input-facility-address"
+                />
+              </div>
+
+              {/* Phone and Email */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="facility-phone">Phone Number</Label>
+                  <Input
+                    id="facility-phone"
+                    type="tel"
+                    value={brandSettings.phone}
+                    onChange={(e) =>
+                      setBrandSettings({ ...brandSettings, phone: e.target.value })
+                    }
+                    onBlur={() =>
+                      updateSettingsMutation.mutate({ phone: brandSettings.phone })
+                    }
+                    placeholder="(555) 123-4567"
+                    data-testid="input-facility-phone"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="facility-email">General Email</Label>
+                  <Input
+                    id="facility-email"
+                    type="email"
+                    value={brandSettings.email}
+                    onChange={(e) =>
+                      setBrandSettings({ ...brandSettings, email: e.target.value })
+                    }
+                    onBlur={() =>
+                      updateSettingsMutation.mutate({ email: brandSettings.email })
+                    }
+                    placeholder="info@example.com"
+                    data-testid="input-facility-email"
+                  />
+                </div>
+              </div>
+
+              {/* Support Email */}
+              <div className="space-y-2">
+                <Label htmlFor="support-email">Support Email</Label>
+                <Input
+                  id="support-email"
+                  type="email"
+                  value={brandSettings.supportEmail}
+                  onChange={(e) =>
+                    setBrandSettings({ ...brandSettings, supportEmail: e.target.value })
+                  }
+                  onBlur={() =>
+                    updateSettingsMutation.mutate({ supportEmail: brandSettings.supportEmail })
+                  }
+                  placeholder="support@example.com"
+                  data-testid="input-support-email"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Dedicated email for customer support inquiries
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Brand Colors</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Customize the colors used in your widgets and customer-facing pages
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Primary Color */}
+              <div className="space-y-2">
+                <Label htmlFor="primary-color">Primary Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="primary-color"
+                    type="color"
+                    value={brandSettings.primaryColor}
+                    onChange={(e) => {
+                      const color = e.target.value;
+                      setBrandSettings({ ...brandSettings, primaryColor: color });
+                      updateSettingsMutation.mutate({ primaryColor: color });
+                    }}
+                    className="w-20 h-10 cursor-pointer"
+                    data-testid="input-primary-color"
+                  />
+                  <Input
+                    value={brandSettings.primaryColor}
+                    onChange={(e) =>
+                      setBrandSettings({ ...brandSettings, primaryColor: e.target.value })
+                    }
+                    onBlur={() =>
+                      updateSettingsMutation.mutate({ primaryColor: brandSettings.primaryColor })
+                    }
+                    placeholder="#16a34a"
+                    className="flex-1 font-mono text-sm"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Main brand color used for buttons and highlights
+                </p>
+              </div>
+
+              {/* Accent Color */}
+              <div className="space-y-2">
+                <Label htmlFor="accent-color">Accent Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="accent-color"
+                    type="color"
+                    value={brandSettings.accentColor}
+                    onChange={(e) => {
+                      const color = e.target.value;
+                      setBrandSettings({ ...brandSettings, accentColor: color });
+                      updateSettingsMutation.mutate({ accentColor: color });
+                    }}
+                    className="w-20 h-10 cursor-pointer"
+                    data-testid="input-accent-color"
+                  />
+                  <Input
+                    value={brandSettings.accentColor}
+                    onChange={(e) =>
+                      setBrandSettings({ ...brandSettings, accentColor: e.target.value })
+                    }
+                    onBlur={() =>
+                      updateSettingsMutation.mutate({ accentColor: brandSettings.accentColor })
+                    }
+                    placeholder="#22c55e"
+                    className="flex-1 font-mono text-sm"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Secondary color for accents and hover states
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-2">Footer & Legal</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Add custom footer text and links to your legal pages
+            </p>
+
+            <div className="space-y-6">
+              {/* Footer Text */}
+              <div className="space-y-2">
+                <Label htmlFor="footer-text">Footer Text</Label>
+                <Textarea
+                  id="footer-text"
+                  value={brandSettings.footerText}
+                  onChange={(e) =>
+                    setBrandSettings({ ...brandSettings, footerText: e.target.value })
+                  }
+                  onBlur={() =>
+                    updateSettingsMutation.mutate({ footerText: brandSettings.footerText })
+                  }
+                  placeholder="© 2025 Your Facility. All rights reserved."
+                  rows={3}
+                  data-testid="input-footer-text"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Custom footer text displayed on emails and customer-facing pages
+                </p>
+              </div>
+
+              {/* Legal Links */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="privacy-policy-url">Privacy Policy URL</Label>
+                  <Input
+                    id="privacy-policy-url"
+                    type="url"
+                    value={brandSettings.privacyPolicyUrl}
+                    onChange={(e) =>
+                      setBrandSettings({ ...brandSettings, privacyPolicyUrl: e.target.value })
+                    }
+                    onBlur={() =>
+                      updateSettingsMutation.mutate({ privacyPolicyUrl: brandSettings.privacyPolicyUrl })
+                    }
+                    placeholder="https://example.com/privacy"
+                    data-testid="input-privacy-policy-url"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="terms-url">Terms of Service URL</Label>
+                  <Input
+                    id="terms-url"
+                    type="url"
+                    value={brandSettings.termsOfServiceUrl}
+                    onChange={(e) =>
+                      setBrandSettings({ ...brandSettings, termsOfServiceUrl: e.target.value })
+                    }
+                    onBlur={() =>
+                      updateSettingsMutation.mutate({ termsOfServiceUrl: brandSettings.termsOfServiceUrl })
+                    }
+                    placeholder="https://example.com/terms"
+                    data-testid="input-terms-url"
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Preview Card */}
+          <Card className="p-6 bg-muted/50">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Where Your Branding Appears
+            </h3>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>Your brand settings will be automatically applied to:</p>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>Embeddable booking widgets</li>
+                <li>Customer receipts and invoices</li>
+                <li>Email notifications</li>
+                <li>Thank you pages</li>
+                <li>Public booking and purchase pages</li>
+              </ul>
+            </div>
+          </Card>
         </TabsContent>
 
         <TabsContent value="general" className="space-y-6">
