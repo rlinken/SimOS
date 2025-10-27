@@ -2404,7 +2404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/widget/bookings/:facilityId", async (req, res) => {
     try {
       const { facilityId } = req.params;
-      const { startTime, duration, customerName, customerEmail } = req.body;
+      const { startTime, duration, customerName, customerEmail, customerPhone, paymentMethod } = req.body;
       
       if (!startTime || !customerName || !customerEmail) {
         return res.status(400).json({ message: "Missing required fields" });
@@ -2452,16 +2452,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No bays available at this time. Please select another time slot." });
       }
       
-      const validatedData = insertBookingSchema.parse({
+      // Use widget booking schema which doesn't require userId/customerId
+      const validatedData = insertWidgetBookingSchema.parse({
         facilityId,
         bayId: assignedBay.id,
-        userId: null,
         startTime: bookingStart,
+        endTime: bookingEnd, // Calculate endTime from startTime + duration
         duration: bookingDuration,
         type: "rental",
         customerName,
         customerEmail,
-        paymentStatus: "pending",
+        customerPhone: customerPhone || null,
+        paymentMethod: paymentMethod || "at_desk",
+        paymentStatus: paymentMethod === "online" ? "pending" : "pending", // Will be updated after Stripe payment
       });
       
       const booking = await storage.createBooking(validatedData);
