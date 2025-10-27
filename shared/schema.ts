@@ -309,6 +309,12 @@ export const facilities = pgTable("facilities", {
   payrollDayOfWeek: integer("payroll_day_of_week"), // 0-6 for Sunday-Saturday (for weekly/biweekly)
   payrollDayOfMonth: integer("payroll_day_of_month"), // 1-31 (for monthly)
   
+  // Thank you page settings
+  thankYouPageEnabled: boolean("thank_you_page_enabled").default(true),
+  thankYouPageMessage: text("thank_you_page_message"), // Custom welcome message
+  thankYouPageExternalUrl: text("thank_you_page_external_url"), // External redirect URL
+  useExternalThankYouPage: boolean("use_external_thank_you_page").default(false), // Use external URL instead of built-in page
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

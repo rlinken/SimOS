@@ -34,6 +34,7 @@ import BuyMembership from "@/pages/buy-membership";
 import BuyTransformationPackage from "@/pages/buy-transformation-package";
 import TrackmanSettings from "@/pages/trackman-settings";
 import OrdersPage from "@/pages/orders";
+import ThankYouPage from "@/pages/thank-you";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -98,6 +99,7 @@ function AppContent() {
         <Route path="/widget/fitting/:facilityId" component={WidgetFitting} />
         <Route path="/buy/membership/:id" component={BuyMembership} />
         <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
+        <Route path="/thank-you" component={ThankYouPage} />
         <UnauthenticatedRoutes />
       </Switch>
     );
@@ -111,6 +113,7 @@ function AppContent() {
       <Route path="/widget/fitting/:facilityId" component={WidgetFitting} />
       <Route path="/buy/membership/:id" component={BuyMembership} />
       <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
+      <Route path="/thank-you" component={ThankYouPage} />
       <Route>
         <SidebarProvider style={style as React.CSSProperties}>
           <div className="flex h-screen w-full">
