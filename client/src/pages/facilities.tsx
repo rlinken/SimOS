@@ -27,10 +27,28 @@ import { useToast } from "@/hooks/use-toast";
 import type { Facility, InsertFacility } from "@shared/schema";
 import { insertFacilitySchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
+import { AlertCircle } from "lucide-react";
 
 export default function FacilitiesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Only super admins can access this page
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="p-8 max-w-md text-center">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">
+            This page is only accessible to super administrators.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   const { data: facilities, isLoading } = useQuery<Facility[]>({
     queryKey: ["/api/facilities"],

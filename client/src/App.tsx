@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import GetStarted from "@/pages/get-started";
 import Dashboard from "@/pages/dashboard";
 import MemberDashboard from "@/pages/member-dashboard";
 import BaysPage from "@/pages/bays";
@@ -76,14 +77,15 @@ function AuthenticatedRoutes() {
 function UnauthenticatedRoutes() {
   return (
     <Switch>
-      <Route path="/" component={Landing} />
+      <Route path="/" component={GetStarted} />
+      <Route path="/get-started" component={GetStarted} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   // Custom sidebar width for golf application
   const style = {
@@ -111,10 +113,17 @@ function AppContent() {
     );
   }
 
-  // Widget and public purchase routes don't need sidebar
+  // Redirect authenticated users without a facility to onboarding
+  if (user && !user.facilityId && window.location.pathname !== '/onboarding') {
+    window.location.href = '/onboarding';
+    return null;
+  }
+
+  // Widget, public purchase, and onboarding routes don't need sidebar
   const isPublicRoute = window.location.pathname.startsWith('/widget/') || 
                         window.location.pathname.startsWith('/buy/') ||
-                        window.location.pathname === '/thank-you';
+                        window.location.pathname === '/thank-you' ||
+                        window.location.pathname === '/onboarding';
 
   if (isPublicRoute) {
     return (
@@ -127,6 +136,7 @@ function AppContent() {
         <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
         <Route path="/buy/product/:id" component={BuyProduct} />
         <Route path="/thank-you" component={ThankYouPage} />
+        <Route path="/onboarding" component={OnboardingPage} />
       </Switch>
     );
   }
