@@ -26,6 +26,7 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 *   **Frontend:** Vite with React, utilizing TanStack Query v5 for data fetching and Shadcn components for UI.
 *   **Smart Bay Assignment:** An algorithm auto-assigns the bay with the lowest usage hours when a booking is made without a specified bayId.
 *   **Shareable Purchase URLs:** Publicly accessible URLs allow customers to purchase memberships, lesson packages, transformation packages, and offers without logging in, featuring facility branding and customer signup forms.
+*   **Automated Tag Management:** Comprehensive tagging system enabling webhook and Zapier integration automation. Tags stored as text arrays in database tables: membershipTiers, bays, bookings, lessons (packages only, not individual scheduled lessons), fittings, offerings, and transformationPackages. Reusable TagsInput component provides consistent tag entry across all forms with inline add/remove functionality. Tags enable external automation platforms to trigger workflows based on entity classifications (e.g., "premium-member", "group-lesson", "trackman-bay").
 
 **Feature Specifications:**
 *   **Facility Management:** Super-admin can create and manage facilities, each with customizable branding, subdomain, feature flags, and individual payment settings.
