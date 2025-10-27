@@ -1129,6 +1129,7 @@ function BookingDetailsDialog({
   booking: Booking | null;
 }) {
   const { toast } = useToast();
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
 
   const checkInMutation = useMutation({
     mutationFn: async (status: "checked_in" | "no_show") => {
@@ -1143,6 +1144,7 @@ function BookingDetailsDialog({
         title: "Check-in Updated",
         description: "Booking check-in status has been updated.",
       });
+      setShowPaymentConfirmation(false);
       onClose();
     },
     onError: () => {
@@ -1154,10 +1156,44 @@ function BookingDetailsDialog({
     },
   });
 
+  const markAsPaidMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/bookings/${booking!.id}/payment`, {
+        method: 'PATCH',
+        body: JSON.stringify({ 
+          paymentStatus: 'paid',
+          paidAt: new Date().toISOString()
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      // After marking as paid, proceed with check-in
+      checkInMutation.mutate("checked_in");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update payment status.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!booking) return null;
 
   const handleCheckIn = () => {
-    checkInMutation.mutate("checked_in");
+    // If payment is pending, show payment confirmation first
+    if (booking.paymentStatus === 'pending') {
+      setShowPaymentConfirmation(true);
+    } else {
+      // Otherwise proceed with check-in
+      checkInMutation.mutate("checked_in");
+    }
+  };
+
+  const handleConfirmPayment = () => {
+    markAsPaidMutation.mutate();
   };
 
   return (
@@ -1282,6 +1318,68 @@ function BookingDetailsDialog({
           )}
         </div>
       </DialogContent>
+
+      {/* Payment Confirmation Dialog */}
+      {showPaymentConfirmation && (
+        <Dialog open={showPaymentConfirmation} onOpenChange={setShowPaymentConfirmation}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-amber-600" />
+                Collect Payment
+              </DialogTitle>
+              <DialogDescription>
+                This booking has a pending payment. Please collect payment before checking in the customer.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <Card className="p-4 bg-amber-500/10 border-amber-500/20">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Payment Method</span>
+                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                      {booking.paymentMethod?.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                  {booking.amount && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Amount Due</span>
+                      <span className="text-xl font-bold text-amber-600">${booking.amount}</span>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              <p className="text-sm text-muted-foreground">
+                Have you collected ${booking.amount || '0.00'} from the customer?
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowPaymentConfirmation(false)}
+                className="flex-1"
+                disabled={markAsPaidMutation.isPending || checkInMutation.isPending}
+                data-testid="button-cancel-payment"
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="default" 
+                onClick={handleConfirmPayment}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={markAsPaidMutation.isPending || checkInMutation.isPending}
+                data-testid="button-confirm-payment"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                {markAsPaidMutation.isPending || checkInMutation.isPending ? "Processing..." : "Payment Collected"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
