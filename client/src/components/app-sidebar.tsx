@@ -17,6 +17,7 @@ import {
   Sparkles,
   Radio,
   ShoppingCart,
+  CalendarRange,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -119,6 +120,11 @@ function getMenuItems(user: User | undefined) {
         title: "Bays",
         url: "/bays",
         icon: MapPin,
+      },
+      {
+        title: "Events",
+        url: "/events",
+        icon: CalendarRange,
       },
       {
         title: "TrackMan",

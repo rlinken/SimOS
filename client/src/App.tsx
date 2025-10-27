@@ -35,6 +35,7 @@ import BuyTransformationPackage from "@/pages/buy-transformation-package";
 import TrackmanSettings from "@/pages/trackman-settings";
 import OrdersPage from "@/pages/orders";
 import ThankYouPage from "@/pages/thank-you";
+import EventsPage from "@/pages/events";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -60,6 +61,7 @@ function AuthenticatedRoutes() {
       <Route path="/offerings" component={OfferingsPage} />
       <Route path="/lessons" component={LessonsPage} />
       <Route path="/fittings" component={FittingsPage} />
+      <Route path="/events" component={EventsPage} />
       <Route path="/facilities" component={FacilitiesPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/trackman-settings" component={TrackmanSettings} />
