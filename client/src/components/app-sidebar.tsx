@@ -225,41 +225,36 @@ export function AppSidebar() {
               onOpenChange={setOperationsOpen}
               className="group/collapsible"
             >
-              <div
-                onMouseEnter={() => setOperationsOpen(true)}
-                onMouseLeave={() => setOperationsOpen(false)}
-              >
-                <SidebarGroupLabel asChild>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between hover-elevate active-elevate-2 rounded-md px-2 py-1.5 cursor-pointer">
-                    <span>Operations</span>
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform ${
-                        operationsOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </CollapsibleTrigger>
-                </SidebarGroupLabel>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {operations.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={location === item.url}
-                            data-testid={`nav-${item.title.toLowerCase()}`}
-                          >
-                            <Link href={item.url}>
-                              <item.icon className="w-4 h-4" />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </div>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center justify-between hover-elevate active-elevate-2 rounded-md px-2 py-1.5 cursor-pointer">
+                  <span>Operations</span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      operationsOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {operations.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === item.url}
+                          data-testid={`nav-${item.title.toLowerCase()}`}
+                        >
+                          <Link href={item.url}>
+                            <item.icon className="w-4 h-4" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
             </Collapsible>
           </SidebarGroup>
         )}
@@ -272,41 +267,36 @@ export function AppSidebar() {
               onOpenChange={setBusinessOpen}
               className="group/collapsible"
             >
-              <div
-                onMouseEnter={() => setBusinessOpen(true)}
-                onMouseLeave={() => setBusinessOpen(false)}
-              >
-                <SidebarGroupLabel asChild>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between hover-elevate active-elevate-2 rounded-md px-2 py-1.5 cursor-pointer">
-                    <span>Business</span>
-                    <ChevronDown
-                      className={`w-4 h-4 transition-transform ${
-                        businessOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </CollapsibleTrigger>
-                </SidebarGroupLabel>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {business.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={location === item.url}
-                            data-testid={`nav-${item.title.toLowerCase()}`}
-                          >
-                            <Link href={item.url}>
-                              <item.icon className="w-4 h-4" />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </div>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center justify-between hover-elevate active-elevate-2 rounded-md px-2 py-1.5 cursor-pointer">
+                  <span>Business</span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      businessOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {business.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === item.url}
+                          data-testid={`nav-${item.title.toLowerCase()}`}
+                        >
+                          <Link href={item.url}>
+                            <item.icon className="w-4 h-4" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
             </Collapsible>
           </SidebarGroup>
         )}
