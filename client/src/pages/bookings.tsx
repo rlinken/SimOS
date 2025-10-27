@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -81,6 +81,12 @@ export default function BookingsPage() {
   const [topOffPrice, setTopOffPrice] = useState("32.50");
   const [showArchivedBookings, setShowArchivedBookings] = useState(false);
   const { toast } = useToast();
+
+  // Auto-calculate price when time changes ($32.50 per 30 minutes)
+  useEffect(() => {
+    const calculatedPrice = (topOffMinutes / 30) * 32.50;
+    setTopOffPrice(calculatedPrice.toFixed(2));
+  }, [topOffMinutes]);
 
   const { data: bookings, isLoading } = useQuery<(Booking & { bays: Bay[]; user: User })[]>({
     queryKey: ["/api/bookings"],
