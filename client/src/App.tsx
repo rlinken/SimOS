@@ -16,6 +16,7 @@ import MembersPage from "@/pages/members";
 import MembershipsPage from "@/pages/memberships";
 import StaffPage from "@/pages/staff";
 import OfferingsPage from "@/pages/offerings";
+import ProductsPage from "@/pages/products";
 import LessonsPage from "@/pages/lessons";
 import FittingsPage from "@/pages/fittings";
 import FacilitiesPage from "@/pages/facilities";
@@ -59,6 +60,7 @@ function AuthenticatedRoutes() {
       <Route path="/transformation-packages" component={TransformationPackagesPage} />
       <Route path="/staff" component={StaffPage} />
       <Route path="/offerings" component={OfferingsPage} />
+      <Route path="/products" component={ProductsPage} />
       <Route path="/lessons" component={LessonsPage} />
       <Route path="/fittings" component={FittingsPage} />
       <Route path="/events" component={EventsPage} />

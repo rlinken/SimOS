@@ -2125,6 +2125,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================================
+  // PRODUCTS ROUTES
+  // ============================================================================
+
+  app.get("/api/products", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+
+      const products = await storage.getProducts(user.facilityId);
+      res.json(products);
+    } catch (error: any) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/products", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const validatedData = insertProductSchema.parse({
+        ...req.body,
+        facilityId: user.facilityId,
+      });
+
+      const product = await storage.createProduct(validatedData);
+      res.status(201).json(product);
+    } catch (error: any) {
+      console.error("Error creating product:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/products/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const product = await storage.getProduct(req.params.id);
+      if (!product || product.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // Parse and remove facilityId from request to prevent cross-tenant reassignment
+      const { facilityId: _, ...updateData } = req.body;
+      const validatedData = updateProductSchema.parse(updateData);
+      const updated = await storage.updateProduct(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating product:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/products/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.facilityId) {
+        return res.status(400).json({ message: "No facility associated" });
+      }
+      if (!isAdmin(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const product = await storage.getProduct(req.params.id);
+      if (!product || product.facilityId !== user.facilityId) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      await storage.deleteProduct(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting product:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ============================================================================
   // Staff Availability Hours Routes
   // ============================================================================
 

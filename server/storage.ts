@@ -13,6 +13,7 @@ import {
   lessonPackages,
   fittings,
   offerings,
+  products,
   transformationPackages,
   transformationPackageEnrollments,
   staffAvailabilityHours,
@@ -55,6 +56,9 @@ import {
   type Offering,
   type InsertOffering,
   type UpdateOffering,
+  type Product,
+  type InsertProduct,
+  type UpdateProduct,
   type TransformationPackage,
   type InsertTransformationPackage,
   type UpdateTransformationPackage,
@@ -181,6 +185,13 @@ export interface IStorage {
   createOffering(offering: InsertOffering): Promise<Offering>;
   updateOffering(id: string, offering: UpdateOffering): Promise<Offering>;
   deleteOffering(id: string): Promise<void>;
+  
+  // Products
+  getProducts(facilityId?: string): Promise<Product[]>;
+  getProduct(id: string): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, product: UpdateProduct): Promise<Product>;
+  deleteProduct(id: string): Promise<void>;
   
   // Staff Availability Hours
   getStaffAvailabilityHours(staffId: string): Promise<StaffAvailabilityHours[]>;
@@ -828,6 +839,47 @@ export class DatabaseStorage implements IStorage {
   
   async deleteOffering(id: string): Promise<void> {
     await db.delete(offerings).where(eq(offerings.id, id));
+  }
+  
+  // Products
+  async getProducts(facilityId?: string): Promise<Product[]> {
+    if (facilityId) {
+      return await db
+        .select()
+        .from(products)
+        .where(eq(products.facilityId, facilityId))
+        .orderBy(desc(products.createdAt));
+    }
+    return await db.select().from(products).orderBy(desc(products.createdAt));
+  }
+  
+  async getProduct(id: string): Promise<Product | undefined> {
+    const [product] = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, id));
+    return product;
+  }
+  
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [result] = await db
+      .insert(products)
+      .values(product)
+      .returning();
+    return result;
+  }
+  
+  async updateProduct(id: string, product: UpdateProduct): Promise<Product> {
+    const [result] = await db
+      .update(products)
+      .set({ ...product, updatedAt: new Date() })
+      .where(eq(products.id, id))
+      .returning();
+    return result;
+  }
+  
+  async deleteProduct(id: string): Promise<void> {
+    await db.delete(products).where(eq(products.id, id));
   }
   
   // Staff Availability Hours
