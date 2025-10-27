@@ -31,7 +31,7 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 **Feature Specifications:**
 *   **Facility Signup & Onboarding:** Guided 4-step workflow after Replit Auth: Basic Info, Bay Setup, Services, Membership Tiers.
 *   **Facility Management:** Super-admin manages all facilities. Owners configure branding (logo, contact, colors, footer, legal links) in Settings > Brand.
-*   **Booking Management:** Bay reservations with optimal bay assignment, referral tracking, inline editable types and payment methods.
+*   **Booking Management:** Bay reservations with optimal bay assignment, referral tracking, inline editable types and payment methods. Auto-mark as paid when payment method changed to "Paid Online" or "Member". Payment Complete button shown when paid. Booking options menu (three-dot) for edit, refund, cancel, and bill more actions.
 *   **Membership Management:** Customizable tiers with shareable purchase URLs and referral tracking.
 *   **Lesson & Fitting Management:** Scheduling for lessons (packages, recurring) and club fittings with referral tracking.
 *   **Transformation Packages:** Bundles combining lessons, fittings, bay access, and on-course practice with shareable URLs and referral tracking.

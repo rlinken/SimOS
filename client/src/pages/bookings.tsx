@@ -29,11 +29,18 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Calendar, Plus, Clock, MapPin, DollarSign, CheckCircle2, X, CreditCard, User as UserIcon, Timer, ChevronsUpDown, Check } from "lucide-react";
+import { Calendar, Plus, Clock, MapPin, DollarSign, CheckCircle2, X, CreditCard, User as UserIcon, Timer, ChevronsUpDown, Check, MoreVertical, Edit, RefreshCcw, Ban, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import type { Booking, Bay, User } from "@shared/schema";
 import { insertBookingSchema } from "@shared/schema";
@@ -219,13 +226,22 @@ export default function BookingsPage() {
   // Update payment method
   const updatePaymentMethodMutation = useMutation({
     mutationFn: async ({ id, paymentMethod }: { id: string; paymentMethod: string }) => {
-      return apiRequest("PATCH", `/api/bookings/${id}`, { paymentMethod });
+      // If changing to "Paid Online" or "Member", automatically mark as paid
+      const updateData: any = { paymentMethod };
+      if (paymentMethod === 'new_card' || paymentMethod === 'membership') {
+        updateData.paymentStatus = 'paid';
+      }
+      return apiRequest("PATCH", `/api/bookings/${id}`, updateData);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      
+      const isAutoPaid = variables.paymentMethod === 'new_card' || variables.paymentMethod === 'membership';
       toast({
-        title: "Updated",
-        description: "Payment method updated successfully",
+        title: isAutoPaid ? "Payment Complete" : "Updated",
+        description: isAutoPaid 
+          ? "Payment method updated and marked as paid" 
+          : "Payment method updated successfully",
       });
     },
     onError: () => {
@@ -860,7 +876,7 @@ export default function BookingsPage() {
                   )}
 
                   {/* Payment Action Button */}
-                  {booking.paymentStatus === 'pending' && (
+                  {booking.paymentStatus === 'pending' ? (
                     <Button
                       size="sm"
                       variant="default"
@@ -870,6 +886,17 @@ export default function BookingsPage() {
                     >
                       <CreditCard className="w-3 h-3 mr-1" />
                       Collect Payment
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled
+                      className="opacity-60 cursor-not-allowed"
+                      data-testid={`button-payment-complete-${booking.id}`}
+                    >
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Payment Complete
                     </Button>
                   )}
 
@@ -884,6 +911,65 @@ export default function BookingsPage() {
                     <Timer className="w-3 h-3 mr-1" />
                     Top Off
                   </Button>
+
+                  {/* Booking Options Menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-9 w-9 p-0"
+                        data-testid={`button-booking-options-${booking.id}`}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        toast({
+                          title: "Coming Soon",
+                          description: "Edit booking feature is under development",
+                        });
+                      }}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Booking
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        toast({
+                          title: "Coming Soon",
+                          description: "Bill more feature is under development",
+                        });
+                      }}>
+                        <PlusCircle className="w-4 h-4 mr-2" />
+                        Bill More
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          toast({
+                            title: "Coming Soon",
+                            description: "Refund feature is under development",
+                          });
+                        }}
+                        className="text-amber-600"
+                      >
+                        <RefreshCcw className="w-4 h-4 mr-2" />
+                        Refund
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          toast({
+                            title: "Coming Soon",
+                            description: "Cancel booking feature is under development",
+                          });
+                        }}
+                        className="text-destructive"
+                      >
+                        <Ban className="w-4 h-4 mr-2" />
+                        Cancel Booking
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
                 ))}
@@ -1013,6 +1099,65 @@ export default function BookingsPage() {
                         <CreditCard className="w-3 h-3 mr-1" />
                         Collect Payment
                       </Button>
+
+                      {/* Booking Options Menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-9 w-9 p-0"
+                            data-testid={`button-booking-options-${booking.id}`}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            toast({
+                              title: "Coming Soon",
+                              description: "Edit booking feature is under development",
+                            });
+                          }}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit Booking
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            toast({
+                              title: "Coming Soon",
+                              description: "Bill more feature is under development",
+                            });
+                          }}>
+                            <PlusCircle className="w-4 h-4 mr-2" />
+                            Bill More
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              toast({
+                                title: "Coming Soon",
+                                description: "Refund feature is under development",
+                              });
+                            }}
+                            className="text-amber-600"
+                          >
+                            <RefreshCcw className="w-4 h-4 mr-2" />
+                            Refund
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              toast({
+                                title: "Coming Soon",
+                                description: "Cancel booking feature is under development",
+                              });
+                            }}
+                            className="text-destructive"
+                          >
+                            <Ban className="w-4 h-4 mr-2" />
+                            Cancel Booking
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 ))}
