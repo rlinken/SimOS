@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { TrialBanner } from "@/components/trial-banner";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
@@ -150,6 +151,7 @@ function AppContent() {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex-1" />
           </header>
+          <TrialBanner />
           <main className="flex-1 overflow-auto p-8">
             <AuthenticatedRoutes />
           </main>
