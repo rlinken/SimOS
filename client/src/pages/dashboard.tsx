@@ -236,19 +236,19 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate">
-                        {booking.bays.map(b => b.name).join(', ')}
+                      <div className="font-semibold text-sm truncate">
+                        {booking.user?.firstName} {booking.user?.lastName}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {booking.user?.firstName} {booking.user?.lastName}
+                        {booking.bays.map(b => b.name).join(', ')}
                       </div>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-2">
-                    <div className="text-xs font-mono">
+                    <div className="text-base font-semibold font-mono">
                       {format(parseISO(booking.startTime), "h:mm a")}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {format(parseISO(booking.startTime), "MMM d")}
                     </div>
                   </div>
