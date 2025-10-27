@@ -105,32 +105,40 @@ function AppContent() {
     );
   }
 
+  // Widget and public purchase routes don't need sidebar
+  const isPublicRoute = window.location.pathname.startsWith('/widget/') || 
+                        window.location.pathname.startsWith('/buy/') ||
+                        window.location.pathname === '/thank-you';
+
+  if (isPublicRoute) {
+    return (
+      <Switch>
+        <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
+        <Route path="/widget/rental/:facilityId" component={WidgetRental} />
+        <Route path="/widget/lesson/:facilityId/:lessonOfferId" component={WidgetLesson} />
+        <Route path="/widget/fitting/:facilityId" component={WidgetFitting} />
+        <Route path="/buy/membership/:id" component={BuyMembership} />
+        <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
+        <Route path="/thank-you" component={ThankYouPage} />
+      </Switch>
+    );
+  }
+
   return (
-    <Switch>
-      <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
-      <Route path="/widget/rental/:facilityId" component={WidgetRental} />
-      <Route path="/widget/lesson/:facilityId/:lessonOfferId" component={WidgetLesson} />
-      <Route path="/widget/fitting/:facilityId" component={WidgetFitting} />
-      <Route path="/buy/membership/:id" component={BuyMembership} />
-      <Route path="/buy/transformation-package/:id" component={BuyTransformationPackage} />
-      <Route path="/thank-you" component={ThankYouPage} />
-      <Route>
-        <SidebarProvider style={style as React.CSSProperties}>
-          <div className="flex h-screen w-full">
-            <AppSidebar />
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <header className="flex items-center h-16 px-6 border-b gap-4">
-                <SidebarTrigger data-testid="button-sidebar-toggle" />
-                <div className="flex-1" />
-              </header>
-              <main className="flex-1 overflow-auto p-8">
-                <AuthenticatedRoutes />
-              </main>
-            </div>
-          </div>
-        </SidebarProvider>
-      </Route>
-    </Switch>
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <header className="flex items-center h-16 px-6 border-b gap-4">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="flex-1" />
+          </header>
+          <main className="flex-1 overflow-auto p-8">
+            <AuthenticatedRoutes />
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 }
 
