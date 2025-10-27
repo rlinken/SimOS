@@ -681,7 +681,7 @@ export default function Dashboard() {
               className="grid bg-gradient-to-br from-muted/80 to-muted/40 sticky top-0 z-10 backdrop-blur-sm"
               style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
             >
-              <div className="p-3 font-semibold border-r border-b flex items-center justify-center sticky left-0 z-20 bg-gradient-to-br from-muted/80 to-muted/40">
+              <div className="p-3 font-semibold border-r border-b flex items-center justify-center sticky left-0 z-30 bg-background">
                 <span className="text-xs">Bays</span>
               </div>
               {hours.map(hour => {
@@ -723,7 +723,7 @@ export default function Dashboard() {
                     style={{ gridTemplateColumns: `80px repeat(${hours.length}, 150px)` }}
                   >
                     {/* Bay Name Column */}
-                    <div className="p-2 border-r flex items-center justify-center bg-muted/30 sticky left-0 z-10">
+                    <div className="p-2 border-r flex items-center justify-center bg-background sticky left-0 z-30">
                       <div className="font-semibold text-xs text-center leading-tight">{bay.name}</div>
                     </div>
 
