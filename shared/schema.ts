@@ -161,6 +161,14 @@ export const payrollStatusEnum = pgEnum("payroll_status", [
   "cancelled",
 ]);
 
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "trialing", // During 14-day free trial
+  "active", // Subscription is active and paid
+  "past_due", // Payment failed, grace period
+  "canceled", // Subscription canceled
+  "grace_period", // Trial ended, waiting for payment
+]);
+
 // ============================================================================
 // PERMISSIONS (for custom roles)
 // ============================================================================
@@ -297,6 +305,15 @@ export const facilities = pgTable("facilities", {
   stripeAccountId: varchar("stripe_account_id"), // For Stripe Connect (future)
   paymentProvider: varchar("payment_provider").default("stripe"), // "stripe", "square", etc.
   paymentsEnabled: boolean("payments_enabled").default(false),
+  
+  // SaaS Subscription Management (for facility subscription to GolfSimOS platform)
+  stripeCustomerId: varchar("stripe_customer_id"), // Stripe Customer ID for facility owner
+  stripeSubscriptionId: varchar("stripe_subscription_id"), // Stripe Subscription ID
+  subscriptionStatus: subscriptionStatusEnum("subscription_status").default("trialing"), // Current subscription state
+  trialEndAt: timestamp("trial_end_at"), // When the 14-day trial ends
+  subscriptionActivatedAt: timestamp("subscription_activated_at"), // When subscription was first activated (after trial)
+  canceledAt: timestamp("canceled_at"), // When subscription was canceled
+  mrrCents: integer("mrr_cents").default(0), // Monthly Recurring Revenue in cents (e.g., 19900 = $199.00)
   
   // Trackman API integration settings
   trackmanEnabled: boolean("trackman_enabled").default(false),
