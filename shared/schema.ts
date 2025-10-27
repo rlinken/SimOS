@@ -253,10 +253,14 @@ export const facilities = pgTable("facilities", {
   address: text("address"),
   phone: varchar("phone"),
   email: varchar("email"),
+  supportEmail: varchar("support_email"), // Customer support email
   
-  // Widget customization
+  // Brand customization
   primaryColor: varchar("primary_color").default("#16a34a"),
   accentColor: varchar("accent_color").default("#22c55e"),
+  footerText: text("footer_text"), // Custom footer text for pages and emails
+  privacyPolicyUrl: text("privacy_policy_url"), // Link to privacy policy
+  termsOfServiceUrl: text("terms_of_service_url"), // Link to terms of service
   
   // Feature flags
   lessonsEnabled: boolean("lessons_enabled").default(true),
