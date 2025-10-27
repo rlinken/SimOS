@@ -57,8 +57,8 @@ export default function ProductsPage() {
       name: "",
       description: "",
       category: "other",
-      price: "0",
-      costPrice: "",
+      price: 0,
+      costPrice: undefined,
       sku: "",
       barcode: "",
       stockQuantity: 0,
@@ -146,7 +146,7 @@ export default function ProductsPage() {
       description: product.description ?? "",
       category: product.category,
       price: product.price,
-      costPrice: product.costPrice ?? "",
+      costPrice: product.costPrice ?? undefined,
       sku: product.sku ?? "",
       barcode: product.barcode ?? "",
       stockQuantity: product.stockQuantity,
@@ -193,12 +193,10 @@ export default function ProductsPage() {
     return colors[category] || colors.other;
   };
 
-  const calculateProfitMargin = (price: string, costPrice: string | null) => {
-    if (!costPrice) return null;
-    const p = parseFloat(price);
-    const c = parseFloat(costPrice);
-    if (isNaN(p) || isNaN(c) || c === 0) return null;
-    return ((p - c) / p * 100).toFixed(1);
+  const calculateProfitMargin = (price: number | undefined, costPrice: number | null | undefined) => {
+    if (!price || !costPrice) return null;
+    if (price === 0) return null;
+    return ((price - costPrice) / price * 100).toFixed(1);
   };
 
   return (
@@ -315,12 +313,15 @@ export default function ProductsPage() {
                           <FormLabel>Price</FormLabel>
                           <FormControl>
                             <Input
-                              {...field}
                               type="number"
                               step="0.01"
                               min="0"
                               placeholder="0.00"
                               data-testid="input-price"
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.valueAsNumber)}
+                              onBlur={field.onBlur}
+                              name={field.name}
                             />
                           </FormControl>
                           <FormMessage />
@@ -335,12 +336,15 @@ export default function ProductsPage() {
                           <FormLabel>Cost Price (Optional)</FormLabel>
                           <FormControl>
                             <Input
-                              {...field}
                               type="number"
                               step="0.01"
                               min="0"
                               placeholder="0.00"
                               data-testid="input-cost-price"
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.valueAsNumber)}
+                              onBlur={field.onBlur}
+                              name={field.name}
                             />
                           </FormControl>
                           <FormDescription>
