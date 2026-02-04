@@ -91,11 +91,15 @@ export default function SMSPage() {
 
   const createCampaignMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/facilities/${user?.facilityId}/marketing/sms-campaigns`, {
+      const payload: Record<string, unknown> = {
         name: newCampaignName,
         message: newCampaignMessage,
         segmentId: newCampaignSegment,
-      });
+      };
+      if (newCampaignSegment === "custom" && segmentRules.length > 0) {
+        payload.segmentRules = JSON.stringify({ rules: segmentRules, matchType: segmentMatchType });
+      }
+      return apiRequest("POST", `/api/facilities/${user?.facilityId}/marketing/sms-campaigns`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/facilities", user?.facilityId, "marketing/sms-campaigns"] });
@@ -103,6 +107,8 @@ export default function SMSPage() {
       setNewCampaignName("");
       setNewCampaignMessage("");
       setNewCampaignSegment("");
+      setSegmentRules([]);
+      setSegmentMatchType("all");
       toast({ title: "SMS campaign created successfully" });
     },
     onError: () => {
@@ -307,6 +313,11 @@ export default function SMSPage() {
                   matchType={segmentMatchType}
                   onMatchTypeChange={setSegmentMatchType}
                 />
+                {segmentRules.length === 0 && (
+                  <p className="text-xs text-destructive mt-2">
+                    Please add at least one rule to create a custom segment
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -316,7 +327,13 @@ export default function SMSPage() {
             </Button>
             <Button
               onClick={() => createCampaignMutation.mutate()}
-              disabled={!newCampaignName || !newCampaignMessage || !newCampaignSegment || createCampaignMutation.isPending}
+              disabled={
+                !newCampaignName || 
+                !newCampaignMessage || 
+                !newCampaignSegment || 
+                (newCampaignSegment === "custom" && segmentRules.length === 0) ||
+                createCampaignMutation.isPending
+              }
               data-testid="button-confirm-create-sms-campaign"
             >
               {createCampaignMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

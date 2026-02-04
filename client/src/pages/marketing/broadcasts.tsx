@@ -81,11 +81,15 @@ export default function BroadcastsPage() {
 
   const createBroadcastMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/facilities/${user?.facilityId}/marketing/broadcasts`, {
+      const payload: Record<string, unknown> = {
         name: newBroadcastName,
         subject: newBroadcastSubject,
         segmentId: newBroadcastSegment,
-      });
+      };
+      if (newBroadcastSegment === "custom" && segmentRules.length > 0) {
+        payload.segmentRules = JSON.stringify({ rules: segmentRules, matchType: segmentMatchType });
+      }
+      return apiRequest("POST", `/api/facilities/${user?.facilityId}/marketing/broadcasts`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/facilities", user?.facilityId, "marketing/broadcasts"] });
@@ -93,6 +97,8 @@ export default function BroadcastsPage() {
       setNewBroadcastName("");
       setNewBroadcastSubject("");
       setNewBroadcastSegment("");
+      setSegmentRules([]);
+      setSegmentMatchType("all");
       toast({ title: "Broadcast created successfully" });
     },
     onError: () => {
@@ -285,12 +291,20 @@ export default function BroadcastsPage() {
             {newBroadcastSegment === "custom" && (
               <div className="space-y-2 border rounded-lg p-4">
                 <Label>Custom Audience Rules</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Add at least one rule to define your target audience
+                </p>
                 <SegmentBuilder
                   value={segmentRules}
                   onChange={setSegmentRules}
                   matchType={segmentMatchType}
                   onMatchTypeChange={setSegmentMatchType}
                 />
+                {segmentRules.length === 0 && (
+                  <p className="text-xs text-destructive mt-2">
+                    Please add at least one rule to create a custom segment
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -300,7 +314,13 @@ export default function BroadcastsPage() {
             </Button>
             <Button
               onClick={() => createBroadcastMutation.mutate()}
-              disabled={!newBroadcastName || !newBroadcastSubject || !newBroadcastSegment || createBroadcastMutation.isPending}
+              disabled={
+                !newBroadcastName || 
+                !newBroadcastSubject || 
+                !newBroadcastSegment || 
+                (newBroadcastSegment === "custom" && segmentRules.length === 0) ||
+                createBroadcastMutation.isPending
+              }
               data-testid="button-confirm-create-broadcast"
             >
               {createBroadcastMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

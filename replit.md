@@ -43,13 +43,20 @@ I want the agent to prioritize core functionality and stable releases. I prefer 
 *   **Staff Management:** Time tracking, task management, commission structure management, referral attribution, and payroll calculations.
 *   **Marketing Automation (GolfMarketingOS):** Event-driven platform for email, SMS, and in-app messages based on customer behavior.
 *   **Marketing Module UI:** Comprehensive marketing suite accessible via sidebar under "Marketing" category:
-    - **Journeys:** Automated email/SMS sequences triggered by customer actions (membership_joined, booking_completed, product_purchased, tag_assigned, billing_expiring, membership_expiring, contact_created, form_submitted, inactivity). Visual workflow builder with step types: email, sms, delay, condition, tag_action, webhook.
-    - **Broadcasts:** One-time email campaigns with audience segment selection, WYSIWYG editor, scheduling, and analytics (open/click tracking).
-    - **SMS:** SMS campaigns with TCPA compliance notices, consent tracking (optedIn/optedOut stats), and segment targeting.
+    - **Journeys:** Automated email/SMS sequences triggered by customer actions (membership_joined, booking_completed, product_purchased, tag_assigned, billing_expiring, membership_expiring, contact_created, form_submitted, inactivity). Visual workflow builder with step types: email, sms, delay, condition, tag_action, webhook. Includes optional audience filtering with rule-based segmentation.
+    - **Broadcasts:** One-time email campaigns with advanced audience segmentation, WYSIWYG editor, scheduling, and analytics (open/click tracking). Supports custom segments with rule-based filtering.
+    - **SMS:** SMS campaigns with TCPA compliance notices, consent tracking (optedIn/optedOut stats), and advanced segment targeting with custom rule builder.
     - **Forms:** Lead capture forms with customizable fields, embed code generation, and submission tracking.
     - **Referrals:** Coming soon - Refer-a-friend program.
     - **Reviews:** Coming soon - Customer review collection and management.
-    Database tables: marketingJourneys, journeySteps, journeyEnrollments, emailTemplates, emailBroadcasts, smsCampaigns, leadForms, formSubmissions, smsConsent.
+    - **Advanced Segmentation System:** Reusable SegmentBuilder component (`client/src/components/marketing/segment-builder.tsx`) supporting:
+      - Rule types: membership_level (is/is_not), tag (has/has_not), action (has/has_not performed)
+      - Predefined segments: All Contacts, Active Members, Non-Members, VIP, Frequent Bookers, High Value
+      - Action filters: booking_completed, lesson_purchased, fitting_completed, product_purchased, membership_joined/expired, inactive periods (30/60/90 days), high_value ($500+), frequent_booker (5+ bookings)
+      - Common tags: VIP, Student, Senior, Corporate, Tournament Player, League Member, First Timer, Referral, Staff Referral, Walk In, Event Attendee, Newsletter, Birthday Club
+      - Match types: "all" (AND logic) or "any" (OR logic) for combining multiple rules
+      - Components: SegmentBuilder, SegmentSelector, CreateSegmentDialog, SegmentRuleSummary
+    Database tables: marketingJourneys, journeySteps, journeyEnrollments, emailTemplates, emailBroadcasts, smsCampaigns, leadForms, formSubmissions, smsConsent, marketingSegments.
 *   **Real-time Dashboard:** Displays live statistics.
 
 **System Design Choices:**
