@@ -240,7 +240,7 @@ function CommunicationTab({ facilityId }: { facilityId: string }) {
                         href="https://app.sendgrid.com/settings/api_keys"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary hover:underline"
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         SendGrid Settings
                       </a>
@@ -324,7 +324,7 @@ function CommunicationTab({ facilityId }: { facilityId: string }) {
                         href="https://console.twilio.com"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary hover:underline"
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         Twilio Console
                       </a>
@@ -1486,7 +1486,7 @@ export default function SettingsPage() {
                   href="https://dashboard.stripe.com/apikeys"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
                   data-testid="link-stripe-dashboard"
                 >
                   Stripe Dashboard API Keys page
