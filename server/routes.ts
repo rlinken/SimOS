@@ -4539,6 +4539,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // COMMUNICATION / MESSAGING ROUTES
+  // ============================================================================
+
+  // Get communication settings status
+  app.get("/api/facilities/:facilityId/communication/status", async (req, res) => {
+    try {
+      const user = await getUser(req, res);
+      if (!user) return;
+
+      const hasEmail = !!process.env.SENDGRID_API_KEY;
+      const hasSms = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER);
+
+      res.json({
+        email: {
+          configured: hasEmail,
+          provider: hasEmail ? 'SendGrid' : null,
+        },
+        sms: {
+          configured: hasSms,
+          provider: hasSms ? 'Twilio' : null,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Send test email
+  app.post("/api/facilities/:facilityId/communication/test-email", async (req, res) => {
+    try {
+      const user = await getUser(req, res);
+      if (!user || !isAdmin(user.role)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { to, subject, body } = req.body;
+      if (!to) {
+        return res.status(400).json({ message: "Email address required" });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(to)) {
+        return res.status(400).json({ message: "Invalid email address format" });
+      }
+
+      const { EmailChannelAdapter } = await import('./marketing/channel-adapters');
+      const emailAdapter = new EmailChannelAdapter();
+      
+      const result = await emailAdapter.send({
+        recipient: {
+          userId: user.id,
+          email: to,
+          firstName: user.firstName || undefined,
+          lastName: user.lastName || undefined,
+        },
+        subject: subject || 'Test Email from GolfSimOS',
+        body: body || 'This is a test email to verify your email configuration is working correctly.',
+      });
+
+      if (result.success) {
+        res.json({ success: true, messageId: result.externalId });
+      } else {
+        res.status(500).json({ success: false, error: result.errorMessage });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Send test SMS
+  app.post("/api/facilities/:facilityId/communication/test-sms", async (req, res) => {
+    try {
+      const user = await getUser(req, res);
+      if (!user || !isAdmin(user.role)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { to, body } = req.body;
+      if (!to) {
+        return res.status(400).json({ message: "Phone number required" });
+      }
+
+      const phoneRegex = /^[+]?[(]?[0-9]{1,3}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/;
+      if (!phoneRegex.test(to.replace(/\s/g, ''))) {
+        return res.status(400).json({ message: "Invalid phone number format" });
+      }
+
+      const { SMSChannelAdapter } = await import('./marketing/channel-adapters');
+      const smsAdapter = new SMSChannelAdapter();
+      
+      const result = await smsAdapter.send({
+        recipient: {
+          userId: user.id,
+          phone: to,
+        },
+        body: body || 'This is a test SMS from GolfSimOS. Your SMS configuration is working correctly!',
+      });
+
+      if (result.success) {
+        res.json({ success: true, messageId: result.externalId });
+      } else {
+        res.status(500).json({ success: false, error: result.errorMessage });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Send bulk email to customers/members
+  app.post("/api/facilities/:facilityId/communication/send-email", async (req, res) => {
+    try {
+      const user = await getUser(req, res);
+      if (!user || !isAdmin(user.role)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { facilityId } = req.params;
+      const { recipientIds, subject, body } = req.body;
+      
+      if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+        return res.status(400).json({ message: "Recipients required" });
+      }
+      if (!subject || !body) {
+        return res.status(400).json({ message: "Subject and body required" });
+      }
+
+      const { EmailChannelAdapter } = await import('./marketing/channel-adapters');
+      const emailAdapter = new EmailChannelAdapter();
+      
+      const results = { sent: 0, failed: 0, errors: [] as string[] };
+      
+      for (const recipientId of recipientIds) {
+        const recipient = await storage.getUser(recipientId);
+        if (!recipient?.email) {
+          results.failed++;
+          continue;
+        }
+        
+        const result = await emailAdapter.send({
+          recipient: {
+            userId: recipient.id,
+            email: recipient.email,
+            firstName: recipient.firstName || undefined,
+            lastName: recipient.lastName || undefined,
+          },
+          subject,
+          body,
+        });
+        
+        if (result.success) {
+          results.sent++;
+        } else {
+          results.failed++;
+          if (result.errorMessage) {
+            results.errors.push(result.errorMessage);
+          }
+        }
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Send bulk SMS to customers/members
+  app.post("/api/facilities/:facilityId/communication/send-sms", async (req, res) => {
+    try {
+      const user = await getUser(req, res);
+      if (!user || !isAdmin(user.role)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { facilityId } = req.params;
+      const { recipientIds, body } = req.body;
+      
+      if (!recipientIds || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+        return res.status(400).json({ message: "Recipients required" });
+      }
+      if (!body) {
+        return res.status(400).json({ message: "Message body required" });
+      }
+
+      const { SMSChannelAdapter } = await import('./marketing/channel-adapters');
+      const smsAdapter = new SMSChannelAdapter();
+      
+      const results = { sent: 0, failed: 0, errors: [] as string[] };
+      
+      for (const recipientId of recipientIds) {
+        const recipient = await storage.getUser(recipientId);
+        if (!recipient?.phone) {
+          results.failed++;
+          continue;
+        }
+        
+        const result = await smsAdapter.send({
+          recipient: {
+            userId: recipient.id,
+            phone: recipient.phone,
+          },
+          body,
+        });
+        
+        if (result.success) {
+          results.sent++;
+        } else {
+          results.failed++;
+          if (result.errorMessage) {
+            results.errors.push(result.errorMessage);
+          }
+        }
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio, Sparkles, Upload, Link as LinkIcon, Clock } from "lucide-react";
+import { Settings as SettingsIcon, Copy, ExternalLink, Code, Calendar, CreditCard, Palette, CheckCircle2, MapPin, Radio, Sparkles, Upload, Link as LinkIcon, Clock, Mail, MessageSquare, Send, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Textarea } from "@/components/ui/textarea";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -100,6 +100,272 @@ function TimeInput({
       </div>
       <p className="text-xs text-muted-foreground">{description}</p>
     </div>
+  );
+}
+
+function CommunicationTab({ facilityId }: { facilityId: string }) {
+  const { toast } = useToast();
+  const [testEmailTo, setTestEmailTo] = useState("");
+  const [testSmsTo, setTestSmsTo] = useState("");
+
+  const { data: commStatus, isLoading: isLoadingStatus } = useQuery<{
+    email: { configured: boolean; provider: string | null };
+    sms: { configured: boolean; provider: string | null };
+  }>({
+    queryKey: [`/api/facilities/${facilityId}/communication/status`],
+    enabled: !!facilityId,
+  });
+
+  const testEmailMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/facilities/${facilityId}/communication/test-email`, {
+        to: testEmailTo,
+        subject: 'Test Email from GolfSimOS',
+        body: 'This is a test email to verify your email configuration is working correctly.',
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test Email Sent",
+        description: `A test email has been sent to ${testEmailTo}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Email Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const testSmsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', `/api/facilities/${facilityId}/communication/test-sms`, {
+        to: testSmsTo,
+        body: 'This is a test SMS from GolfSimOS. Your SMS configuration is working correctly!',
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test SMS Sent",
+        description: `A test SMS has been sent to ${testSmsTo}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "SMS Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <TabsContent value="communication" className="space-y-6">
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold mb-2">Communication Settings</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Configure email and SMS messaging for marketing, notifications, and customer communication
+        </p>
+
+        <div className="space-y-8">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="p-6 border-2">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                  <Mail className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Email (SendGrid)</h3>
+                  <div className="flex items-center gap-2" data-testid="status-email-config">
+                    {isLoadingStatus ? (
+                      <Loader2 className="w-4 h-4 animate-spin" data-testid="loader-email-status" />
+                    ) : commStatus?.email.configured ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span className="text-sm text-green-600 dark:text-green-400" data-testid="text-email-configured">Configured</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-4 h-4 text-amber-500" />
+                        <span className="text-sm text-amber-600 dark:text-amber-400" data-testid="text-email-not-configured">Not Configured</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {commStatus?.email.configured ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    SendGrid is configured and ready to send emails.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="test-email">Send Test Email</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="test-email"
+                        type="email"
+                        placeholder="Enter email address"
+                        value={testEmailTo}
+                        onChange={(e) => setTestEmailTo(e.target.value)}
+                        data-testid="input-test-email"
+                      />
+                      <Button
+                        onClick={() => testEmailMutation.mutate()}
+                        disabled={!testEmailTo || testEmailMutation.isPending}
+                        data-testid="button-send-test-email"
+                      >
+                        {testEmailMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <Send className="w-4 h-4 mr-2" />
+                        )}
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    To enable email sending, add your SendGrid API key.
+                  </p>
+                  <div className="p-3 bg-muted rounded-md">
+                    <p className="text-xs font-mono">SENDGRID_API_KEY</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Get your API key from{" "}
+                      <a
+                        href="https://app.sendgrid.com/settings/api_keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        SendGrid Settings
+                      </a>
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Optional: Set <span className="font-mono">SENDGRID_FROM_EMAIL</span> to customize the sender address.
+                  </p>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-6 border-2">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                  <MessageSquare className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">SMS (Twilio)</h3>
+                  <div className="flex items-center gap-2" data-testid="status-sms-config">
+                    {isLoadingStatus ? (
+                      <Loader2 className="w-4 h-4 animate-spin" data-testid="loader-sms-status" />
+                    ) : commStatus?.sms.configured ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span className="text-sm text-green-600 dark:text-green-400" data-testid="text-sms-configured">Configured</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-4 h-4 text-amber-500" />
+                        <span className="text-sm text-amber-600 dark:text-amber-400" data-testid="text-sms-not-configured">Not Configured</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {commStatus?.sms.configured ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Twilio is configured and ready to send SMS messages.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="test-sms">Send Test SMS</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="test-sms"
+                        type="tel"
+                        placeholder="+1 (555) 123-4567"
+                        value={testSmsTo}
+                        onChange={(e) => setTestSmsTo(e.target.value)}
+                        data-testid="input-test-sms"
+                      />
+                      <Button
+                        onClick={() => testSmsMutation.mutate()}
+                        disabled={!testSmsTo || testSmsMutation.isPending}
+                        data-testid="button-send-test-sms"
+                      >
+                        {testSmsMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <Send className="w-4 h-4 mr-2" />
+                        )}
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    To enable SMS sending, add your Twilio credentials.
+                  </p>
+                  <div className="p-3 bg-muted rounded-md space-y-1">
+                    <p className="text-xs font-mono">TWILIO_ACCOUNT_SID</p>
+                    <p className="text-xs font-mono">TWILIO_AUTH_TOKEN</p>
+                    <p className="text-xs font-mono">TWILIO_PHONE_NUMBER</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Get your credentials from{" "}
+                      <a
+                        href="https://console.twilio.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Twilio Console
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <Card className="p-6 border-dashed">
+            <h3 className="font-semibold mb-2 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              GolfMarketingOS Integration
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Email and SMS are automatically integrated with the GolfMarketingOS marketing automation platform. 
+              Create automated campaigns that send personalized messages based on customer behavior and events.
+            </p>
+            <div className="grid gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>Automated booking confirmations</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>Membership renewal reminders</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>Lesson and fitting follow-ups</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span>TrackMan session analytics and tips</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </Card>
+    </TabsContent>
   );
 }
 
@@ -561,6 +827,10 @@ export default function SettingsPage() {
           <TabsTrigger value="general" data-testid="tab-general">
             <SettingsIcon className="w-4 h-4 mr-2" />
             General
+          </TabsTrigger>
+          <TabsTrigger value="communication" data-testid="tab-communication">
+            <Mail className="w-4 h-4 mr-2" />
+            Communication
           </TabsTrigger>
         </TabsList>
 
@@ -1882,6 +2152,8 @@ export default function SettingsPage() {
             </Card>
           </div>
         </TabsContent>
+
+        <CommunicationTab facilityId={facilityId} />
       </Tabs>
     </div>
   );
