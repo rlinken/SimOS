@@ -14,13 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Megaphone,
   Plus,
   Send,
@@ -31,11 +24,21 @@ import {
   BarChart3,
   Eye,
   MousePointer,
+  Crown,
+  Tag,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { 
+  SegmentSelector, 
+  CreateSegmentDialog, 
+  SegmentBuilder,
+  type Segment,
+  type SegmentRule,
+} from "@/components/marketing/segment-builder";
 
 interface Broadcast {
   id: string;
@@ -52,31 +55,24 @@ interface Broadcast {
   createdAt: string;
 }
 
-interface Segment {
-  id: string;
-  name: string;
-  description: string;
-  contactCount: number;
-}
-
-const predefinedSegments = [
-  { id: "all", name: "All Contacts", description: "Everyone in your contact list", contactCount: 0 },
-  { id: "active_members", name: "Active Members", description: "Members with active subscriptions", contactCount: 0 },
-  { id: "expiring_soon", name: "Expiring Soon", description: "Members expiring in 30 days", contactCount: 0 },
-  { id: "lapsed_members", name: "Lapsed Members", description: "Former members who haven't renewed", contactCount: 0 },
-  { id: "frequent_bookers", name: "Frequent Bookers", description: "5+ bookings in last 90 days", contactCount: 0 },
-  { id: "inactive_30days", name: "Inactive 30 Days", description: "No activity in 30 days", contactCount: 0 },
-  { id: "lesson_buyers", name: "Lesson Buyers", description: "Customers who purchased lessons", contactCount: 0 },
-  { id: "high_value", name: "High Value Customers", description: "Spent $500+ lifetime", contactCount: 0 },
+const segmentStats = [
+  { id: "all", name: "All Contacts", icon: Users, color: "text-muted-foreground", description: "Everyone" },
+  { id: "active_members", name: "Active Members", icon: Crown, color: "text-amber-500", description: "Current members" },
+  { id: "tagged_vip", name: "VIP Customers", icon: Tag, color: "text-blue-500", description: "Tagged as VIP" },
+  { id: "high_value", name: "High Value", icon: Zap, color: "text-green-500", description: "Spent $500+" },
 ];
 
 export default function BroadcastsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreateSegmentOpen, setIsCreateSegmentOpen] = useState(false);
   const [newBroadcastName, setNewBroadcastName] = useState("");
   const [newBroadcastSubject, setNewBroadcastSubject] = useState("");
   const [newBroadcastSegment, setNewBroadcastSegment] = useState("");
+  const [segmentRules, setSegmentRules] = useState<SegmentRule[]>([]);
+  const [segmentMatchType, setSegmentMatchType] = useState<"all" | "any">("all");
+  const [customSegments, setCustomSegments] = useState<Segment[]>([]);
 
   const { data: broadcasts = [], isLoading } = useQuery<Broadcast[]>({
     queryKey: ["/api/facilities", user?.facilityId, "marketing/broadcasts"],
@@ -129,17 +125,30 @@ export default function BroadcastsPage() {
 
       {/* Segment Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {predefinedSegments.slice(0, 4).map((segment) => (
-          <Card key={segment.id} className="p-4">
+        {segmentStats.map((segment) => (
+          <Card key={segment.id} className="p-4 hover-elevate cursor-pointer">
             <div className="flex items-center gap-2 mb-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
+              <segment.icon className={`w-4 h-4 ${segment.color}`} />
               <span className="text-sm font-medium">{segment.name}</span>
             </div>
-            <p className="text-2xl font-bold">{segment.contactCount}</p>
+            <p className="text-2xl font-bold">--</p>
             <p className="text-xs text-muted-foreground">{segment.description}</p>
           </Card>
         ))}
       </div>
+
+      {/* Segmentation Info */}
+      <Card className="p-4 bg-muted/50">
+        <div className="flex items-start gap-3">
+          <Tag className="w-5 h-5 text-primary mt-0.5" />
+          <div>
+            <h4 className="font-semibold">Advanced Segmentation</h4>
+            <p className="text-sm text-muted-foreground">
+              Target your audience by membership level, tags, or customer actions. Create custom segments combining multiple criteria for precise targeting.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {broadcasts.length === 0 ? (
         <Card className="p-12 text-center">
@@ -235,7 +244,7 @@ export default function BroadcastsPage() {
 
       {/* Create Broadcast Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Broadcast</DialogTitle>
             <DialogDescription>
@@ -263,24 +272,27 @@ export default function BroadcastsPage() {
                 data-testid="input-broadcast-subject"
               />
             </div>
+            
             <div className="space-y-2">
-              <Label>Target Audience</Label>
-              <Select value={newBroadcastSegment} onValueChange={setNewBroadcastSegment}>
-                <SelectTrigger data-testid="select-broadcast-segment">
-                  <SelectValue placeholder="Select a segment" />
-                </SelectTrigger>
-                <SelectContent>
-                  {predefinedSegments.map((segment) => (
-                    <SelectItem key={segment.id} value={segment.id}>
-                      <div>
-                        <div className="font-medium">{segment.name}</div>
-                        <div className="text-xs text-muted-foreground">{segment.description}</div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SegmentSelector
+                value={newBroadcastSegment}
+                onChange={setNewBroadcastSegment}
+                segments={customSegments}
+                onCreateNew={() => setIsCreateSegmentOpen(true)}
+              />
             </div>
+
+            {newBroadcastSegment === "custom" && (
+              <div className="space-y-2 border rounded-lg p-4">
+                <Label>Custom Audience Rules</Label>
+                <SegmentBuilder
+                  value={segmentRules}
+                  onChange={setSegmentRules}
+                  matchType={segmentMatchType}
+                  onMatchTypeChange={setSegmentMatchType}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
@@ -297,6 +309,21 @@ export default function BroadcastsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Segment Dialog */}
+      <CreateSegmentDialog
+        open={isCreateSegmentOpen}
+        onOpenChange={setIsCreateSegmentOpen}
+        onSave={(segment) => {
+          const newSegment: Segment = {
+            ...segment,
+            id: crypto.randomUUID(),
+          };
+          setCustomSegments([...customSegments, newSegment]);
+          setNewBroadcastSegment(newSegment.id);
+          toast({ title: "Segment created successfully" });
+        }}
+      />
     </div>
   );
 }

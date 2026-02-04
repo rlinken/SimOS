@@ -32,11 +32,21 @@ import {
   Shield,
   AlertTriangle,
   CheckCircle,
+  Crown,
+  Tag,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { 
+  SegmentSelector, 
+  CreateSegmentDialog,
+  type Segment,
+  type SegmentRule,
+  SegmentBuilder,
+} from "@/components/marketing/segment-builder";
 
 interface SMSCampaign {
   id: string;
@@ -61,9 +71,13 @@ export default function SMSPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreateSegmentOpen, setIsCreateSegmentOpen] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState("");
   const [newCampaignMessage, setNewCampaignMessage] = useState("");
   const [newCampaignSegment, setNewCampaignSegment] = useState("");
+  const [segmentRules, setSegmentRules] = useState<SegmentRule[]>([]);
+  const [segmentMatchType, setSegmentMatchType] = useState<"all" | "any">("all");
+  const [customSegments, setCustomSegments] = useState<Segment[]>([]);
 
   const { data: campaigns = [], isLoading } = useQuery<SMSCampaign[]>({
     queryKey: ["/api/facilities", user?.facilityId, "marketing/sms-campaigns"],
@@ -238,7 +252,7 @@ export default function SMSPage() {
 
       {/* Create SMS Campaign Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create SMS Campaign</DialogTitle>
             <DialogDescription>
@@ -273,19 +287,28 @@ export default function SMSPage() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label>Target Audience</Label>
-              <Select value={newCampaignSegment} onValueChange={setNewCampaignSegment}>
-                <SelectTrigger data-testid="select-sms-segment">
-                  <SelectValue placeholder="Select a segment" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_opted_in">All SMS Opted-In</SelectItem>
-                  <SelectItem value="active_members">Active Members (Opted-In)</SelectItem>
-                  <SelectItem value="upcoming_bookings">Upcoming Bookings</SelectItem>
-                  <SelectItem value="inactive_30days">Inactive 30 Days (Opted-In)</SelectItem>
-                </SelectContent>
-              </Select>
+              <SegmentSelector
+                value={newCampaignSegment}
+                onChange={setNewCampaignSegment}
+                segments={customSegments}
+                onCreateNew={() => setIsCreateSegmentOpen(true)}
+              />
             </div>
+
+            {newCampaignSegment === "custom" && (
+              <div className="space-y-2 border rounded-lg p-4">
+                <Label>Custom Audience Rules</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Only contacts who are opted-in for SMS AND match these rules will receive the message
+                </p>
+                <SegmentBuilder
+                  value={segmentRules}
+                  onChange={setSegmentRules}
+                  matchType={segmentMatchType}
+                  onMatchTypeChange={setSegmentMatchType}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
@@ -302,6 +325,21 @@ export default function SMSPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Segment Dialog */}
+      <CreateSegmentDialog
+        open={isCreateSegmentOpen}
+        onOpenChange={setIsCreateSegmentOpen}
+        onSave={(segment) => {
+          const newSegment: Segment = {
+            ...segment,
+            id: crypto.randomUUID(),
+          };
+          setCustomSegments([...customSegments, newSegment]);
+          setNewCampaignSegment(newSegment.id);
+          toast({ title: "Segment created successfully" });
+        }}
+      />
     </div>
   );
 }

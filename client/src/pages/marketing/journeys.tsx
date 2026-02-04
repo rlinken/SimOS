@@ -43,10 +43,16 @@ import {
   ArrowRight,
   Loader2,
   Zap,
+  Crown,
+  Filter,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { 
+  SegmentBuilder,
+  type SegmentRule,
+} from "@/components/marketing/segment-builder";
 
 interface Journey {
   id: string;
@@ -87,6 +93,9 @@ export default function JourneysPage() {
   const [newJourneyName, setNewJourneyName] = useState("");
   const [newJourneyDescription, setNewJourneyDescription] = useState("");
   const [newJourneyTrigger, setNewJourneyTrigger] = useState("");
+  const [audienceRules, setAudienceRules] = useState<SegmentRule[]>([]);
+  const [audienceMatchType, setAudienceMatchType] = useState<"all" | "any">("all");
+  const [showAudienceFilter, setShowAudienceFilter] = useState(false);
 
   const { data: journeys = [], isLoading } = useQuery<Journey[]>({
     queryKey: ["/api/facilities", user?.facilityId, "marketing/journeys"],
@@ -99,6 +108,7 @@ export default function JourneysPage() {
         name: newJourneyName,
         description: newJourneyDescription,
         triggerType: newJourneyTrigger,
+        audienceRules: audienceRules.length > 0 ? JSON.stringify({ rules: audienceRules, matchType: audienceMatchType }) : null,
       });
     },
     onSuccess: () => {
@@ -107,6 +117,9 @@ export default function JourneysPage() {
       setNewJourneyName("");
       setNewJourneyDescription("");
       setNewJourneyTrigger("");
+      setAudienceRules([]);
+      setAudienceMatchType("all");
+      setShowAudienceFilter(false);
       toast({ title: "Journey created successfully" });
     },
     onError: () => {
@@ -280,7 +293,7 @@ export default function JourneysPage() {
 
       {/* Create Journey Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Journey</DialogTitle>
             <DialogDescription>
@@ -325,6 +338,43 @@ export default function JourneysPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Audience Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <Filter className="w-4 h-4" />
+                  Audience Filter
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAudienceFilter(!showAudienceFilter)}
+                  data-testid="button-toggle-audience-filter"
+                >
+                  {showAudienceFilter ? "Remove Filter" : "Add Filter"}
+                </Button>
+              </div>
+              {!showAudienceFilter && (
+                <p className="text-xs text-muted-foreground">
+                  By default, all contacts matching the trigger will enter this journey.
+                </p>
+              )}
+              {showAudienceFilter && (
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Only contacts matching these rules will enter the journey:
+                  </p>
+                  <SegmentBuilder
+                    value={audienceRules}
+                    onChange={setAudienceRules}
+                    matchType={audienceMatchType}
+                    onMatchTypeChange={setAudienceMatchType}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
