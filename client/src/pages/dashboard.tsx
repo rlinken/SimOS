@@ -28,6 +28,7 @@ import {
   GraduationCap,
   Package,
   ChevronRight,
+  UserPlus,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
@@ -529,7 +530,7 @@ export default function Dashboard() {
             Welcome back, {user?.firstName}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button 
             onClick={() => setIsQuickBookDialogOpen(true)}
             className="bg-primary hover:bg-primary/90"
@@ -538,6 +539,12 @@ export default function Dashboard() {
             <Plus className="w-4 h-4 mr-2" />
             Add Booking
           </Button>
+          <Link href="/contacts">
+            <Button variant="outline" data-testid="button-add-contact">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Contact
+            </Button>
+          </Link>
           <Link href="/schedule">
             <Button variant="outline" data-testid="button-view-full-schedule">
               <Calendar className="w-4 h-4 mr-2" />
