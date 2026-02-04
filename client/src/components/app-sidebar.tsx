@@ -21,6 +21,13 @@ import {
   ShoppingBag,
   CalendarRange,
   ChevronDown,
+  Mail,
+  Megaphone,
+  MessageSquare,
+  FileText,
+  Share2,
+  Star,
+  Route,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -46,7 +53,7 @@ import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@shared/schema";
 
 function getMenuItems(user: User | undefined) {
-  if (!user) return { main: [], business: [], operations: [], settings: [] };
+  if (!user) return { main: [], business: [], operations: [], marketing: [], settings: [] };
 
   const isSuperAdmin = user.role === "super_admin";
   const isAdmin = user.role === "owner" || user.role === "administrator";
@@ -56,6 +63,7 @@ function getMenuItems(user: User | undefined) {
   const main = [];
   const business = [];
   const operations = [];
+  const marketing = [];
   const settings = [];
 
   // Main Navigation
@@ -171,6 +179,40 @@ function getMenuItems(user: User | undefined) {
         icon: UserCog,
       }
     );
+
+    // Marketing - Automation & Campaigns (Admins only)
+    marketing.push(
+      {
+        title: "Journeys",
+        url: "/marketing/journeys",
+        icon: Route,
+      },
+      {
+        title: "Broadcasts",
+        url: "/marketing/broadcasts",
+        icon: Megaphone,
+      },
+      {
+        title: "SMS",
+        url: "/marketing/sms",
+        icon: MessageSquare,
+      },
+      {
+        title: "Forms",
+        url: "/marketing/forms",
+        icon: FileText,
+      },
+      {
+        title: "Refer A Friend",
+        url: "/marketing/referrals",
+        icon: Share2,
+      },
+      {
+        title: "Reviews",
+        url: "/marketing/reviews",
+        icon: Star,
+      }
+    );
   }
 
   // Settings - available to all users
@@ -180,7 +222,7 @@ function getMenuItems(user: User | undefined) {
     icon: Settings,
   });
 
-  return { main, business, operations, settings };
+  return { main, business, operations, marketing, settings };
 }
 
 export function AppSidebar() {
@@ -188,8 +230,9 @@ export function AppSidebar() {
   const { user } = useAuth();
   const [operationsOpen, setOperationsOpen] = useState(false);
   const [businessOpen, setBusinessOpen] = useState(false);
+  const [marketingOpen, setMarketingOpen] = useState(false);
 
-  const { main, business, operations, settings } = getMenuItems(user);
+  const { main, business, operations, marketing, settings } = getMenuItems(user);
 
   return (
     <Sidebar>
@@ -292,6 +335,48 @@ export function AppSidebar() {
                           asChild
                           isActive={location === item.url}
                           data-testid={`nav-${item.title.toLowerCase()}`}
+                        >
+                          <Link href={item.url}>
+                            <item.icon className="w-4 h-4" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {/* Marketing - Automation & Campaigns (Collapsible) */}
+        {marketing.length > 0 && (
+          <SidebarGroup>
+            <Collapsible
+              open={marketingOpen}
+              onOpenChange={setMarketingOpen}
+              className="group/collapsible"
+            >
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center justify-between hover-elevate active-elevate-2 rounded-md px-2 py-1.5 cursor-pointer">
+                  <span>Marketing</span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      marketingOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {marketing.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === item.url || location.startsWith(item.url + "/")}
+                          data-testid={`nav-marketing-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                         >
                           <Link href={item.url}>
                             <item.icon className="w-4 h-4" />

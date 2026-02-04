@@ -2926,3 +2926,307 @@ export const widgetConfigurationsRelations = relations(widgetConfigurations, ({ 
 export type WidgetConfiguration = typeof widgetConfigurations.$inferSelect;
 export const insertWidgetConfigurationSchema = createInsertSchema(widgetConfigurations).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertWidgetConfiguration = z.infer<typeof insertWidgetConfigurationSchema>;
+
+// ==================== MARKETING MODULE ====================
+
+// Marketing Journey Status Enum
+export const journeyStatusEnum = pgEnum("journey_status", [
+  "draft",
+  "active",
+  "paused",
+  "archived",
+]);
+
+// Journey Trigger Types
+export const journeyTriggerEnum = pgEnum("journey_trigger", [
+  "membership_joined",
+  "booking_completed",
+  "product_purchased",
+  "tag_assigned",
+  "billing_expiring",
+  "membership_expiring",
+  "contact_created",
+  "form_submitted",
+  "inactivity",
+]);
+
+// Journey Step Types
+export const journeyStepTypeEnum = pgEnum("journey_step_type", [
+  "email",
+  "sms",
+  "delay",
+  "condition",
+  "tag_action",
+  "webhook",
+]);
+
+// Broadcast Status Enum
+export const broadcastStatusEnum = pgEnum("broadcast_status", [
+  "draft",
+  "scheduled",
+  "sending",
+  "sent",
+  "cancelled",
+]);
+
+// Marketing Journeys - Automated email/SMS sequences
+export const marketingJourneys = pgTable("marketing_journeys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  status: journeyStatusEnum("status").default("draft").notNull(),
+  triggerType: journeyTriggerEnum("trigger_type").notNull(),
+  triggerConfig: jsonb("trigger_config").default({}).notNull(),
+  enrollmentCount: integer("enrollment_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Journey Steps - Individual steps in a journey
+export const journeySteps = pgTable("journey_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  journeyId: varchar("journey_id")
+    .references(() => marketingJourneys.id, { onDelete: "cascade" })
+    .notNull(),
+  type: journeyStepTypeEnum("type").notNull(),
+  config: jsonb("config").default({}).notNull(),
+  position: jsonb("position").default({ x: 0, y: 0 }).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Journey Enrollments - Track who is enrolled in a journey
+export const journeyEnrollments = pgTable("journey_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  journeyId: varchar("journey_id")
+    .references(() => marketingJourneys.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: varchar("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  currentStepId: varchar("current_step_id"),
+  status: varchar("status", { length: 50 }).default("active").notNull(),
+  enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  nextStepAt: timestamp("next_step_at"),
+});
+
+// Email Templates
+export const emailTemplates = pgTable("email_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  subject: varchar("subject", { length: 500 }),
+  htmlContent: text("html_content"),
+  jsonContent: jsonb("json_content"),
+  category: varchar("category", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Email Broadcasts - One-time email campaigns
+export const emailBroadcasts = pgTable("email_broadcasts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  subject: varchar("subject", { length: 500 }).notNull(),
+  htmlContent: text("html_content"),
+  jsonContent: jsonb("json_content"),
+  status: broadcastStatusEnum("status").default("draft").notNull(),
+  segmentId: varchar("segment_id"),
+  recipientCount: integer("recipient_count").default(0).notNull(),
+  sentCount: integer("sent_count").default(0).notNull(),
+  openCount: integer("open_count").default(0).notNull(),
+  clickCount: integer("click_count").default(0).notNull(),
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// SMS Campaigns
+export const smsCampaigns = pgTable("sms_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  status: broadcastStatusEnum("status").default("draft").notNull(),
+  segmentId: varchar("segment_id"),
+  recipientCount: integer("recipient_count").default(0).notNull(),
+  deliveredCount: integer("delivered_count").default(0).notNull(),
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Lead Forms
+export const leadForms = pgTable("lead_forms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  formType: varchar("form_type", { length: 100 }),
+  fields: jsonb("fields").default([]).notNull(),
+  status: varchar("status", { length: 50 }).default("active").notNull(),
+  submissions: integer("submissions").default(0).notNull(),
+  conversionRate: integer("conversion_rate").default(0).notNull(),
+  embedCode: text("embed_code"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Form Submissions
+export const formSubmissions = pgTable("form_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formId: varchar("form_id")
+    .references(() => leadForms.id, { onDelete: "cascade" })
+    .notNull(),
+  data: jsonb("data").default({}).notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// SMS Consent - Track opt-in for TCPA compliance
+export const smsConsent = pgTable("sms_consent", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  facilityId: varchar("facility_id")
+    .references(() => facilities.id, { onDelete: "cascade" })
+    .notNull(),
+  optedIn: boolean("opted_in").default(false).notNull(),
+  optInSource: varchar("opt_in_source", { length: 100 }),
+  optInTimestamp: timestamp("opt_in_timestamp"),
+  optOutTimestamp: timestamp("opt_out_timestamp"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Marketing Relations
+export const marketingJourneysRelations = relations(marketingJourneys, ({ one, many }) => ({
+  facility: one(facilities, {
+    fields: [marketingJourneys.facilityId],
+    references: [facilities.id],
+  }),
+  steps: many(journeySteps),
+  enrollments: many(journeyEnrollments),
+}));
+
+export const journeyStepsRelations = relations(journeySteps, ({ one }) => ({
+  journey: one(marketingJourneys, {
+    fields: [journeySteps.journeyId],
+    references: [marketingJourneys.id],
+  }),
+}));
+
+export const journeyEnrollmentsRelations = relations(journeyEnrollments, ({ one }) => ({
+  journey: one(marketingJourneys, {
+    fields: [journeyEnrollments.journeyId],
+    references: [marketingJourneys.id],
+  }),
+  user: one(users, {
+    fields: [journeyEnrollments.userId],
+    references: [users.id],
+  }),
+}));
+
+export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [emailTemplates.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const emailBroadcastsRelations = relations(emailBroadcasts, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [emailBroadcasts.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const smsCampaignsRelations = relations(smsCampaigns, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [smsCampaigns.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const leadFormsRelations = relations(leadForms, ({ one, many }) => ({
+  facility: one(facilities, {
+    fields: [leadForms.facilityId],
+    references: [facilities.id],
+  }),
+  submissions: many(formSubmissions),
+}));
+
+export const formSubmissionsRelations = relations(formSubmissions, ({ one }) => ({
+  form: one(leadForms, {
+    fields: [formSubmissions.formId],
+    references: [leadForms.id],
+  }),
+  user: one(users, {
+    fields: [formSubmissions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const smsConsentRelations = relations(smsConsent, ({ one }) => ({
+  user: one(users, {
+    fields: [smsConsent.userId],
+    references: [users.id],
+  }),
+  facility: one(facilities, {
+    fields: [smsConsent.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+// Marketing Types
+export type MarketingJourney = typeof marketingJourneys.$inferSelect;
+export const insertMarketingJourneySchema = createInsertSchema(marketingJourneys).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMarketingJourney = z.infer<typeof insertMarketingJourneySchema>;
+
+export type JourneyStep = typeof journeySteps.$inferSelect;
+export const insertJourneyStepSchema = createInsertSchema(journeySteps).omit({ id: true, createdAt: true });
+export type InsertJourneyStep = z.infer<typeof insertJourneyStepSchema>;
+
+export type JourneyEnrollment = typeof journeyEnrollments.$inferSelect;
+export const insertJourneyEnrollmentSchema = createInsertSchema(journeyEnrollments).omit({ id: true, enrolledAt: true });
+export type InsertJourneyEnrollment = z.infer<typeof insertJourneyEnrollmentSchema>;
+
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+
+export type EmailBroadcast = typeof emailBroadcasts.$inferSelect;
+export const insertEmailBroadcastSchema = createInsertSchema(emailBroadcasts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertEmailBroadcast = z.infer<typeof insertEmailBroadcastSchema>;
+
+export type SmsCampaign = typeof smsCampaigns.$inferSelect;
+export const insertSmsCampaignSchema = createInsertSchema(smsCampaigns).omit({ id: true, createdAt: true });
+export type InsertSmsCampaign = z.infer<typeof insertSmsCampaignSchema>;
+
+export type LeadForm = typeof leadForms.$inferSelect;
+export const insertLeadFormSchema = createInsertSchema(leadForms).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLeadForm = z.infer<typeof insertLeadFormSchema>;
+
+export type FormSubmission = typeof formSubmissions.$inferSelect;
+export const insertFormSubmissionSchema = createInsertSchema(formSubmissions).omit({ id: true, createdAt: true });
+export type InsertFormSubmission = z.infer<typeof insertFormSubmissionSchema>;
+
+export type SmsConsent = typeof smsConsent.$inferSelect;
+export const insertSmsConsentSchema = createInsertSchema(smsConsent).omit({ id: true, createdAt: true });
+export type InsertSmsConsent = z.infer<typeof insertSmsConsentSchema>;

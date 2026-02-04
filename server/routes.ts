@@ -4759,6 +4759,284 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== MARKETING MODULE API ====================
+
+  // Marketing Journeys
+  app.get("/api/facilities/:facilityId/marketing/journeys", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const journeys = await storage.getMarketingJourneys(facilityId);
+      res.json(journeys);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/facilities/:facilityId/marketing/journeys/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const journey = await storage.getMarketingJourney(req.params.id);
+      if (!journey) {
+        return res.status(404).json({ message: "Journey not found" });
+      }
+      res.json(journey);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/facilities/:facilityId/marketing/journeys", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const journey = await storage.createMarketingJourney({ ...req.body, facilityId });
+      res.status(201).json(journey);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/facilities/:facilityId/marketing/journeys/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const journey = await storage.updateMarketingJourney(req.params.id, req.body);
+      res.json(journey);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/facilities/:facilityId/marketing/journeys/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteMarketingJourney(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Journey Steps
+  app.get("/api/facilities/:facilityId/marketing/journeys/:journeyId/steps", isAuthenticated, async (req: any, res) => {
+    try {
+      const steps = await storage.getJourneySteps(req.params.journeyId);
+      res.json(steps);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/facilities/:facilityId/marketing/journeys/:journeyId/steps", isAuthenticated, async (req: any, res) => {
+    try {
+      const step = await storage.createJourneyStep({ ...req.body, journeyId: req.params.journeyId });
+      res.status(201).json(step);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/facilities/:facilityId/marketing/journeys/:journeyId/steps/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const step = await storage.updateJourneyStep(req.params.id, req.body);
+      res.json(step);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/facilities/:facilityId/marketing/journeys/:journeyId/steps/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteJourneyStep(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Email Broadcasts
+  app.get("/api/facilities/:facilityId/marketing/broadcasts", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const broadcasts = await storage.getEmailBroadcasts(facilityId);
+      res.json(broadcasts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/facilities/:facilityId/marketing/broadcasts", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const broadcast = await storage.createEmailBroadcast({ ...req.body, facilityId });
+      res.status(201).json(broadcast);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/facilities/:facilityId/marketing/broadcasts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const broadcast = await storage.updateEmailBroadcast(req.params.id, req.body);
+      res.json(broadcast);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/facilities/:facilityId/marketing/broadcasts/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteEmailBroadcast(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // SMS Campaigns
+  app.get("/api/facilities/:facilityId/marketing/sms-campaigns", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const campaigns = await storage.getSmsCampaigns(facilityId);
+      res.json(campaigns);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/facilities/:facilityId/marketing/sms-campaigns", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const campaign = await storage.createSmsCampaign({ ...req.body, facilityId });
+      res.status(201).json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/facilities/:facilityId/marketing/sms-campaigns/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const campaign = await storage.updateSmsCampaign(req.params.id, req.body);
+      res.json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/facilities/:facilityId/marketing/sms-campaigns/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteSmsCampaign(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // SMS Consent Stats
+  app.get("/api/facilities/:facilityId/marketing/sms-consent-stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const stats = await storage.getSmsConsentStats(facilityId);
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Lead Forms
+  app.get("/api/facilities/:facilityId/marketing/forms", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const forms = await storage.getLeadForms(facilityId);
+      res.json(forms);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/facilities/:facilityId/marketing/forms", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const form = await storage.createLeadForm({ ...req.body, facilityId });
+      res.status(201).json(form);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/facilities/:facilityId/marketing/forms/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const form = await storage.updateLeadForm(req.params.id, req.body);
+      res.json(form);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/facilities/:facilityId/marketing/forms/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteLeadForm(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Marketing Segments
+  app.get("/api/facilities/:facilityId/marketing/segments", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const segments = await storage.getMarketingSegmentsForFacility(facilityId);
+      res.json(segments);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/facilities/:facilityId/marketing/segments", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const segment = await storage.createMarketingSegment({ ...req.body, facilityId });
+      res.status(201).json(segment);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Email Templates
+  app.get("/api/facilities/:facilityId/marketing/templates", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const templates = await storage.getEmailTemplates(facilityId);
+      res.json(templates);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/facilities/:facilityId/marketing/templates", isAuthenticated, async (req: any, res) => {
+    try {
+      const { facilityId } = req.params;
+      const template = await storage.createEmailTemplate({ ...req.body, facilityId });
+      res.status(201).json(template);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.patch("/api/facilities/:facilityId/marketing/templates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const template = await storage.updateEmailTemplate(req.params.id, req.body);
+      res.json(template);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/facilities/:facilityId/marketing/templates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteEmailTemplate(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

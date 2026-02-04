@@ -40,6 +40,12 @@ import TrackmanSettings from "@/pages/trackman-settings";
 import OrdersPage from "@/pages/orders";
 import ThankYouPage from "@/pages/thank-you";
 import EventsPage from "@/pages/events";
+import JourneysPage from "@/pages/marketing/journeys";
+import BroadcastsPage from "@/pages/marketing/broadcasts";
+import SMSPage from "@/pages/marketing/sms";
+import FormsPage from "@/pages/marketing/forms";
+import ReferralsPage from "@/pages/marketing/referrals";
+import ReviewsPage from "@/pages/marketing/reviews";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -70,6 +76,12 @@ function AuthenticatedRoutes() {
       <Route path="/facilities" component={FacilitiesPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/trackman-settings" component={TrackmanSettings} />
+      <Route path="/marketing/journeys" component={JourneysPage} />
+      <Route path="/marketing/broadcasts" component={BroadcastsPage} />
+      <Route path="/marketing/sms" component={SMSPage} />
+      <Route path="/marketing/forms" component={FormsPage} />
+      <Route path="/marketing/referrals" component={ReferralsPage} />
+      <Route path="/marketing/reviews" component={ReviewsPage} />
       <Route component={NotFound} />
     </Switch>
   );

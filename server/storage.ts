@@ -92,6 +92,27 @@ import {
   widgetConfigurations,
   type WidgetConfiguration,
   type InsertWidgetConfiguration,
+  marketingJourneys,
+  journeySteps,
+  emailBroadcasts,
+  smsCampaigns,
+  smsConsent,
+  leadForms,
+  emailTemplates,
+  marketingSegments,
+  type MarketingJourney,
+  type InsertMarketingJourney,
+  type JourneyStep,
+  type InsertJourneyStep,
+  type EmailBroadcast,
+  type InsertEmailBroadcast,
+  type SmsCampaign,
+  type InsertSmsCampaign,
+  type LeadForm,
+  type InsertLeadForm,
+  type EmailTemplate,
+  type InsertEmailTemplate,
+  type MarketingSegment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, gt, lt, asc, desc } from "drizzle-orm";
@@ -291,6 +312,50 @@ export interface IStorage {
   // Widget Configurations
   getWidgetConfig(facilityId: string, widgetType: string): Promise<WidgetConfiguration | undefined>;
   upsertWidgetConfig(config: InsertWidgetConfiguration): Promise<WidgetConfiguration>;
+  
+  // Marketing Journeys
+  getMarketingJourneys(facilityId: string): Promise<MarketingJourney[]>;
+  getMarketingJourney(id: string): Promise<MarketingJourney | undefined>;
+  createMarketingJourney(journey: InsertMarketingJourney): Promise<MarketingJourney>;
+  updateMarketingJourney(id: string, journey: Partial<InsertMarketingJourney>): Promise<MarketingJourney>;
+  deleteMarketingJourney(id: string): Promise<void>;
+  
+  // Journey Steps
+  getJourneySteps(journeyId: string): Promise<JourneyStep[]>;
+  createJourneyStep(step: InsertJourneyStep): Promise<JourneyStep>;
+  updateJourneyStep(id: string, step: Partial<InsertJourneyStep>): Promise<JourneyStep>;
+  deleteJourneyStep(id: string): Promise<void>;
+  
+  // Email Broadcasts
+  getEmailBroadcasts(facilityId: string): Promise<EmailBroadcast[]>;
+  createEmailBroadcast(broadcast: InsertEmailBroadcast): Promise<EmailBroadcast>;
+  updateEmailBroadcast(id: string, broadcast: Partial<InsertEmailBroadcast>): Promise<EmailBroadcast>;
+  deleteEmailBroadcast(id: string): Promise<void>;
+  
+  // SMS Campaigns
+  getSmsCampaigns(facilityId: string): Promise<SmsCampaign[]>;
+  createSmsCampaign(campaign: InsertSmsCampaign): Promise<SmsCampaign>;
+  updateSmsCampaign(id: string, campaign: Partial<InsertSmsCampaign>): Promise<SmsCampaign>;
+  deleteSmsCampaign(id: string): Promise<void>;
+  
+  // SMS Consent
+  getSmsConsentStats(facilityId: string): Promise<{ total: number; optedIn: number; optedOut: number }>;
+  
+  // Lead Forms
+  getLeadForms(facilityId: string): Promise<LeadForm[]>;
+  createLeadForm(form: InsertLeadForm): Promise<LeadForm>;
+  updateLeadForm(id: string, form: Partial<InsertLeadForm>): Promise<LeadForm>;
+  deleteLeadForm(id: string): Promise<void>;
+  
+  // Marketing Segments
+  getMarketingSegmentsForFacility(facilityId: string): Promise<MarketingSegment[]>;
+  createMarketingSegment(segment: any): Promise<MarketingSegment>;
+  
+  // Email Templates
+  getEmailTemplates(facilityId: string): Promise<EmailTemplate[]>;
+  createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate>;
+  updateEmailTemplate(id: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate>;
+  deleteEmailTemplate(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1596,6 +1661,144 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return result;
+  }
+
+  // ==================== MARKETING MODULE ====================
+
+  // Marketing Journeys
+  async getMarketingJourneys(facilityId: string): Promise<MarketingJourney[]> {
+    return db.select().from(marketingJourneys).where(eq(marketingJourneys.facilityId, facilityId)).orderBy(desc(marketingJourneys.createdAt));
+  }
+
+  async getMarketingJourney(id: string): Promise<MarketingJourney | undefined> {
+    const [journey] = await db.select().from(marketingJourneys).where(eq(marketingJourneys.id, id));
+    return journey;
+  }
+
+  async createMarketingJourney(journey: InsertMarketingJourney): Promise<MarketingJourney> {
+    const [result] = await db.insert(marketingJourneys).values(journey).returning();
+    return result;
+  }
+
+  async updateMarketingJourney(id: string, journey: Partial<InsertMarketingJourney>): Promise<MarketingJourney> {
+    const [result] = await db.update(marketingJourneys).set({ ...journey, updatedAt: new Date() }).where(eq(marketingJourneys.id, id)).returning();
+    return result;
+  }
+
+  async deleteMarketingJourney(id: string): Promise<void> {
+    await db.delete(marketingJourneys).where(eq(marketingJourneys.id, id));
+  }
+
+  // Journey Steps
+  async getJourneySteps(journeyId: string): Promise<JourneyStep[]> {
+    return db.select().from(journeySteps).where(eq(journeySteps.journeyId, journeyId)).orderBy(asc(journeySteps.sortOrder));
+  }
+
+  async createJourneyStep(step: InsertJourneyStep): Promise<JourneyStep> {
+    const [result] = await db.insert(journeySteps).values(step).returning();
+    return result;
+  }
+
+  async updateJourneyStep(id: string, step: Partial<InsertJourneyStep>): Promise<JourneyStep> {
+    const [result] = await db.update(journeySteps).set(step).where(eq(journeySteps.id, id)).returning();
+    return result;
+  }
+
+  async deleteJourneyStep(id: string): Promise<void> {
+    await db.delete(journeySteps).where(eq(journeySteps.id, id));
+  }
+
+  // Email Broadcasts
+  async getEmailBroadcasts(facilityId: string): Promise<EmailBroadcast[]> {
+    return db.select().from(emailBroadcasts).where(eq(emailBroadcasts.facilityId, facilityId)).orderBy(desc(emailBroadcasts.createdAt));
+  }
+
+  async createEmailBroadcast(broadcast: InsertEmailBroadcast): Promise<EmailBroadcast> {
+    const [result] = await db.insert(emailBroadcasts).values(broadcast).returning();
+    return result;
+  }
+
+  async updateEmailBroadcast(id: string, broadcast: Partial<InsertEmailBroadcast>): Promise<EmailBroadcast> {
+    const [result] = await db.update(emailBroadcasts).set({ ...broadcast, updatedAt: new Date() }).where(eq(emailBroadcasts.id, id)).returning();
+    return result;
+  }
+
+  async deleteEmailBroadcast(id: string): Promise<void> {
+    await db.delete(emailBroadcasts).where(eq(emailBroadcasts.id, id));
+  }
+
+  // SMS Campaigns
+  async getSmsCampaigns(facilityId: string): Promise<SmsCampaign[]> {
+    return db.select().from(smsCampaigns).where(eq(smsCampaigns.facilityId, facilityId)).orderBy(desc(smsCampaigns.createdAt));
+  }
+
+  async createSmsCampaign(campaign: InsertSmsCampaign): Promise<SmsCampaign> {
+    const [result] = await db.insert(smsCampaigns).values(campaign).returning();
+    return result;
+  }
+
+  async updateSmsCampaign(id: string, campaign: Partial<InsertSmsCampaign>): Promise<SmsCampaign> {
+    const [result] = await db.update(smsCampaigns).set(campaign).where(eq(smsCampaigns.id, id)).returning();
+    return result;
+  }
+
+  async deleteSmsCampaign(id: string): Promise<void> {
+    await db.delete(smsCampaigns).where(eq(smsCampaigns.id, id));
+  }
+
+  // SMS Consent Stats
+  async getSmsConsentStats(facilityId: string): Promise<{ total: number; optedIn: number; optedOut: number }> {
+    const consents = await db.select().from(smsConsent).where(eq(smsConsent.facilityId, facilityId));
+    const optedIn = consents.filter(c => c.optedIn).length;
+    return { total: consents.length, optedIn, optedOut: consents.length - optedIn };
+  }
+
+  // Lead Forms
+  async getLeadForms(facilityId: string): Promise<LeadForm[]> {
+    return db.select().from(leadForms).where(eq(leadForms.facilityId, facilityId)).orderBy(desc(leadForms.createdAt));
+  }
+
+  async createLeadForm(form: InsertLeadForm): Promise<LeadForm> {
+    const [result] = await db.insert(leadForms).values(form).returning();
+    return result;
+  }
+
+  async updateLeadForm(id: string, form: Partial<InsertLeadForm>): Promise<LeadForm> {
+    const [result] = await db.update(leadForms).set({ ...form, updatedAt: new Date() }).where(eq(leadForms.id, id)).returning();
+    return result;
+  }
+
+  async deleteLeadForm(id: string): Promise<void> {
+    await db.delete(leadForms).where(eq(leadForms.id, id));
+  }
+
+  // Marketing Segments
+  async getMarketingSegmentsForFacility(facilityId: string): Promise<MarketingSegment[]> {
+    return db.select().from(marketingSegments).where(eq(marketingSegments.facilityId, facilityId)).orderBy(desc(marketingSegments.createdAt));
+  }
+
+  async createMarketingSegment(segment: any): Promise<MarketingSegment> {
+    const [result] = await db.insert(marketingSegments).values(segment).returning();
+    return result;
+  }
+
+  // Email Templates
+  async getEmailTemplates(facilityId: string): Promise<EmailTemplate[]> {
+    return db.select().from(emailTemplates).where(eq(emailTemplates.facilityId, facilityId)).orderBy(desc(emailTemplates.createdAt));
+  }
+
+  async createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate> {
+    const [result] = await db.insert(emailTemplates).values(template).returning();
+    return result;
+  }
+
+  async updateEmailTemplate(id: string, template: Partial<InsertEmailTemplate>): Promise<EmailTemplate> {
+    const [result] = await db.update(emailTemplates).set({ ...template, updatedAt: new Date() }).where(eq(emailTemplates.id, id)).returning();
+    return result;
+  }
+
+  async deleteEmailTemplate(id: string): Promise<void> {
+    await db.delete(emailTemplates).where(eq(emailTemplates.id, id));
   }
 }
 
