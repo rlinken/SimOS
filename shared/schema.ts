@@ -69,6 +69,7 @@ export const bookingTypeEnum = pgEnum("booking_type", [
 
 export const paymentStatusEnum = pgEnum("payment_status", [
   "paid",
+  "paid_online",
   "pending",
   "cancelled",
   "refunded",
@@ -105,6 +106,8 @@ export const leadSourceEnum = pgEnum("lead_source", [
   "walk_in",
   "social_media",
   "event",
+  "membership",
+  "transformation_package",
   "other",
 ]);
 
@@ -258,6 +261,7 @@ export const facilities = pgTable("facilities", {
   subdomain: varchar("subdomain").notNull().unique(),
   customDomain: varchar("custom_domain"),
   logo: text("logo"),
+  logoUrl: text("logo_url"),
   address: text("address"),
   phone: varchar("phone"),
   email: varchar("email"),

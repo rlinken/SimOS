@@ -151,6 +151,7 @@ export interface IStorage {
   getMembershipTiers(facilityId?: string): Promise<MembershipTier[]>;
   getMembershipTier(id: string): Promise<MembershipTier | undefined>;
   createMembershipTier(tier: InsertMembershipTier): Promise<MembershipTier>;
+  updateMembershipTier(id: string, tier: Partial<InsertMembershipTier>): Promise<MembershipTier>;
   
   // Members
   getMembers(facilityId?: string): Promise<User[]>;
@@ -166,6 +167,7 @@ export interface IStorage {
   getLessons(facilityId?: string): Promise<Lesson[]>;
   getLesson(id: string): Promise<Lesson | undefined>;
   createLesson(lesson: InsertLesson): Promise<Lesson>;
+  updateLesson(id: string, lesson: Partial<InsertLesson>): Promise<Lesson>;
   
   // Lesson Packages
   getLessonPackages(facilityId?: string): Promise<LessonPackage[]>;
@@ -178,6 +180,7 @@ export interface IStorage {
   getFittings(facilityId?: string): Promise<Fitting[]>;
   getFitting(id: string): Promise<Fitting | undefined>;
   createFitting(fitting: InsertFitting): Promise<Fitting>;
+  updateFitting(id: string, fitting: Partial<InsertFitting>): Promise<Fitting>;
   
   // Offerings
   getOfferings(facilityId?: string): Promise<Offering[]>;
@@ -219,6 +222,7 @@ export interface IStorage {
   getTransformationPackageEnrollments(facilityId?: string): Promise<TransformationPackageEnrollment[]>;
   getTransformationPackageEnrollment(id: string): Promise<TransformationPackageEnrollment | undefined>;
   createTransformationPackageEnrollment(enrollment: InsertTransformationPackageEnrollment): Promise<TransformationPackageEnrollment>;
+  updateTransformationPackageEnrollment(id: string, enrollment: Partial<InsertTransformationPackageEnrollment>): Promise<TransformationPackageEnrollment>;
   
   // Time Entries (Hours Tracking)
   getTimeEntries(facilityId?: string, staffId?: string): Promise<TimeEntry[]>;
@@ -665,6 +669,18 @@ export class DatabaseStorage implements IStorage {
     return tier;
   }
 
+  async updateMembershipTier(
+    id: string,
+    tierData: Partial<InsertMembershipTier>
+  ): Promise<MembershipTier> {
+    const [tier] = await db
+      .update(membershipTiers)
+      .set({ ...tierData, updatedAt: new Date() })
+      .where(eq(membershipTiers.id, id))
+      .returning();
+    return tier;
+  }
+
   // Members
   async getMembers(facilityId?: string): Promise<User[]> {
     if (facilityId) {
@@ -740,6 +756,15 @@ export class DatabaseStorage implements IStorage {
     return lesson;
   }
 
+  async updateLesson(id: string, lessonData: Partial<InsertLesson>): Promise<Lesson> {
+    const [lesson] = await db
+      .update(lessons)
+      .set({ ...lessonData, updatedAt: new Date() })
+      .where(eq(lessons.id, id))
+      .returning();
+    return lesson;
+  }
+
   // Lesson Packages
   async getLessonPackages(facilityId?: string): Promise<LessonPackage[]> {
     if (facilityId) {
@@ -797,6 +822,15 @@ export class DatabaseStorage implements IStorage {
 
   async createFitting(fittingData: InsertFitting): Promise<Fitting> {
     const [fitting] = await db.insert(fittings).values(fittingData).returning();
+    return fitting;
+  }
+
+  async updateFitting(id: string, fittingData: Partial<InsertFitting>): Promise<Fitting> {
+    const [fitting] = await db
+      .update(fittings)
+      .set({ ...fittingData, updatedAt: new Date() })
+      .where(eq(fittings.id, id))
+      .returning();
     return fitting;
   }
   
@@ -1069,6 +1103,18 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .insert(transformationPackageEnrollments)
       .values(enrollment)
+      .returning();
+    return result;
+  }
+
+  async updateTransformationPackageEnrollment(
+    id: string,
+    enrollment: Partial<InsertTransformationPackageEnrollment>
+  ): Promise<TransformationPackageEnrollment> {
+    const [result] = await db
+      .update(transformationPackageEnrollments)
+      .set({ ...enrollment, updatedAt: new Date() })
+      .where(eq(transformationPackageEnrollments.id, id))
       .returning();
     return result;
   }

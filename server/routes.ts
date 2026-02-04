@@ -11,12 +11,14 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 
 // Helper function to check if user has admin privileges
-function isAdmin(role: string): boolean {
+function isAdmin(role: string | null | undefined): boolean {
+  if (!role) return false;
   return role === "super_admin" || role === "owner" || role === "administrator";
 }
 
 // Helper function to check if user is staff (can provide services)
-function isStaff(role: string): boolean {
+function isStaff(role: string | null | undefined): boolean {
+  if (!role) return false;
   return role === "instructor" || role === "club_fitter" || role === "owner" || role === "administrator";
 }
 import {
@@ -262,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Initialize Stripe with facility's secret key
       const stripe = new Stripe(facility.stripeSecretKey, {
-        apiVersion: "2024-12-18.acacia",
+        apiVersion: "2025-09-30.clover",
       });
 
       // Find or create customer user
@@ -3059,7 +3061,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Initialize Stripe with facility's secret key
       const stripe = new Stripe(facility.stripeSecretKey, {
-        apiVersion: "2024-12-18.acacia",
+        apiVersion: "2025-09-30.clover",
       });
       
       // Create booking first (with pending payment status)

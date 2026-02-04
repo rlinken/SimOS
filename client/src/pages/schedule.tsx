@@ -233,13 +233,10 @@ export default function Schedule() {
       newStartTime: string;
       newEndTime: string;
     }) => {
-      return apiRequest(`/api/bookings/${bookingId}/reschedule`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          bayIds: [newBayId],
-          startTime: newStartTime,
-          endTime: newEndTime,
-        }),
+      return apiRequest('PATCH', `/api/bookings/${bookingId}/reschedule`, {
+        bayIds: [newBayId],
+        startTime: newStartTime,
+        endTime: newEndTime,
       });
     },
     onSuccess: () => {
@@ -936,10 +933,7 @@ function QuickBookDialog({
 
   const createBookingMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('/api/bookings', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return apiRequest('POST', '/api/bookings', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
@@ -1271,10 +1265,7 @@ function BookingDetailsDialog({
 
   const checkInMutation = useMutation({
     mutationFn: async (status: "checked_in" | "no_show") => {
-      return apiRequest(`/api/bookings/${booking!.id}/check-in`, {
-        method: 'PATCH',
-        body: JSON.stringify({ checkInStatus: status }),
-      });
+      return apiRequest('PATCH', `/api/bookings/${booking!.id}/check-in`, { checkInStatus: status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
@@ -1296,12 +1287,9 @@ function BookingDetailsDialog({
 
   const markAsPaidMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/bookings/${booking!.id}/payment`, {
-        method: 'PATCH',
-        body: JSON.stringify({ 
-          paymentStatus: 'paid',
-          paidAt: new Date().toISOString()
-        }),
+      return apiRequest('PATCH', `/api/bookings/${booking!.id}/payment`, { 
+        paymentStatus: 'paid',
+        paidAt: new Date().toISOString()
       });
     },
     onSuccess: () => {
@@ -1336,9 +1324,7 @@ function BookingDetailsDialog({
 
   const cancelBookingMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/bookings/${booking!.id}/cancel`, {
-        method: 'PATCH',
-      });
+      return apiRequest('PATCH', `/api/bookings/${booking!.id}/cancel`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
