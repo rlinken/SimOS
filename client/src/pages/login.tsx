@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function LoginPage() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
@@ -40,7 +40,7 @@ export default function LoginPage() {
       if (response.ok) {
         setSuccess("Login successful! Redirecting...");
         setTimeout(() => {
-          navigate("/");
+          setLocation("/");
           window.location.reload(); // Reload to update auth state
         }, 1000);
       } else {
@@ -76,7 +76,7 @@ export default function LoginPage() {
       if (response.ok) {
         setSuccess("Registration successful! Redirecting...");
         setTimeout(() => {
-          navigate("/");
+          setLocation("/");
           window.location.reload(); // Reload to update auth state
         }, 1000);
       } else {
