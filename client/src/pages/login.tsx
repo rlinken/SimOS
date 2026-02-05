@@ -74,9 +74,9 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setSuccess("Registration successful! Redirecting...");
+        setSuccess("Registration successful! Setting up your account...");
         setTimeout(() => {
-          setLocation("/");
+          setLocation("/onboarding");
           window.location.reload(); // Reload to update auth state
         }, 1000);
       } else {
