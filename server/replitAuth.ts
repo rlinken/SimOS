@@ -9,7 +9,10 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
+// Skip Replit Auth validation if running in local development mode
+const isLocalDev = process.env.REPLIT_AUTH_ENABLED === "false" || !process.env.REPLIT_DOMAINS;
+
+if (!process.env.REPLIT_DOMAINS && !isLocalDev) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
@@ -70,6 +73,27 @@ export async function setupAuth(app: Express) {
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Skip Replit OAuth setup in local development
+  if (isLocalDev) {
+    console.log("⚠️  Running in local development mode - Replit Auth disabled");
+    console.log("ℹ️  User authentication will be mocked for local development");
+
+    // Simple local auth middleware that creates a mock user
+    passport.serializeUser((user: Express.User, cb) => cb(null, user));
+    passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+    // Mock login endpoint for local dev
+    app.get("/api/login", (req, res) => {
+      res.redirect("/");
+    });
+
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => res.redirect("/"));
+    });
+
+    return;
+  }
 
   const config = await getOidcConfig();
 
