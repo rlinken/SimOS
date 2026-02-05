@@ -150,6 +150,22 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Skip authentication check in local development mode
+  if (isLocalDev) {
+    // Create a mock user for local dev if not present
+    if (!req.user) {
+      (req as any).user = {
+        id: 1,
+        email: "local@dev.com",
+        firstName: "Local",
+        lastName: "Dev",
+        facilityId: 1,
+        role: "owner"
+      };
+    }
+    return next();
+  }
+
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {
