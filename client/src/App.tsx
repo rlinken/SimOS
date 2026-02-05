@@ -46,6 +46,7 @@ import SMSPage from "@/pages/marketing/sms";
 import FormsPage from "@/pages/marketing/forms";
 import ReferralsPage from "@/pages/marketing/referrals";
 import ReviewsPage from "@/pages/marketing/reviews";
+import LoginPage from "@/pages/login";
 
 function AuthenticatedRoutes() {
   const { user } = useAuth();
@@ -90,6 +91,7 @@ function AuthenticatedRoutes() {
 function UnauthenticatedRoutes() {
   return (
     <Switch>
+      <Route path="/login" component={LoginPage} />
       <Route path="/" component={GetStarted} />
       <Route path="/get-started" component={GetStarted} />
       <Route component={NotFound} />
@@ -113,6 +115,7 @@ function AppContent() {
   if (!isAuthenticated) {
     return (
       <Switch>
+        <Route path="/login" component={LoginPage} />
         <Route path="/widget/calendar/:facilityId" component={WidgetCalendar} />
         <Route path="/widget/rental/:facilityId" component={WidgetRental} />
         <Route path="/widget/lesson/:facilityId/:lessonOfferId" component={WidgetLesson} />
