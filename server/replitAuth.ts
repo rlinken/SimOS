@@ -155,12 +155,16 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     // Create a mock user for local dev if not present
     if (!req.user) {
       (req as any).user = {
-        id: 1,
-        email: "local@dev.com",
-        firstName: "Local",
-        lastName: "Dev",
-        facilityId: 1,
-        role: "owner"
+        claims: {
+          sub: "local-dev-user-1",
+          email: "local@dev.com",
+          first_name: "Local",
+          last_name: "Dev",
+          profile_image_url: ""
+        },
+        access_token: "local-dev-token",
+        refresh_token: "local-dev-refresh",
+        expires_at: Math.floor(Date.now() / 1000) + 86400 // 24 hours from now
       };
     }
     return next();
