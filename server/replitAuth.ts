@@ -9,7 +9,10 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
+// Skip Replit Auth validation if running in local development mode
+const isLocalDev = process.env.REPLIT_AUTH_ENABLED === "false" || !process.env.REPLIT_DOMAINS;
+
+if (!process.env.REPLIT_DOMAINS && !isLocalDev) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
@@ -71,6 +74,27 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Skip Replit OAuth setup in local development
+  if (isLocalDev) {
+    console.log("⚠️  Running in local development mode - Replit Auth disabled");
+    console.log("ℹ️  User authentication will be mocked for local development");
+
+    // Simple local auth middleware that creates a mock user
+    passport.serializeUser((user: Express.User, cb) => cb(null, user));
+    passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+    // Mock login endpoint for local dev
+    app.get("/api/login", (req, res) => {
+      res.redirect("/");
+    });
+
+    app.get("/api/logout", (req, res) => {
+      req.logout(() => res.redirect("/"));
+    });
+
+    return;
+  }
+
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -126,6 +150,26 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Skip authentication check in local development mode
+  if (isLocalDev) {
+    // Create a mock user for local dev if not present
+    if (!req.user) {
+      (req as any).user = {
+        claims: {
+          sub: "local-dev-user-1",
+          email: "local@dev.com",
+          first_name: "Local",
+          last_name: "Dev",
+          profile_image_url: ""
+        },
+        access_token: "local-dev-token",
+        refresh_token: "local-dev-refresh",
+        expires_at: Math.floor(Date.now() / 1000) + 86400 // 24 hours from now
+      };
+    }
+    return next();
+  }
+
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {
